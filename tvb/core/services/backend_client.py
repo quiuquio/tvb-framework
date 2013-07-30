@@ -44,8 +44,6 @@ from subprocess import Popen, PIPE
 from tvb.basic.profile import TvbProfile as tvb_profile
 from tvb.basic.config.settings import TVBSettings as config
 from tvb.basic.logger.builder import get_logger
-from tvb.core.utils import parse_json_parameters
-from tvb.core.adapters.abcadapter import ABCAdapter
 from tvb.core.entities import model
 from tvb.core.entities.storage import dao
 from tvb.core.services.workflowservice import WorkflowService
