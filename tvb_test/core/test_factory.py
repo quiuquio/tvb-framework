@@ -60,14 +60,14 @@ class TestFactory():
     Expose mostly static methods for creating different entities used in tests.
     """
     @staticmethod
-    def get_entity(project, expected_data, filters = None):
+    def get_entity(project, expected_data, filters=None):
         """
         Return the first entity with class given by `expected_data`
 
         :param expected_data: specifies the class whose entity is returned
         """
         data_types = FlowService().get_available_datatypes(project.id,
-                                expected_data.module + "." + expected_data.type, filters)
+                                                           expected_data.module + "." + expected_data.type, filters)
         entity = ABCAdapter.load_entity_by_gid(data_types[0][2])
         return entity
     
@@ -100,13 +100,13 @@ class TestFactory():
         
         :returns: Project entity after persistence.
         """
-        data = dict(name=name, description=description, users = users)     
+        data = dict(name=name, description=description, users=users)
         return ProjectService().store_project(admin, True, None, **data)
     
     
     @staticmethod
     def create_figure(operation_id, user_id, project_id, session_name=None, 
-                      name=None, path=None, file_format=None):
+                      name=None, path=None, file_format='PNG'):
         """
         :returns: the `model.ResultFigure` for a result with the given specifications
         """
@@ -134,10 +134,10 @@ class TestFactory():
         if test_project is None:
             test_project = TestFactory.create_project(test_user)
             
-        meta = {DataTypeMetaData.KEY_SUBJECT : "John Doe",
+        meta = {DataTypeMetaData.KEY_SUBJECT: "John Doe",
                 DataTypeMetaData.KEY_STATE: "RAW"}
         operation = model.Operation(test_user.id, test_project.id, algorithm.id, parameters, meta=json.dumps(meta),
-                                    status=operation_status, method_name= ABCAdapter.LAUNCH_METHOD)
+                                    status=operation_status, method_name=ABCAdapter.LAUNCH_METHOD)
         dao.store_entity(operation)
         ### Make sure lazy attributes are correctly loaded.
         return dao.get_operation_by_id(operation.id)
@@ -161,7 +161,7 @@ class TestFactory():
         adapter_inst = TestFactory.create_adapter(algo_group=algo_group, test_project=test_project)
         adapter_inst.meta_data = {DataTypeMetaData.KEY_SUBJECT: subject,
                                   DataTypeMetaData.KEY_STATE: "INTERMEDIATE"}
-        args = {'first_range': 'param_5', 'param_5': [1, 2] }
+        args = {'first_range': 'param_5', 'param_5': [1, 2]}
         
         ### Prepare Operations group. Execute them synchronously
         service = OperationService()
@@ -174,7 +174,7 @@ class TestFactory():
         
     
     @staticmethod
-    def create_adapter(algo_group= None, test_project=None, ):
+    def create_adapter(algo_group=None, test_project=None, ):
         """
         :returns: Adapter Class after initialization.
         """
@@ -202,8 +202,8 @@ class TestFactory():
     
     
     @staticmethod
-    def create_workflow_step(module, classname, static_kwargs = None, dynamic_kwargs = None, 
-                             step_index = 0, base_step = 0, tab_index = 0, index_in_tab = 0, is_view_step=False):
+    def create_workflow_step(module, classname, static_kwargs=None, dynamic_kwargs=None,
+                             step_index=0, base_step=0, tab_index=0, index_in_tab=0, is_view_step=False):
         """
         Build non-persisted WorkflowStep entity.
         """
@@ -221,10 +221,10 @@ class TestFactory():
             dynamic_params[entry][wf_cfg.STEP_INDEX_KEY] += base_step
          
         if is_view_step:
-            return model.WorkflowStepView(algorithm_id= algorithm.id, tab_index= tab_index, index_in_tab= index_in_tab,
-                                          static_param= static_params, dynamic_param= dynamic_params)
-        return model.WorkflowStep(algorithm_id= algorithm.id, step_index= step_index, tab_index= tab_index, 
-                                  index_in_tab= index_in_tab, static_param=static_params, dynamic_param= dynamic_params)
+            return model.WorkflowStepView(algorithm_id=algorithm.id, tab_index=tab_index, index_in_tab=index_in_tab,
+                                          static_param=static_params, dynamic_param=dynamic_params)
+        return model.WorkflowStep(algorithm_id=algorithm.id, step_index=step_index, tab_index=tab_index,
+                                  index_in_tab=index_in_tab, static_param=static_params, dynamic_param=dynamic_params)
     
                  
     @staticmethod
@@ -261,8 +261,8 @@ class TestFactory():
         importer = ABCAdapter.build_adapter(group)
         importer.meta_data = {DataTypeMetaData.KEY_SUBJECT: DataTypeMetaData.DEFAULT_SUBJECT,
                               DataTypeMetaData.KEY_STATE: "RAW"}
-        args = {'uploaded': zip_path, 'surface_type' : surface_type, 
-                'zero_based_triangles' : zero_based}
+        args = {'uploaded': zip_path, 'surface_type': surface_type,
+                'zero_based_triangles': zero_based}
         
         ### Launch Operation
         FlowService().fire_operation(importer, user, project.id, **args)
@@ -275,7 +275,7 @@ class TestFactory():
         importer = ABCAdapter.build_adapter(group)
         importer.meta_data = {DataTypeMetaData.KEY_SUBJECT: DataTypeMetaData.DEFAULT_SUBJECT,
                               DataTypeMetaData.KEY_STATE: "RAW"}
-        args = {'sensors_file': zip_path, 'sensors_type' : sensors_type}
+        args = {'sensors_file': zip_path, 'sensors_type': sensors_type}
         ### Launch Operation
         FlowService().fire_operation(importer, user, project.id, **args)
     
@@ -302,7 +302,7 @@ class ExtremeTestFactory():
             if new_id not in result and new_id != exclude_id:
                 ExtremeTestFactory.VALIDATION_DICT[new_id] += 1
                 result.append(new_id)
-                nr_users = nr_users + 1
+                nr_users += 1
         return result
     
     
@@ -321,7 +321,7 @@ class ExtremeTestFactory():
             coin_flip = random.randint(0, 1)
             role = 'CLINICIAN' if coin_flip == 1 else 'RESEARCHER'
             password = md5("test").hexdigest()
-            new_user = model.User("gen"+str(i), password, "test_mail@tvb.org", True, role)
+            new_user = model.User("gen" + str(i), password, "test_mail@tvb.org", True, role)
             dao.store_entity(new_user)
             new_user = dao.get_user_by_name("gen" + str(i))
             ExtremeTestFactory.VALIDATION_DICT[new_user.id] = 0
@@ -331,10 +331,10 @@ class ExtremeTestFactory():
             current_user = dao.get_user_by_name("gen" + str(i))
             projects_for_user = random.randint(0, nr_projects)
             for j in range(projects_for_user):         
-                data = dict(name = 'GeneratedProject' + str(i) + '_' + str(j), 
-                            description = 'test_desc', 
-                            users = ExtremeTestFactory.get_users_ids(random.randint(0, nr_users - 3), 
-                                                                     nr_users, current_user.id, users))
+                data = dict(name='GeneratedProject' + str(i) + '_' + str(j),
+                            description='test_desc',
+                            users=ExtremeTestFactory.get_users_ids(random.randint(0, nr_users - 3),
+                                                                   nr_users, current_user.id, users))
                 ProjectService().store_project(current_user, True, None, **data)
                 ExtremeTestFactory.VALIDATION_DICT[current_user.id] += 1 
                 
