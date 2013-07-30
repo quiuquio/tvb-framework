@@ -208,7 +208,7 @@ class SimulatorAdapter(ABCAsynchronous):
         Method should approximate based on input arguments, the time it will take for the operation 
         to finish (in seconds).
         """
-        self.algorithm.runtime(self.simulation_length)
+        return self.algorithm.runtime(self.simulation_length)
 
 
     def launch(self, model, model_parameters, integrator, integrator_parameters, connectivity,

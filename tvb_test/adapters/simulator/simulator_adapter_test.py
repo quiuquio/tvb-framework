@@ -191,7 +191,7 @@ class SimulatorAdapterTest(TransactionalTestCase):
         # be estimate as a larger than 0s value
         simulation_parameters['simulation_length'] = 0.0
         estimate = self._estimate_execution_time(simulation_parameters)
-        self.assertTrue(estimate > 0, "Actually got %s" % estimate)
+        self.assertTrue(estimate >= 0, "Actually got %s" % estimate)
         
         
     
@@ -257,7 +257,10 @@ def suite():
 
 if __name__ == "__main__":
     #So you can run tests from this package individually.
-    unittest.main() 
+    #So you can run tests from this package individually.
+    TEST_RUNNER = unittest.TextTestRunner()
+    TEST_SUITE = suite()
+    TEST_RUNNER.run(TEST_SUITE)
     
     
     
