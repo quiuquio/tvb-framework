@@ -117,7 +117,7 @@ class BaseProfile():
 
 
     # II. Attributes with value not changeable from settings page:
-    DB_CURRENT_VERSION = 4
+    DB_CURRENT_VERSION = 5
     # Overwrite number of connections to the DB. 
     # Otherwise might reach PostgreSQL limit when launching multiple concurrent operations.
     # MAX_DB_CONNECTION default value will be used for WEB  
@@ -646,9 +646,9 @@ class BaseProfile():
     KEY_LAST_CHECKED_CODE_VERSION = 'LAST_CHECKED_CODE_VERSION'
     KEY_FILE_STORAGE_UPDATE_STATUS = 'FILE_STORAGE_UPDATE_STATUS'
     # Keep a mapping of how the python executable will look on different os versions
-    PYTHON_EXE_MAPPING = { 'windows' : 'python.exe', 
-                           'linux' : 'python',
-                           'macos' : 'python' }
+    PYTHON_EXE_MAPPING = {'windows': 'python.exe',
+                          'linux': 'python',
+                          'macos': 'python'}
 
 
     @staticmethod
