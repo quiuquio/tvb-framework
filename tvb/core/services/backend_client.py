@@ -44,6 +44,7 @@ from subprocess import Popen, PIPE
 from tvb.basic.profile import TvbProfile as tvb_profile
 from tvb.basic.config.settings import TVBSettings as config
 from tvb.basic.logger.builder import get_logger
+from tvb.core.utils import parse_json_parameters
 from tvb.core.entities import model
 from tvb.core.entities.storage import dao
 from tvb.core.services.workflowservice import WorkflowService
@@ -221,7 +222,10 @@ class ClusterSchedulerClient(object):
         It is the function called by the ClusterSchedulerClient in a Thread.
         This function starts a new process.
         """
-        time_estimate = int(adapter_instance.get_execution_time_approximation())
+        # Load operation so we can estimate the execution time
+        operation = dao.get_operation_by_id(operation_identifier)
+        kwargs = parse_json_parameters(operation.parameters)
+        time_estimate = int(adapter_instance.get_execution_time_approximation(**kwargs))
         hours = int(time_estimate / 3600)
         minutes = (int(time_estimate) % 3600) / 60
         seconds = int(time_estimate) % 60

@@ -172,7 +172,7 @@ class SimulatorAdapterTest(TransactionalTestCase):
         """ Private method, to return execution time estimation for a given set of input parameters"""
         filtered_params = self.simulator_adapter.prepare_ui_inputs(new_parameters_dict)
         self.simulator_adapter.configure(**filtered_params)
-        return self.simulator_adapter.get_execution_time_approximation()
+        return self.simulator_adapter.get_execution_time_approximation(**filtered_params)
         
         
     def test_execution_time_approximation(self):
