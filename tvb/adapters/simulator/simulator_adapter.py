@@ -62,6 +62,8 @@ class SimulatorAdapter(ABCAsynchronous):
     """
     _ui_name = "Simulation Core"
 
+    algorithm = None
+
     available_models = get_traited_subclasses(Model)
     available_monitors = get_traited_subclasses(Monitor)
     available_integrators = get_traited_subclasses(Integrator)
@@ -203,11 +205,14 @@ class SimulatorAdapter(ABCAsynchronous):
         return self.algorithm.storage_requirement(self.simulation_length) / 2 ** 10
     
     
-    def get_execution_time_approximation(self):
+    def get_execution_time_approximation(self, **kwargs):
         """
         Method should approximate based on input arguments, the time it will take for the operation 
         to finish (in seconds).
         """
+        if self.algorithm is None:
+            self.configure(**kwargs)
+
         return self.algorithm.runtime(self.simulation_length)
 
 

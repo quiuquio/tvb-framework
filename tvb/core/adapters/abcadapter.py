@@ -228,7 +228,7 @@ class ABCAdapter(object):
         that should estimate the required disk size for the result of an succesfull launch (in kiloBytes).""")
         
         
-    def get_execution_time_approximation(self):
+    def get_execution_time_approximation(self, **kwargs):
         """
         Method should approximate based on input arguments, the time it will take for the operation 
         to finish (in seconds).
@@ -967,7 +967,8 @@ class ABCAdapter(object):
             if param[ABCAdapter.KEY_NAME] in data:
                 new_p[ABCAdapter.KEY_DEFAULT] = data[param[ABCAdapter.KEY_NAME]]
             if (ABCAdapter.KEY_ATTRIBUTES in param) and (param[ABCAdapter.KEY_ATTRIBUTES] is not None):
-                new_p[ABCAdapter.KEY_ATTRIBUTES] = ABCAdapter.fill_defaults(param[ABCAdapter.KEY_ATTRIBUTES], data, fill_unselected_branches)
+                new_p[ABCAdapter.KEY_ATTRIBUTES] = ABCAdapter.fill_defaults(param[ABCAdapter.KEY_ATTRIBUTES], data,
+                                                                            fill_unselected_branches)
             if (ABCAdapter.KEY_OPTIONS in param) and (param[ABCAdapter.KEY_OPTIONS] is not None):
                 new_options = param[ABCAdapter.KEY_OPTIONS]
                 if param[ABCAdapter.KEY_NAME] in data or fill_unselected_branches:
