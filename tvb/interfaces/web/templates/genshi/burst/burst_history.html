@@ -30,7 +30,7 @@
 									<p class="burst-prop-dataweight" py:if="burst_list[idx].current_weight['disk_size']"><mark>Size:</mark> ${burst_list[idx].current_weight['disk_size']}</p>
 									<p class="burst-prop-age"><mark>Created:</mark> ${burst_list[idx].current_weight['start_time'].strftime('%Y/%m/%d %H:%M')}</p>
 									<p class="burst-prop-error" py:if="burst_list[idx].current_weight['error']"><mark>Error message:</mark> ${burst_list[idx].current_weight['error']}</p>
-									<p class="burst-prop-cancelled" py:if="burst_list[idx].status=='canceled'">This burst was canceled from execution by the user.</p>
+									<p class="burst-prop-cancelled" py:if="burst_list[idx].status=='canceled'">This simulation was canceled from execution by the user.</p>
 									<p class="burst-prop-age" py:if="burst_list[idx].status=='running'">This simulation is still running....</p>
 								</py:if>
 								
