@@ -27,19 +27,21 @@
 #   Frontiers in Neuroinformatics (in press)
 #
 #
-from tvb.core.adapters.exceptions import LaunchException
+
 """
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 """
+
 import os
-from tvb.core.services import dtipipelineservice
-from tvb.core.adapters.abcadapter import ABCSynchronous
 from tvb.basic.traits.util import read_list_data
 from tvb.datatypes.connectivity import Connectivity
+from tvb.core.services import dtipipelineservice
+from tvb.core.adapters.abcadapter import ABCSynchronous
+from tvb.core.adapters.exceptions import LaunchException
 from tvb.core.entities.file.fileshelper import FilesHelper
 
 
-class ZIPConnectivityImporter(ABCSynchronous):
+class CSVConnectivityImporter(ABCSynchronous):
     """
     Handler for uploading a Connectivity archive, with files holding 
     text export of connectivity data from Numpy arrays.
@@ -58,7 +60,8 @@ class ZIPConnectivityImporter(ABCSynchronous):
         """
         return [{'name': 'weights', 'type': 'upload', 'label': 'Weights file (csv)', 'required': True},
                 {'name': 'tracts', 'type': 'upload', 'label': 'Tracts file (csv)', 'required': True},
-                {'name': 'input_data', 'label': 'Reference Connectivity Matrix (for node labels, 3d positions etc.)', 'type' : Connectivity, 'required': True}]
+                {'name': 'input_data', 'label': 'Reference Connectivity Matrix (for node labels, 3d positions etc.)',
+                 'type': Connectivity, 'required': True}]
         
         
     def get_output(self):
@@ -71,12 +74,14 @@ class ZIPConnectivityImporter(ABCSynchronous):
         """
         # Don't know how much memory is needed.
         return -1
-    
+
+
     def get_required_disk_size(self, **kwargs):
         """
         Returns the required disk size to be able to run the adapter.
         """
         return 0
+
 
     def launch(self, weights, tracts, input_data):
         """
@@ -96,9 +101,10 @@ class ZIPConnectivityImporter(ABCSynchronous):
         tract_matrix = read_list_data(os.path.join(os.path.dirname(tracts), dti_service.TRACT_FILE))
         FilesHelper.remove_files([os.path.join(os.path.dirname(weights), dti_service.WEIGHTS_FILE), 
                                   os.path.join(os.path.dirname(tracts), dti_service.TRACT_FILE)])
+
         if weights_matrix.shape[0] != input_data.orientations.shape[0]:
-            raise LaunchException("The csv files define %s nodes but the connectivity you selected as reference has only %s nodes."%(
-                                    weights_matrix.shape[0], input_data.orientations.shape[0]))
+            raise LaunchException("The csv files define %s nodes but the connectivity you selected as reference "
+                                  "has only %s nodes." % (weights_matrix.shape[0], input_data.orientations.shape[0]))
         result = Connectivity()
         result.storage_path = self.storage_path
         result.nose_correction = input_data.nose_correction
@@ -111,5 +117,4 @@ class ZIPConnectivityImporter(ABCSynchronous):
         result.cortical = input_data.cortical
         result.hemispheres = input_data.hemispheres
         return result
-
 

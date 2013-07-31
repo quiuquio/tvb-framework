@@ -60,9 +60,10 @@ class DTIPipelineService():
     REMOTE_COMMAND = 'ssh %s@%s "%s"'
     
     DTI_PIPELINE_COMMAND = ("cd /home/erin/processing/; "
-                            "./pipeline_start --dst %s --seg %s --sid 42 --pevX %s --pevY %s --pevZ %s --img %s --fa %s --md %s --wm 3 --gm 4 --threads %d")
+                            "./pipeline_start --dst %s --seg %s --sid 42 --pevX %s --pevY %s --pevZ %s "
+                            "--img %s --fa %s --md %s --wm 3 --gm 4 --threads %d")
     
-    CONNECTIVITY_IMPORTER = ["tvb.adapters.upoaders.zip_connectivity_importer", "ZIPConnectivityImporter"]
+    CONNECTIVITY_IMPORTER = ["tvb.adapters.uploaders.zip_connectivity_importer", "ZIPConnectivityImporter"]
     
     FILE_NODES_ORDER = "dti_pipeline_regions.txt"
     CONNECTIVITY_DEFAULT = "connectivity_regions_96.zip"
@@ -85,7 +86,7 @@ class DTIPipelineService():
         
         folder_default_data = os.path.dirname(demo_root.__file__)
         file_order = os.path.join(folder_default_data, self.FILE_NODES_ORDER)
-        self.expected_nodes_order = read_list_data(file_order, dtype=numpy.int32,  usecols=[0])
+        self.expected_nodes_order = read_list_data(file_order, dtype=numpy.int32, usecols=[0])
         
         zip_path = os.path.join(folder_default_data, self.CONNECTIVITY_DEFAULT)
         if not (os.path.exists(zip_path) and os.path.isfile(zip_path)):
@@ -138,7 +139,7 @@ class DTIPipelineService():
         """
         try:
             filled_command = self.REMOTE_COMMAND % (self.remote_user, self.remote_machine, remote_command)
-            self.logger.debug("Executing remote: "+ filled_command)
+            self.logger.debug("Executing remote: " + filled_command)
             os.system(filled_command)
         except Exception, excep:
             self.logger.exception(excep)
@@ -147,21 +148,25 @@ class DTIPipelineService():
     
     def _process_csv_file(self, csv_file, result_file):
         """
-        Read a CSV file, arrange rows/columns in the correct order, to obtain Weight/Tract TXT files in TVB compatible format.
+        Read a CSV file, arrange rows/columns in the correct order,
+        to obtain Weight/Tract TXT files in TVB compatible format.
         """
         file_point = open(csv_file)
         csv_reader = csv.reader(file_point)
-        
+
+        ## Index of the current row (from 1 to the number of nodes + 2; as we have a header line):
         row_number = 0
         connectivity_size = len(self.expected_nodes_order)
         expected_indices = [i for i in range(connectivity_size)]
-        result_conn = []
+        result_conn = [[] for _ in range(connectivity_size)]
+
         for row in csv_reader:
+            row_number += 1
             if len(row) != connectivity_size:
-                raise ConnectException("Invalid Connectivity Row size! " + str(len(row)) +" !=" + 
-                                       str(connectivity_size) + " at row "+ str(row_number))
+                msg = "Invalid Connectivity Row size! %d != %d at row %d" % (len(row), connectivity_size, row_number)
+                raise ConnectException(msg)
             
-            if row_number == 0:
+            if row_number == 1:
                 for i in range(connectivity_size):
                     found = False
                     for j in range(connectivity_size):
@@ -170,20 +175,21 @@ class DTIPipelineService():
                             found = True
                             break
                     if not found:
-                        raise ConnectException("Incompatible Title Row "+str(i)+" with expected labels "+ 
-                                               str(row) + "\n" + str(self.expected_nodes_order))
-                row_number = row_number + 1
+                        msg = "Incompatible Title Row %d with expected labels %s \n %s "
+                        msg = msg % (i, str(row), str(self.expected_nodes_order))
+                        raise ConnectException(msg)
                 continue
                 
             new_row = [0 for _ in range(connectivity_size)]
             for i in range(connectivity_size):
-                new_row[expected_indices[i]] = float(row[i]) if float(row[i]) >=0 else 0
-            row_number = row_number + 1
-            result_conn.append(new_row)
+                new_row[expected_indices[i]] = float(row[i]) if float(row[i]) >= 0 else 0
+
+            result_conn[expected_indices[row_number - 2]] = new_row
             
         if row_number != connectivity_size + 1:
-            raise ConnectException("Invalid Connectivity size! " + str(row_number) +" !=" + str(connectivity_size))
-        self.logger.debug("Written Connectivity file of size "+ str(len(result_conn)))
+            raise ConnectException("Invalid Connectivity size! %d != %d " % (row_number, connectivity_size))
+
+        self.logger.debug("Written Connectivity file of size " + str(len(result_conn)))
         utils.store_list_data(result_conn, result_file, os.path.dirname(csv_file), True)
         file_point.close()
         os.remove(csv_file)
@@ -218,7 +224,9 @@ class DTIPipelineService():
                 self.logger.warning("Ignored file :" + str(file_name))
             
         if len(hdr_files) < expected_pairs or (fix_number and len(hdr_files) > expected_pairs):
-            raise ConnectException("Invalid number of files "+ str(len(hdr_files)) + " expected "+ str(expected_pairs))
+            raise ConnectException("Invalid number of files:" + str(len(hdr_files)) +
+                                   " expected:" + str(expected_pairs))
+
         result = ""
         for hdr_name in hdr_files:
             result = result + hdr_name + " "
@@ -254,7 +262,7 @@ class DTIPipelineService():
         thread.start_new(self._internal_pipeline_thread, (dti_scans, current_project, current_user, number_of_threads))
         
         
-    def _internal_pipeline_thread(self, dti_scans, current_project, current_user, number_of_threads=1):
+    def _internal_pipeline_thread(self, dti_scans, current_project, current_user, number_of_th=1):
         """
         Actual Fire Pipeline execution remotely.
         """
@@ -290,7 +298,7 @@ class DTIPipelineService():
         ### Execute remote DTI Pipeline command.
         dti_ev = dti_ev.split(' ')
         remote_command = self.DTI_PIPELINE_COMMAND % (os.path.split(remote_output_folder)[1], dti_seg, dti_ev[0], 
-                                                      dti_ev[1], dti_ev[2], dti_scans, dti_fa, dti_md, number_of_threads)
+                                                      dti_ev[1], dti_ev[2], dti_scans, dti_fa, dti_md, number_of_th)
         self._execute_remote(remote_command)
         
         self._gather_results(current_user, current_project, result_matrix1, result_matrix2, 
