@@ -219,8 +219,8 @@ class SimulatorAdapter(ABCAsynchronous):
         if simulation_length <= magic_number:
             # No matter how small the simulation, we're going to approximate at least 1 second of execution time
             return 1
-        if 'surface' in kwargs and kwargs['surface'] != None and kwargs['surface'] != 'None':
-            return simulation_length * 100
+        if 'surface' in kwargs and kwargs['surface'] is not None and kwargs['surface'] != '':
+            return simulation_length * 10.0
         return simulation_length / magic_number
 
 

@@ -232,11 +232,14 @@ class ClusterSchedulerClient(object):
         # Anything lower than 2 hours just use default walltime
         if hours < 2:
             walltime = "02:00:00"
+        elif hours > 23:
+            walltime = "23:59:59"
         else:
             walltime = datetime.time(hours, minutes, seconds)
             walltime = walltime.strftime("%H:%M:%S")
 
         call_arg = config.CLUSTER_SCHEDULE_COMMAND % (walltime, operation_identifier, user_name_label)
+        LOGGER.info(call_arg)
         process_ = Popen([call_arg], stdout=PIPE, shell=True)
         job_id = process_.stdout.read().replace('\n', '').split('OAR_JOB_ID=')[-1]
         LOGGER.debug("Got jobIdentifier = %s for CLUSTER operationID = %s" % (operation_identifier, job_id))
