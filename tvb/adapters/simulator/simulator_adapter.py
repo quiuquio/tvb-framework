@@ -210,10 +210,19 @@ class SimulatorAdapter(ABCAsynchronous):
         Method should approximate based on input arguments, the time it will take for the operation 
         to finish (in seconds).
         """
-        if self.algorithm is None:
-            self.configure(**kwargs)
+        # This is just a brute approx so cluster nodes won't kill operation before
+        # it's finished. This should be done with a higher grade of sensitivity
+        # Magic number connecting simulation length to simulation computation time
+        # This number should as big as possible, as long as it is still realistic, to
+        magic_number = 2.0
+        simulation_length = int(float(kwargs['simulation_length']))
+        if simulation_length <= magic_number:
+            # No matter how small the simulation, we're going to approximate at least 1 second of execution time
+            return 1
+        if 'surface' in kwargs and kwargs['surface'] != None and kwargs['surface'] != 'None':
+            return simulation_length * 100
+        return simulation_length / magic_number
 
-        return self.algorithm.runtime(self.simulation_length)
 
 
     def launch(self, model, model_parameters, integrator, integrator_parameters, connectivity,
