@@ -529,6 +529,11 @@ class BaseProfile():
                 'tools.staticdir.on': True,
                 'tools.staticdir.dir': os.path.join('interfaces', 'web', 'static')
             },
+            '/statichelp': {
+                'tools.staticdir.root': FrameworkSettings.CURRENT_DIR,
+                'tools.staticdir.on': True,
+                'tools.staticdir.dir': os.path.join('interfaces', 'web', 'static', 'help')
+            },
             '/static_view': {
                 'tools.staticdir.root': FrameworkSettings.CURRENT_DIR,
                 'tools.staticdir.on': True,
@@ -713,7 +718,7 @@ class DevelopmentProfile(BaseProfile):
     """
     Custom settings for development profile.
     """
-    #Logger specific
+
     LOGGER_CONFIG_FILE_NAME = "dev_logger_config.conf"
 
 
@@ -722,10 +727,7 @@ class TestSQLiteProfile(BaseProfile):
     """
     Defines settings for running tests on an SQLite database.
     """
-
-    #Logger specific
-    LOGGER_CONFIG_FILE_NAME = "logger_config.conf"
-    #Overrite the config file
+    #Use a different configuration file, to make it possible to run multiple instances in the same time
     TVB_CONFIG_FILE = os.path.expanduser(os.path.join("~", '.test.tvb.configuration'))
 
     RENDER_HTML = False
@@ -853,6 +855,16 @@ class DeploymentProfile(BaseProfile):
             os.environ['PYTHONPATH'] = new_python_path
             setup_tk_tcl_environ(data_path)
 
+
+    @ClassProperty
+    @staticmethod
+    def CHERRYPY_CONFIGURATION():
+
+        inside_static_folder = os.path.join(FrameworkSettings.EXTERNALS_FOLDER_PARENT, 'tvb')
+
+        default_configuration = BaseProfile.CHERRYPY_CONFIGURATION
+        default_configuration['/statichelp']['tools.staticdir.root'] = inside_static_folder
+        return default_configuration
 
 
 class ConsoleProfile(DeploymentProfile):
