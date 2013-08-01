@@ -72,7 +72,7 @@ class FilesHelper():
     ############# PROJECT RELATED methods ##################################
     
     @synchronized(LOCK_CREATE_FOLDER)
-    def check_created(self, path = TVBSettings.TVB_STORAGE):
+    def check_created(self, path=TVBSettings.TVB_STORAGE):
         """
         Check that the given folder exists, otherwise create it, with the entire tree of parent folders.
         This method is synchronized, for parallel access from events, to avoid conflicts.
@@ -85,7 +85,7 @@ class FilesHelper():
         except OSError, excep:
             self.logger.error("COULD NOT CREATE FOLDER! CHECK ACCESS ON IT!")
             self.logger.exception(excep)
-            raise FileStructureException("Could not create Folder"+ str(path))
+            raise FileStructureException("Could not create Folder" + str(path))
     
         
     def get_project_folder(self, project, *sub_folders):
@@ -111,16 +111,16 @@ class FilesHelper():
         except Exception, excep:
             self.logger.error("Could not rename node!")
             self.logger.exception(excep)
-            raise FileStructureException("Could not Rename:"+ str(new_name))
+            raise FileStructureException("Could not Rename:" + str(new_name))
         if os.path.exists(new_full_name):
-            raise FileStructureException("File already used "+ str(new_name) + " Can not add a duplicate!")
+            raise FileStructureException("File already used " + str(new_name) + " Can not add a duplicate!")
         try:
             os.rename(path, new_full_name)
-            return path , new_full_name
+            return path, new_full_name
         except Exception, excep:
             self.logger.error("Could not rename node!")
             self.logger.exception(excep)
-            raise FileStructureException("Could not Rename: "+ str(new_name))
+            raise FileStructureException("Could not Rename: " + str(new_name))
     
     
     def remove_project_structure(self, project_name):
@@ -132,7 +132,7 @@ class FilesHelper():
                     shutil.rmtree(complete_path)
                 else:
                     os.remove(complete_path)
-            self.logger.debug("Project folders were removed for "+ project_name)
+            self.logger.debug("Project folders were removed for " + project_name)
         except OSError, excep:
             self.logger.error("A problem occurred while removing folder.")
             self.logger.exception(excep)
@@ -154,7 +154,7 @@ class FilesHelper():
     
     def write_project_metadata(self, project):
         """
-        :param new_meta_data: GenericMetaData instance
+        :param project: Project instance, to get metadata from it.
         """
         proj_path = self.get_project_meta_file_path(project.name)
         _, meta_dictionary = project.to_dict()
@@ -244,7 +244,11 @@ class FilesHelper():
         Remove H5 storage fully.
         """
         try:
-            os.remove(datatype.get_storage_file_path())
+            if os.path.exists(datatype.get_storage_file_path()):
+                os.remove(datatype.get_storage_file_path())
+            else:
+                self.logger.warning("Data file already removed:" + str(datatype.get_storage_file_path()))
+
         except Exception, excep:
             self.logger.error(excep)
             raise FileStructureException("Could not remove " + str(datatype))
@@ -301,13 +305,13 @@ class FilesHelper():
     
     
     @staticmethod
-    def find_relative_path(full_path, root_path = TVBSettings.TVB_STORAGE):
+    def find_relative_path(full_path, root_path=TVBSettings.TVB_STORAGE):
         """
         :param full_path: Absolute full path
         :root_path: find relative path from param full_path to this root.
         """
         try:
-            full =  os.path.normpath(full_path)
+            full = os.path.normpath(full_path)
             prefix = os.path.normpath(root_path)
             result = full.replace(prefix, '')
             #  Make sure the resulting relative path doesn't start with root, 
@@ -317,7 +321,7 @@ class FilesHelper():
             return result
         except Exception, excep:
             logger = get_logger(__name__)
-            logger.warning("Could not normalize "+ str(full_path))
+            logger.warning("Could not normalize " + str(full_path))
             logger.warning(str(excep))
             return full_path  
             
@@ -345,7 +349,7 @@ class FilesHelper():
                 zip_file.write(file_to_include, os.path.basename(file_to_include))
     
     @staticmethod
-    def zip_folders(zip_full_path, folders, folder_prefix = None):
+    def zip_folders(zip_full_path, folders, folder_prefix=None):
         """
         This method creates a ZIP file with all folders provided as parameters
         :param zip_full_path: full path and name of the result ZIP file
@@ -403,7 +407,7 @@ class FilesHelper():
             
 
     @staticmethod
-    def copy_file(source, dest, dest_postfix=None, buffer_size = 1024*1024):
+    def copy_file(source, dest, dest_postfix=None, buffer_size=1024 * 1024):
         """
         Copy a file from source to dest. source and dest can either be strings or 
         any object with a read or write method, like StringIO for example.
@@ -450,13 +454,13 @@ class FilesHelper():
     def remove_folder(folder_path, ignore_errors=False):
         """
         Given a folder path, try to remove that folder from disk.
-        :param ignore_errors: When False, and given folder does not exist or is not folder, throw FileStructureException. 
+        :param ignore_errors: When False throw FileStructureException if folder_path is invalid.
         """
         if os.path.exists(folder_path) and os.path.isdir(folder_path):
             shutil.rmtree(folder_path, ignore_errors)
             return 
         if not ignore_errors:
-            raise FileStructureException("Given path does not exists, or is not a folder "+ str(folder_path))
+            raise FileStructureException("Given path does not exists, or is not a folder " + str(folder_path))
         
      
     @staticmethod
