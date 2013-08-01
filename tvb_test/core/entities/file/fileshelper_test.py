@@ -174,13 +174,13 @@ class FilesHelperTest(TransactionalTestCase):
     def test_remove_dt_non_existent(self):
         """
         Try to call remove on a dataType with no H5 file.
-        Should throw an exception.
+        Should work.
         """
         folder_path = self.files_helper.get_project_folder(self.test_project, "42")
         datatype = MappedType()
         datatype.storage_path = folder_path
         self.assertFalse(os.path.exists(datatype.get_storage_file_path()))
-        self.assertRaises(FileStructureException, self.files_helper.remove_datatype, datatype)
+        self.files_helper.remove_datatype(datatype)
         
 
     def test_move_datatype(self):
@@ -250,6 +250,7 @@ class FilesHelperTest(TransactionalTestCase):
         self.assertFalse(os.path.isdir(folder_name), "Folder should not exist before call.")
         self.assertRaises(FileStructureException, self.files_helper.remove_folder, folder_name, False)
 
+
 def suite():
     """
     Gather all the tests in a test suite.
@@ -263,7 +264,5 @@ if __name__ == "__main__":
     #So you can run tests individually.
     TEST_RUNNER = unittest.TextTestRunner()
     TEST_SUITE = suite()
-    TEST_RUNNER.run (TEST_SUITE)      
-    
-    
+    TEST_RUNNER.run(TEST_SUITE)
     
