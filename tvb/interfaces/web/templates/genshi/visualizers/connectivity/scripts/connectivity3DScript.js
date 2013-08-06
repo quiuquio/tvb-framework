@@ -194,11 +194,11 @@ function computeRay(rayWeight, minWeight, maxWeight) {
     }
 }
 
+/**
+ * Initialize all the actual data needed by the connectivity 3D visualizer. This should be called
+ * only once.
+ */
 function saveRequiredInputs_3D(filePositions, rays, colors, conn_nose_correction) {
-	/*
-	 * Initialize all the actual data needed by the connectivity 3D visualizer. This should be called
-	 * only once.
-	 */
 	//Store nose correction
 	connectivity_nose_correction = $.parseJSON(conn_nose_correction);
 	
@@ -217,8 +217,9 @@ function saveRequiredInputs_3D(filePositions, rays, colors, conn_nose_correction
     }	
 }
 
-function conectivity3D_initCanvas() {
+function connectivity3D_initCanvas() {
 	var canvas = document.getElementById(CONNECTIVITY_3D_CANVAS_ID);
+    canvas.width = canvas.parentNode.clientWidth - 10;       // resize the canvas to almost fill the parent
     initGL(canvas);
     
     // Enable keyboard and mouse interaction
@@ -242,7 +243,7 @@ function connectivity3D_startGL() {
 }
 
 function prepareConnectivity3D(filePositions, rays, colors, conn_nose_correction) {			
-	conectivity3D_initCanvas();
+	connectivity3D_initCanvas();
 	saveRequiredInputs_3D(filePositions, rays, colors, conn_nose_correction);
 }
 
