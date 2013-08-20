@@ -1,8 +1,6 @@
 <!-- Pursuant to TVB-703, this code should be changed to the standard <fieldset> structure! -->
 
 <div xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:py="http://genshi.edgewall.org/">
-    <script type="text/javascript" src="/static/jquery/jquery_ui.js"></script>
-
     <fieldset id="fieldSetForSliderSpeed">
         <ul> 
             <li> 
@@ -31,62 +29,9 @@
         <input id="inTimeRefreshChkId" type="checkbox" onchange="NAV_setInTimeRefresh(this);" tabindex="1" py:if="not extended_view"/>
         <label for="inTimeRefreshChkId" py:if="not extended_view">In time refresh</label>
         <br/>
-        <select id="setColorSchemeSelId" onchange="ColSch_setColorScheme(this.options[this.selectedIndex].value);" tabindex="1">
-            <option value="linear" selected="selected">Linear gradient</option>
-            <option value="rainbow">Rainbow</option>
-            <option value="hotcold">Hot-Cold</option>
-            <option value="TVB">TVB</option>
-            <option value="sparse">Sparse colors</option>
-        </select>
-        <label for="setColorSchemeSelId">Choose color scheme</label>
-        <br/>
         <input id="displayFaceChkId" title="Face approximative will move along with brain navigator." type="checkbox" onchange="switchFaceObject();" tabindex="1"/>
         <label for="displayFaceChkId">Display face approximative shade</label>
     </fieldset>
 
-    <fieldset id="linearColSchFieldSet" class="colorSchemeSettings">
-        <table>
-            <tr>
-                <td id="sliderMinValue"></td>
-                <td width="300px"><div id="rangerForLinearColSch"></div></td>
-                <td id="sliderMaxValue"></td>
-            </tr>
-            <tr>
-                <td>Start color:</td>
-                <td style="padding: 5px">
-                    <div id="startColorSelector" class="colorSelector">
-                        <div></div>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td>End color:</td>
-                <td style="padding: 5px">
-                    <div id="endColorSelector" class="colorSelector">
-                        <div></div>
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </fieldset>
-
-    <fieldset id="sparseColSchFieldSet" class="colorSchemeSettings">
-        <ul>
-            <li>
-                <dl><dt><label for="sliderForSparseColSch">Using</label>
-                        <span class="slider-value" id="ColSch_colorNo"></span>
-                        <span class="slider-value"> colors.</span>
-                    </dt>
-                    <dd><div class="sliderStepDiv">
-                            <div id="sliderForSparseColSch" class="shadow"></div>
-                        </div>
-                    </dd>
-                </dl>
-            </li>
-        </ul>
-    </fieldset>
-
-    <script type="text/javascript">
-        $().ready( function() { ColSch_setColorScheme("linear") })
-    </script>
+    <xi:include href='../../flow/color_scheme.html'/>
 </div>

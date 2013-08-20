@@ -127,6 +127,10 @@ function normalizeValue(value) {
 
 // ================================= COLOR SCHEME FUNCTIONS START =================================
 
+/**
+ * Sets the current color scheme to the given one
+ * @param scheme The color scheme to use; currently supported: 'linear', 'rainbow', 'hotcold', 'TVB', 'sparse'
+ */
 function ColSch_setColorScheme(scheme) {
     $(".colorSchemeSettings").hide()
     $("#" + scheme + "ColSchFieldSet").show()
@@ -135,20 +139,27 @@ function ColSch_setColorScheme(scheme) {
     LEG_updateLegendColors()
 }
 
+/**
+ * Updates the parameters for the linear gradient start and end and resets the legend
+ * @private
+ */
 function _updateLinearParams(event, ui) {
     _linearGradientStart = ui.values[0]
     _linearGradientEnd   = ui.values[1]
     LEG_updateLegendColors()
 }
 
+/**
+ * Initialises the settings needed by the current color scheme
+ */
 function ColSch_initColorSchemeParams() {
     if (_colorScheme == "linear") {
         $("#rangerForLinearColSch").slider({
             range: true, min: legendMin, max: legendMax, step: 0.001,
             values: [legendMin, legendMax],
-            slide: function() {             // update the UI
-                    event.target.parentElement.previousElementSibling.innerHTML = _linearGradientStart.toFixed(3)
-                    event.target.parentElement.nextElementSibling.innerHTML     = _linearGradientEnd.toFixed(3)
+            slide: function(event, ui) {             // update the UI
+                    event.target.parentElement.previousElementSibling.innerHTML = ui.values[0].toFixed(3)
+                    event.target.parentElement.nextElementSibling.innerHTML     = ui.values[1].toFixed(3)
             },
             change: _updateLinearParams
         })
@@ -185,7 +196,7 @@ function getGradientColor(pointValue, min, max) {
     if (_colorScheme == "linear")                // default is "linear"
         result =  getLinearGradientColor(pointValue, min, max)
     else if (_colorScheme == "rainbow")
-        result = getJetColor(pointValue, min, max)
+        result = getRainbowColor(pointValue, min, max)
     else if (_colorScheme == "hotcold")
         result = getHotColdColor(pointValue, min, max)
     else if (_colorScheme == "TVB")
@@ -208,19 +219,23 @@ function getGradientColor(pointValue, min, max) {
  */
 function getGradientColorArray(values, min, max, outputArray) {
     var result = [], color = []
-    if (_colorScheme == "linear")
-        for (var i = 0; i < values.length; ++i) {
-            color = getLinearGradientColor(values[i], min, max)
-            color.push(1)                               // add the alpha value
-            if (outputArray)
-                outputArray.set(color, i * 4)
-            else
-                result.concat(color)
-        }
+    for (var i = 0; i < values.length; ++i) {
+        color = getGradientColor(values[i], min, max)
+        color.push(1)                               // add the alpha value
+        if (outputArray)
+            outputArray.set(color, i * 4)
+        else
+            result.concat(color)
+    }
 
     return result;
 }
 
+/**
+ * Returns an [r, g, b] color in a linear transition from <code>startColorRGB</code> to <code>endColorRGB</code>
+ * If <code>pointValue</code> lays outside (_linearGradientStart, _linearGradientEnd) interval, the opposite color
+ * to the closes end is returned
+ */
 function getLinearGradientColor(pointValue, min, max) {
     var normalizedValue = (pointValue - min) / (max - min)
     if (pointValue < _linearGradientStart)                 // clamp to selected range
@@ -235,18 +250,10 @@ function getLinearGradientColor(pointValue, min, max) {
     return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
 }
 
-function getClownyColor(pointValue, min, max) {
-    var normalizedValue = (pointValue - min) / (max - min)
-    var r = normalizedStartColorRGB[0] + normalizedValue * (normalizedEndColorRGB[0] - normalizedStartColorRGB[0])
-    var g = normalizedStartColorRGB[1] + (normalizedValue * 1000 - Math.round(normalizedValue * 1000)) *
-                                         (normalizedEndColorRGB[1] - normalizedStartColorRGB[1])
-    var b = normalizedStartColorRGB[2] + (normalizedValue * 1000000 - Math.round(normalizedValue * 1000000)) *
-                                         (normalizedEndColorRGB[2] - normalizedStartColorRGB[2])
-
-    return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
-}
-
-function getJetColor(pointValue, min, max) {
+/**
+ * Returns an [r, g, b] color in the rainbow color scheme
+ */
+function getRainbowColor(pointValue, min, max) {
     var normalizedValue = 4 * (pointValue - min) / (max - min)
     var r = Math.min(normalizedValue - 1.5, - normalizedValue + 4.5)
     var g = Math.min(normalizedValue - 0.5, - normalizedValue + 3.5)
@@ -255,6 +262,9 @@ function getJetColor(pointValue, min, max) {
     return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
 }
 
+/**
+ * Returns an [r, g, b] color from a smooth transition: icy blue to hot red
+ */
 function getHotColdColor(pointValue, min, max) {
     var normalizedValue = (pointValue - min) / (max - min)
     var r = 4 * (normalizedValue - 0.25)
@@ -262,23 +272,6 @@ function getHotColdColor(pointValue, min, max) {
     var b = 4 * (0.75 - normalizedValue)
 
     return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
-}
-
-function getTvbColor(pointValue, min, max) {
-    var intervalLength = Math.abs(max - min) / TVB_BRANDING_COLORS.length
-    var selectedInterval = Math.floor((pointValue - min) / intervalLength)
-    return normalizeColorArray(TVB_BRANDING_COLORS[selectedInterval])
-}
-
-function getSparseColor(pointValue, min, max) {
-    var normalizedValue = (pointValue - min) / (max - min)
-    var selectedInterval = Math.floor(normalizedValue * _sparseColorNo)
-    var color = SPARSE_COLORS[selectedInterval]
-    var r = color >> (4 * 4)                // discard green and blue, i.e. four hex positions
-    var g = (color & 0xFF00) >> (2 * 4)     // sample green and discard blue, i.e. 2 hex positions
-    var b = color & 0xFF                    // only take the blue
-
-    return [normalizeColor(r), normalizeColor(g), normalizeColor(b)]
 }
 
 TVB_BRANDING_COLORS = [
@@ -300,6 +293,16 @@ TVB_BRANDING_COLORS = [
     [205, 67, 34],
     [182, 4, 49]
 ]
+
+/**
+ * Returns an [r, g, b] color from TVB_BRANDING_COLORS
+ * Resulting color scheme is segmented among these colors
+ */
+function getTvbColor(pointValue, min, max) {
+    var intervalLength = Math.abs(max - min) / TVB_BRANDING_COLORS.length
+    var selectedInterval = Math.floor((pointValue - min) / intervalLength)
+    return normalizeColorArray(TVB_BRANDING_COLORS[selectedInterval])
+}
 
 SPARSE_COLORS = [
 0xFFC0CB, /* Pink */
@@ -330,5 +333,21 @@ SPARSE_COLORS = [
 0xDEB887, /* BurlyWood */
 0x8B4513  /* SaddleBrown */
 ]
+
+/**
+ * Returns an [r, g, b] color the first <code>_sparseColorNo</code> colors in SPARSE COLORS
+ * Resulting color scheme is segmented among these colors
+ */
+function getSparseColor(pointValue, min, max) {
+    var normalizedValue = (pointValue - min) / (max - min)
+    var selectedInterval = Math.floor(normalizedValue * _sparseColorNo)
+    var color = SPARSE_COLORS[selectedInterval]
+    var r = color >> (4 * 4)                // discard green and blue, i.e. four hex positions
+    var g = (color & 0xFF00) >> (2 * 4)     // sample green and discard blue, i.e. 2 hex positions
+    var b = color & 0xFF                    // only take the blue
+
+    return [normalizeColor(r), normalizeColor(g), normalizeColor(b)]
+}
+
 // ================================= COLOR SCHEME FUNCTIONS  END  =================================
 
