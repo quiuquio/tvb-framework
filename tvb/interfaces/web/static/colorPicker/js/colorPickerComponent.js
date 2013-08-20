@@ -4,7 +4,9 @@ var nodeColorRGB = [255, 255, 255];
 var normalizedStartColorRGB = normalizeColorArray(startColorRGB);   // keep the normalized version to avoid
 var normalizedEndColorRGB = [1, 0, 0];                              // function calls on every color computation
 var normalizedNodeColorRGB = [1, 1, 1];
-var GVAR_colorScheme = "linear"                                     // the color scheme to be used for current drawing
+var _colorScheme = "linear"                                     // the color scheme to be used for current drawing
+var _linearGradientStart = 0, _linearGradientEnd = 1                // dummy values; real ones will be on initialisation
+var _sparseColorNo = 10
 
 function drawSimpleColorPicker(divId, refreshFunction) {
     $('#' + divId).ColorPicker({
@@ -125,9 +127,52 @@ function normalizeValue(value) {
 
 // ================================= COLOR SCHEME FUNCTIONS START =================================
 
+function ColSch_setColorScheme(scheme) {
+    $(".colorSchemeSettings").hide()
+    $("#" + scheme + "ColSchFieldSet").show()
+    _colorScheme = scheme
+    ColSch_initColorSchemeParams()
+    LEG_updateLegendColors()
+}
+
+function _updateLinearParams(event, ui) {
+    _linearGradientStart = ui.values[0]
+    _linearGradientEnd   = ui.values[1]
+    LEG_updateLegendColors()
+}
+
+function ColSch_initColorSchemeParams() {
+    if (_colorScheme == "linear") {
+        $("#rangerForLinearColSch").slider({
+            range: true, min: legendMin, max: legendMax, step: 0.001,
+            values: [legendMin, legendMax],
+            slide: function() {             // update the UI
+                    event.target.parentElement.previousElementSibling.innerHTML = _linearGradientStart.toFixed(3)
+                    event.target.parentElement.nextElementSibling.innerHTML     = _linearGradientEnd.toFixed(3)
+            },
+            change: _updateLinearParams
+        })
+        $("#sliderMinValue").html(legendMin.toFixed(3))
+        $("#sliderMaxValue").html(legendMax.toFixed(3))
+        _linearGradientStart = legendMin
+        _linearGradientEnd   = legendMax
+    }
+    else if (_colorScheme == "sparse") {
+        $("#sliderForSparseColSch").slider({
+            min: 2, max: SPARSE_COLORS.length, step: 1, values: [_sparseColorNo],
+            slide: function (event, ui) { $("#ColSch_colorNo").html(ui.value) },
+            change: function (event, ui) {
+                _sparseColorNo = ui.value
+                LEG_updateLegendColors()
+            }
+        })
+        $("#ColSch_colorNo").html(_sparseColorNo)
+    }
+}
+
 /**
  * Factory function which returns a color for the given point in interval (min, max),
- * according to the current <code>GVAR_colorScheme</code>
+ * according to the current <code>_colorScheme</code>
  *
  * @param pointValue The value whose corresponding color is returned
  *
@@ -137,16 +182,22 @@ function getGradientColor(pointValue, min, max) {
     if (min == max)         // the interval is empty, so start color is the only possible one
         return [normalizedStartColorRGB[0], normalizedStartColorRGB[1], normalizedStartColorRGB[2]]
     var result = [];
-    if (GVAR_colorScheme == "linear")                // default is "linear"
+    if (_colorScheme == "linear")                // default is "linear"
         result =  getLinearGradientColor(pointValue, min, max)
-    else if (GVAR_colorScheme == "clowny")
-        result = getClownyColor(pointValue, min, max)
+    else if (_colorScheme == "rainbow")
+        result = getJetColor(pointValue, min, max)
+    else if (_colorScheme == "hotcold")
+        result = getHotColdColor(pointValue, min, max)
+    else if (_colorScheme == "TVB")
+        result = getTvbColor(pointValue, min, max)
+    else if (_colorScheme == "sparse")
+        result = getSparseColor(pointValue, min, max)
     return result
 }
 
 /**
  * Factory function which computes the colors for a whole array of values in interval (min, max)
- * according to the current <code>GVAR_colorScheme</code>
+ * according to the current <code>_colorScheme</code>
  *
  * @param {Array} values The values for which the colors are generated;
  *                       Condition: min <= values[i] <= max (for every values[i])
@@ -157,18 +208,9 @@ function getGradientColor(pointValue, min, max) {
  */
 function getGradientColorArray(values, min, max, outputArray) {
     var result = [], color = []
-    if (GVAR_colorScheme == "linear")
+    if (_colorScheme == "linear")
         for (var i = 0; i < values.length; ++i) {
             color = getLinearGradientColor(values[i], min, max)
-            color.push(1)                               // add the alpha value
-            if (outputArray)
-                outputArray.set(color, i * 4)
-            else
-                result.concat(color)
-        }
-    else if (GVAR_colorScheme == "clowny")
-        for (var i = 0; i < values.length; ++i) {
-            color = getClownyColor(values[i], min, max)
             color.push(1)                               // add the alpha value
             if (outputArray)
                 outputArray.set(color, i * 4)
@@ -181,6 +223,11 @@ function getGradientColorArray(values, min, max, outputArray) {
 
 function getLinearGradientColor(pointValue, min, max) {
     var normalizedValue = (pointValue - min) / (max - min)
+    if (pointValue < _linearGradientStart)                 // clamp to selected range
+        return [1 - normalizedStartColorRGB[0], 1 - normalizedStartColorRGB[1], 1 - normalizedStartColorRGB[2]]
+    if (pointValue > _linearGradientEnd)
+        return [1 - normalizedEndColorRGB[0], 1 - normalizedEndColorRGB[1], 1 - normalizedEndColorRGB[2]]
+
     var r = normalizedStartColorRGB[0] + normalizedValue * (normalizedEndColorRGB[0] - normalizedStartColorRGB[0])
     var g = normalizedStartColorRGB[1] + normalizedValue * (normalizedEndColorRGB[1] - normalizedStartColorRGB[1])
     var b = normalizedStartColorRGB[2] + normalizedValue * (normalizedEndColorRGB[2] - normalizedStartColorRGB[2])
@@ -199,5 +246,89 @@ function getClownyColor(pointValue, min, max) {
     return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
 }
 
+function getJetColor(pointValue, min, max) {
+    var normalizedValue = 4 * (pointValue - min) / (max - min)
+    var r = Math.min(normalizedValue - 1.5, - normalizedValue + 4.5)
+    var g = Math.min(normalizedValue - 0.5, - normalizedValue + 3.5)
+    var b = Math.min(normalizedValue + 0.5, - normalizedValue + 2.5)
+
+    return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
+}
+
+function getHotColdColor(pointValue, min, max) {
+    var normalizedValue = (pointValue - min) / (max - min)
+    var r = 4 * (normalizedValue - 0.25)
+    var g = 4 * Math.abs(normalizedValue - 0.5) - 1
+    var b = 4 * (0.75 - normalizedValue)
+
+    return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
+}
+
+function getTvbColor(pointValue, min, max) {
+    var intervalLength = Math.abs(max - min) / TVB_BRANDING_COLORS.length
+    var selectedInterval = Math.floor((pointValue - min) / intervalLength)
+    return normalizeColorArray(TVB_BRANDING_COLORS[selectedInterval])
+}
+
+function getSparseColor(pointValue, min, max) {
+    var normalizedValue = (pointValue - min) / (max - min)
+    var selectedInterval = Math.floor(normalizedValue * _sparseColorNo)
+    var color = SPARSE_COLORS[selectedInterval]
+    var r = color >> (4 * 4)                // discard green and blue, i.e. four hex positions
+    var g = (color & 0xFF00) >> (2 * 4)     // sample green and discard blue, i.e. 2 hex positions
+    var b = color & 0xFF                    // only take the blue
+
+    return [normalizeColor(r), normalizeColor(g), normalizeColor(b)]
+}
+
+TVB_BRANDING_COLORS = [
+    [76, 85, 94],
+    [97, 124, 139],
+    [63, 23, 46],
+    [79, 23, 100],
+    [146, 84, 151],
+    [87, 180, 59],
+    [32, 118, 53],
+    [23, 57, 66],
+    [29, 96, 88],
+    [46, 153, 151],
+    [138, 190, 234],
+    [79, 169, 230],
+    [45, 135, 171],
+    [37, 101, 170],
+    [229, 130, 33],
+    [205, 67, 34],
+    [182, 4, 49]
+]
+
+SPARSE_COLORS = [
+0xFFC0CB, /* Pink */
+0xCD5C5C, /* IndianRed */
+0xFF0000, /* Red */
+0x8B0000, /* DarkRed */
+0xFF4500, /* OrangeRed */
+0xFFA500, /* Orange */
+0xFFFF00, /* Yellow */
+0xADFF2F, /* GreenYellow */
+0x32CD32, /* LimeGreen */
+0x008000, /* Green */
+0x8FBC8F, /* DarkSeaGreen */
+0xE0FFFF, /* LightCyan */
+0x00FFFF, /* Cyan */
+0x008B8B, /* DarkCyan */
+0x0000FF, /* Blue */
+0x000080, /* Navy */
+0xFF00FF, /* Magenta */
+0x9400D3, /* DarkViolet */
+0x4B0082, /* Indigo */
+0xF0E68C, /* Khaki */
+0xBDB76B, /* DarkKhaki */
+0x808000, /* Olive */
+0xBC8F8F, /* RosyBrown */
+0xB8860B, /* DarkGoldenrod */
+0xD2691E, /* Chocolate */
+0xDEB887, /* BurlyWood */
+0x8B4513  /* SaddleBrown */
+]
 // ================================= COLOR SCHEME FUNCTIONS  END  =================================
 

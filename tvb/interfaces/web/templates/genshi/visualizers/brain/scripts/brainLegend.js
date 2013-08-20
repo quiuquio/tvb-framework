@@ -29,23 +29,14 @@ var legend_activity_values = [];
 ///// We draw legend with WebGL, so for the legend object we need buffers.
 var LEG_legendBuffers = [];
 
-///// Clowny face means the colors on Brain are completely spread over the colors area.
-var LEG_clownyFace = false;
-
 var legendMin = 0;
 var legendMax = 1;
 
 function LEG_initMinMax(minVal, maxVal) {
 	legendMin = minVal;
 	legendMax = maxVal;
+    ColSch_initColorSchemeParams();
 }
-
-function LEG_setClownyFace() {
-    LEG_clownyFace = !LEG_clownyFace;
-    GVAR_colorScheme = "clowny";
-    LEG_updateLegendColors();
-}
-
 
 function LEG_updateLegendXMinAndXMax() {
     //800/600 = 1.33
