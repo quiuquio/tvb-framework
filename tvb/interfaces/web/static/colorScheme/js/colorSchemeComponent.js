@@ -4,9 +4,10 @@ var nodeColorRGB = [255, 255, 255];
 var normalizedStartColorRGB = normalizeColorArray(startColorRGB);   // keep the normalized version to avoid
 var normalizedEndColorRGB = [1, 0, 0];                              // function calls on every color computation
 var normalizedNodeColorRGB = [1, 1, 1];
-var _colorScheme = "linear"                                     // the color scheme to be used for current drawing
-var _linearGradientStart = 0, _linearGradientEnd = 1                // dummy values; real ones will be on initialisation
+var _colorScheme = null                                             // the color scheme to be used for current drawing
+var _linearGradientStart = 0, _linearGradientEnd = 1                // keep the interest interval
 var _sparseColorNo = 10
+var _refreshCallback = null                                         // this is called when color scheme changes update the visualiser
 
 function drawSimpleColorPicker(divId, refreshFunction) {
     $('#' + divId).ColorPicker({
@@ -40,7 +41,7 @@ function getNewNodeColor() {
  * @param startColorComponentId id of the container in which will be drawn the color picker for the start color
  * @param endColorComponentId id of the container in which will be drawn the color picker for the end color
  */
-function drawColorPickerComponent(startColorComponentId, endColorComponentId, refreshFunction) {
+function drawColorPickerComponent(startColorComponentId, endColorComponentId) {
 	start_color_css = 'rgb(' + startColorRGB[0] + ',' + startColorRGB[1] + ',' + startColorRGB[2] + ')'
 	end_color_css = 'rgb(' + endColorRGB[0] + ',' + endColorRGB[1] + ',' + endColorRGB[2] + ')'
     $('#' + startColorComponentId).ColorPicker({
@@ -57,8 +58,8 @@ function drawColorPickerComponent(startColorComponentId, endColorComponentId, re
             $('#' + startColorComponentId + ' div').css('backgroundColor', '#' + hex);
             startColorRGB = [parseInt(rgb.r), parseInt(rgb.g), parseInt(rgb.b)];
             normalizedStartColorRGB = normalizeColorArray(startColorRGB);
-            if (refreshFunction) {
-                 refreshFunction();
+            if (_refreshCallback) {
+                 _refreshCallback();
             }
         }
     });
@@ -77,8 +78,8 @@ function drawColorPickerComponent(startColorComponentId, endColorComponentId, re
             $('#' + endColorComponentId + ' div').css('backgroundColor', '#' + hex);
             endColorRGB = [parseInt(rgb.r), parseInt(rgb.g), parseInt(rgb.b)];
             normalizedEndColorRGB = normalizeColorArray(endColorRGB);
-            if (refreshFunction) {
-                refreshFunction();
+            if (_refreshCallback) {
+                _refreshCallback();
             }
         }
     });
@@ -115,7 +116,7 @@ function normalizeColorArray(colorArray) {
     return normalizedColorArray
 }
 
-function normalizeValue(value) {
+function clampValue(value) {
     if (value > 1) {
         return 1;
     } else if (value < 0) {
@@ -135,50 +136,52 @@ function ColSch_setColorScheme(scheme) {
     $(".colorSchemeSettings").hide()
     $("#" + scheme + "ColSchFieldSet").show()
     _colorScheme = scheme
-    ColSch_initColorSchemeParams()
-    LEG_updateLegendColors()
+    _refreshCallback()
 }
 
 /**
- * Updates the parameters for the linear gradient start and end and resets the legend
- * @private
+ * Initialises the settings for all color schemes
+ *
+ * @param minValue The minimum value for the linear slider
+ * @param maxValue The maximum value for the linear slider
+ * @param refreshFunction A reference to the function which updates the visualiser
  */
-function _updateLinearParams(event, ui) {
-    _linearGradientStart = ui.values[0]
-    _linearGradientEnd   = ui.values[1]
-    LEG_updateLegendColors()
-}
+function ColSch_initColorSchemeParams(minValue, maxValue, refreshFunction) {
+    _refreshCallback = refreshFunction
+    // initialise the linear params
+    $("#rangerForLinearColSch").slider({
+        range: true, min: minValue, max: maxValue, step: 0.001,
+        values: [minValue, maxValue],
+        slide: function(event, ui) {                            // update the UI
+                event.target.parentElement.previousElementSibling.innerHTML = ui.values[0].toFixed(3)
+                event.target.parentElement.nextElementSibling.innerHTML     = ui.values[1].toFixed(3)
+        },
+        change: function(event, ui) {
+            _linearGradientStart = (ui.values[0] - minValue) / (maxValue - minValue)    // keep the interest interval
+            _linearGradientEnd   = (ui.values[1] - minValue) / (maxValue - minValue)    // as normalized dist from min
+            if (_refreshCallback)      _refreshCallback()
+        }
+    })
+    $("#sliderMinValue").html(minValue.toFixed(3))
+    $("#sliderMaxValue").html(maxValue.toFixed(3))
+    _linearGradientStart = minValue
+    _linearGradientEnd   = maxValue
+    drawColorPickerComponent('startColorSelector', 'endColorSelector');
 
-/**
- * Initialises the settings needed by the current color scheme
- */
-function ColSch_initColorSchemeParams() {
-    if (_colorScheme == "linear") {
-        $("#rangerForLinearColSch").slider({
-            range: true, min: legendMin, max: legendMax, step: 0.001,
-            values: [legendMin, legendMax],
-            slide: function(event, ui) {             // update the UI
-                    event.target.parentElement.previousElementSibling.innerHTML = ui.values[0].toFixed(3)
-                    event.target.parentElement.nextElementSibling.innerHTML     = ui.values[1].toFixed(3)
-            },
-            change: _updateLinearParams
-        })
-        $("#sliderMinValue").html(legendMin.toFixed(3))
-        $("#sliderMaxValue").html(legendMax.toFixed(3))
-        _linearGradientStart = legendMin
-        _linearGradientEnd   = legendMax
-    }
-    else if (_colorScheme == "sparse") {
-        $("#sliderForSparseColSch").slider({
-            min: 2, max: SPARSE_COLORS.length, step: 1, values: [_sparseColorNo],
-            slide: function (event, ui) { $("#ColSch_colorNo").html(ui.value) },
-            change: function (event, ui) {
-                _sparseColorNo = ui.value
-                LEG_updateLegendColors()
-            }
-        })
-        $("#ColSch_colorNo").html(_sparseColorNo)
-    }
+    // initialise the sparse params
+    var colorNoUIElem = $("#ColSch_colorNo")                    // cache the jQuery selector
+    colorNoUIElem.html(_sparseColorNo)
+    $("#sliderForSparseColSch").slider({
+        min: 2, max: SPARSE_COLORS.length - 1, step: 1, values: [_sparseColorNo],
+        slide: function (event, ui) { colorNoUIElem.html(ui.value) },
+        change: function (event, ui) {
+            _sparseColorNo = ui.value
+            _refreshCallback()
+        }
+    })
+
+    if (!_colorScheme)                      // on very first call, set the default color scheme
+        $("#setColorSchemeSelId").each(function() {this.selectedIndex = 0}).change()
 }
 
 /**
@@ -193,16 +196,17 @@ function getGradientColor(pointValue, min, max) {
     if (min == max)         // the interval is empty, so start color is the only possible one
         return [normalizedStartColorRGB[0], normalizedStartColorRGB[1], normalizedStartColorRGB[2]]
     var result = [];
-    if (_colorScheme == "linear")                // default is "linear"
-        result =  getLinearGradientColor(pointValue, min, max)
+    var normalizedValue = (pointValue - min) / (max - min)
+    if (!_colorScheme || _colorScheme == "linear")                // default is "linear"
+        result =  getLinearGradientColor(normalizedValue)
     else if (_colorScheme == "rainbow")
-        result = getRainbowColor(pointValue, min, max)
+        result = getRainbowColor(normalizedValue)
     else if (_colorScheme == "hotcold")
-        result = getHotColdColor(pointValue, min, max)
+        result = getHotColdColor(normalizedValue)
     else if (_colorScheme == "TVB")
-        result = getTvbColor(pointValue, min, max)
+        result = getTvbColor(normalizedValue)
     else if (_colorScheme == "sparse")
-        result = getSparseColor(pointValue, min, max)
+        result = getSparseColor(normalizedValue)
     return result
 }
 
@@ -233,45 +237,43 @@ function getGradientColorArray(values, min, max, outputArray) {
 
 /**
  * Returns an [r, g, b] color in a linear transition from <code>startColorRGB</code> to <code>endColorRGB</code>
- * If <code>pointValue</code> lays outside (_linearGradientStart, _linearGradientEnd) interval, the opposite color
+ * If <code>normalizedValue</code> lays outside (_linearGradientStart, _linearGradientEnd) interval, the opposite color
  * to the closes end is returned
  */
-function getLinearGradientColor(pointValue, min, max) {
-    var normalizedValue = (pointValue - min) / (max - min)
-    if (pointValue < _linearGradientStart)                 // clamp to selected range
+function getLinearGradientColor(normalizedValue) {
+    if (normalizedValue < _linearGradientStart)                                         // clamp to selected range
         return [1 - normalizedStartColorRGB[0], 1 - normalizedStartColorRGB[1], 1 - normalizedStartColorRGB[2]]
-    if (pointValue > _linearGradientEnd)
+    if (normalizedValue > _linearGradientEnd)
         return [1 - normalizedEndColorRGB[0], 1 - normalizedEndColorRGB[1], 1 - normalizedEndColorRGB[2]]
 
     var r = normalizedStartColorRGB[0] + normalizedValue * (normalizedEndColorRGB[0] - normalizedStartColorRGB[0])
     var g = normalizedStartColorRGB[1] + normalizedValue * (normalizedEndColorRGB[1] - normalizedStartColorRGB[1])
     var b = normalizedStartColorRGB[2] + normalizedValue * (normalizedEndColorRGB[2] - normalizedStartColorRGB[2])
 
-    return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
+    return [clampValue(r), clampValue(g), clampValue(b)]
 }
 
 /**
  * Returns an [r, g, b] color in the rainbow color scheme
  */
-function getRainbowColor(pointValue, min, max) {
-    var normalizedValue = 4 * (pointValue - min) / (max - min)
+function getRainbowColor(normalizedValue) {
+    normalizedValue *= 4
     var r = Math.min(normalizedValue - 1.5, - normalizedValue + 4.5)
     var g = Math.min(normalizedValue - 0.5, - normalizedValue + 3.5)
     var b = Math.min(normalizedValue + 0.5, - normalizedValue + 2.5)
 
-    return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
+    return [clampValue(r), clampValue(g), clampValue(b)]
 }
 
 /**
  * Returns an [r, g, b] color from a smooth transition: icy blue to hot red
  */
-function getHotColdColor(pointValue, min, max) {
-    var normalizedValue = (pointValue - min) / (max - min)
+function getHotColdColor(normalizedValue) {
     var r = 4 * (normalizedValue - 0.25)
     var g = 4 * Math.abs(normalizedValue - 0.5) - 1
     var b = 4 * (0.75 - normalizedValue)
 
-    return [normalizeValue(r), normalizeValue(g), normalizeValue(b)]
+    return [clampValue(r), clampValue(g), clampValue(b)]
 }
 
 TVB_BRANDING_COLORS = [
@@ -298,9 +300,8 @@ TVB_BRANDING_COLORS = [
  * Returns an [r, g, b] color from TVB_BRANDING_COLORS
  * Resulting color scheme is segmented among these colors
  */
-function getTvbColor(pointValue, min, max) {
-    var intervalLength = Math.abs(max - min) / TVB_BRANDING_COLORS.length
-    var selectedInterval = Math.floor((pointValue - min) / intervalLength)
+function getTvbColor(normalizedValue) {
+    var selectedInterval = Math.floor(normalizedValue * (TVB_BRANDING_COLORS.length - 1))
     return normalizeColorArray(TVB_BRANDING_COLORS[selectedInterval])
 }
 
@@ -338,8 +339,7 @@ SPARSE_COLORS = [
  * Returns an [r, g, b] color the first <code>_sparseColorNo</code> colors in SPARSE COLORS
  * Resulting color scheme is segmented among these colors
  */
-function getSparseColor(pointValue, min, max) {
-    var normalizedValue = (pointValue - min) / (max - min)
+function getSparseColor(normalizedValue) {
     var selectedInterval = Math.floor(normalizedValue * _sparseColorNo)
     var color = SPARSE_COLORS[selectedInterval]
     var r = color >> (4 * 4)                // discard green and blue, i.e. four hex positions

@@ -152,13 +152,13 @@ function _webGLStart(baseDatatypeURL, onePageSize, nrOfPages, urlTimeList, urlVe
     activityMin = parseFloat(minActivity);
     activityMax = parseFloat(maxActivity);
     
-    LEG_initMinMax(activityMin, activityMax);
-
     var canvas = document.getElementById(BRAIN_CANVAS_ID);
     customInitGL(canvas);
     GL_initColorPickFrameBuffer();
     initShaders();
     NAV_initBrainNavigatorBuffers();
+
+    LEG_initMinMax(activityMin, activityMax);
 
     brainBuffers = initBuffers($.parseJSON(urlVerticesList), $.parseJSON(urlNormalsList), $.parseJSON(urlTrianglesList), 
     						   $.parseJSON(urlAlphasList), $.parseJSON(urlAlphasIndicesList), isDoubleView);
