@@ -140,6 +140,16 @@ function ColSch_setColorScheme(scheme) {
 }
 
 /**
+ * This disables all the elements made by <code>ColSch_initColorSchemeParams</code>
+ */
+function ColSch_disableColorScheme() {
+    $("#sliderMinValue,#sliderMaxValue,#ColSch_colorNo").html("")
+    $(".colorSelector").children().removeAttr("style").unbind()
+    $("#rangerForLinearColSch,#sliderForSparseColSch").slider("destroy")
+
+}
+
+/**
  * Initialises the settings for all color schemes
  *
  * @param minValue The minimum value for the linear slider
@@ -164,8 +174,8 @@ function ColSch_initColorSchemeParams(minValue, maxValue, refreshFunction) {
     })
     $("#sliderMinValue").html(minValue.toFixed(3))
     $("#sliderMaxValue").html(maxValue.toFixed(3))
-    _linearGradientStart = minValue
-    _linearGradientEnd   = maxValue
+    _linearGradientStart = 0            // on start the whole interval is selected
+    _linearGradientEnd   = 1
     drawColorPickerComponent('startColorSelector', 'endColorSelector');
 
     // initialise the sparse params
@@ -350,4 +360,55 @@ function getSparseColor(normalizedValue) {
 }
 
 // ================================= COLOR SCHEME FUNCTIONS  END  =================================
+
+// ================================= LEGEND UPDATING FUNCTION START  =================================
+/**
+ * Function that should draw a gradient used for a legend. If the canvas for drawing doesn't exist, it will be created
+ * @param containerDiv The div where the canvas is drawn
+ * @param height The height of the drawn canvas
+ */
+function ColSch_updateLegendColors(containerDiv, height) {
+    var canvas = $(containerDiv).children("canvas")
+    if (!canvas.length) {                                   // create if it doesn't exist
+        canvas = document.createElement("canvas")
+        canvas.setAttribute("width", "20px")
+        containerDiv.appendChild(canvas)
+    }
+    else
+        canvas = canvas[0]                                  // exists, so take the first one
+    canvas.setAttribute("height", height + "px")            // update canvas' height
+
+	if (canvas.getContext) {                                // Make sure we don't execute when canvas isn't supported
+        var ctx = canvas.getContext('2d')
+        var legendGranularity = 127
+        var step = height / legendGranularity
+        var lingrad = ctx.createLinearGradient(0, height, 0, 0)         // y axis is inverted, so start from top
+        for (var i = 0; i <= height; i += step)
+            lingrad.addColorStop(i / height, getGradientColorString(i, 0, height))
+
+        ctx.fillStyle = lingrad;                            // Fill a rect using the gradient
+        ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+	}
+    else
+        displayMessage('You need a browser with canvas capabilities, to see this demo fully!', "errorMessage");
+}
+
+function ColSch_updateLegendLabels(container, minValue, maxValue, height) {
+    var legendLabels = $(container).find("td")
+    if (!legendLabels.length)                                               // create if doesn't exist
+        legendLabels = $("<table>").appendTo(container).height(height)      // add and style the table
+            .append("<tr><tr><tr><tr><tr><tr>")                             // add 6 rows
+            .find("tr").each(function(idx, elem) {                          // set their style
+                if (idx == 0)   elem.style.height = "20px"                  // the first one should stay at the top
+                else {
+                    elem.style.height = "20%"                               // the other 5 are equally spread
+                    elem.style.verticalAlign = 'bottom'                     // and stick the text at the bottom of cell
+                }
+            }).append("<td>").find("td")                                    // add td in each row and return them
+    var step = (maxValue - minValue) / (legendLabels.length - 1)            // -1 because it includes min and max
+    legendLabels.each(function(idx, elem) {
+        elem.innerHTML = (maxValue - idx * step).toFixed(3)
+    })
+}
+// ================================= LEGEND UPDATING FUNCTION  END   =================================
 

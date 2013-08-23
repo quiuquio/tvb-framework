@@ -1,8 +1,12 @@
 <div>
 <script type="text/javascript" src="/static/jquery/jquery_ui.js"></script>
+<script type="text/javascript" src="/static/colorScheme/js/colorpicker.js"></script>
+
+<link type="text/css" rel="stylesheet" href="/static/colorScheme/css/colorpicker.css"/>
 <link rel="stylesheet" type="text/css" href="/static/style/color_scheme.css"/>
 
 <fieldset>
+    <label for="setColorSchemeSelId">Choose color scheme</label>
     <select id="setColorSchemeSelId" onchange="ColSch_setColorScheme(this.options[this.selectedIndex].value);" tabindex="1">
         <option value="linear" selected="selected">Linear gradient</option>
         <option value="rainbow">Rainbow</option>
@@ -10,7 +14,6 @@
         <option value="TVB">TVB</option>
         <option value="sparse">Sparse colors</option>
     </select>
-    <label for="setColorSchemeSelId">Choose color scheme</label>
 </fieldset>
 
 <fieldset id="linearColSchFieldSet" class="colorSchemeSettings">

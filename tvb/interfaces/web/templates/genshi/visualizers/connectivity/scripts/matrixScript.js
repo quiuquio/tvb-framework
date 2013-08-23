@@ -484,47 +484,19 @@ function TBL_storeHemisphereDetails(newStartPointsX, newEndPointsX, newStartPoin
 }
 
 /**
- * Function that should draw a gradient used for a legend.
+ * Function to update the legend colors; the gradient will be created only after the table was drawn
+ * so it will have the same size as the table matrix
  * @private
  */
 function _updateLegendColors(){
-	/*
-	 * In order to create the gradient of the same size as the table matrix, it will be created only
-	 * after table was drawn. If it's the first call to the function a canvas is created, else just
-	 * used the previously created one.
-	 */
 	var div_id = GVAR_interestAreaVariables[GVAR_selectedAreaType]['legend_div_id'];
 	var legendDiv = document.getElementById(div_id);
-	  
+
 	var height = Math.max($("#div-matrix-weights")[0].clientHeight, $("#div-matrix-tracts")[0].clientHeight);
-	legendDiv.innerHTML = '<canvas height="'+height+'" width="20" id="' + div_id +'canvas"></canvas>';
-	var canvas = legendDiv.firstChild;
+    ColSch_updateLegendColors(legendDiv, height);
 
-	// Make sure we don't execute when canvas isn't supported
-	if (canvas.getContext){
-        // use getContext to use the canvas for drawing
-        var ctx = canvas.getContext('2d')
-        var legendGranularity = 127
-        var step = height / legendGranularity
-        var lingrad = ctx.createLinearGradient(0, height, 0, 0);        // y axis is inverted, so start from top
-        for (var i = 0; i <= height; i += step)
-            lingrad.addColorStop(i / height, getGradientColorString(i, 0, height))
-
-        // Fill a rect using the gradient
-        ctx.fillStyle = lingrad;
-        ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-	  } else {
-	    	displayMessage('You need a browser with canvas capabilities, to see this demo fully!', "errorMessage");
-	  }
-	  
-	  var legendLabels = $('#table-' + div_id + ' td');
-	  var minValue = GVAR_interestAreaVariables[GVAR_selectedAreaType]['min_val'];
-	  var maxValue = GVAR_interestAreaVariables[GVAR_selectedAreaType]['max_val'];
-	  var totalDif = maxValue - minValue;
-	  var increment = totalDif / (legendLabels.length - 1);
-	  for (var i = 0; i < legendLabels.length; i+=1) {
-	  	legendLabels[i].innerHTML = ""+ (Math.round((maxValue - i*increment) * 100)/100);
-	  }
+    ColSch_updateLegendLabels('#table-' + div_id, GVAR_interestAreaVariables[GVAR_selectedAreaType]['min_val'],
+                              GVAR_interestAreaVariables[GVAR_selectedAreaType]['max_val'], height)
 }
 
 
