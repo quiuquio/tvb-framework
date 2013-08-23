@@ -32,27 +32,55 @@
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 """
 
-import numpy
-from tvb.basic.traits.types_basic import String, Integer, Float
-from tvb.basic.traits.types_mapped import MappedType
-from tvb.datatypes.arrays import StringArray
+import os
 
-
-
-class Datatype2(MappedType):
+def synchronized(lock):
+    """ 
+    Synchronization annotation. 
+    We try to mimic the same behavior as Java has with keyword synchronized, for methods.
     """
-        This class is used for testing purposes only.
+
+
+    def wrap(func):
+        """Wrap current function with a lock mechanism"""
+
+
+        def new_function(*args, **kw):
+            """ New function will actually write the Lock."""
+            lock.acquire()
+            try:
+                return func(*args, **kw)
+            finally:
+                lock.release()
+
+
+        return new_function
+
+
+    return wrap
+
+
+def user_environment_execution(func):
     """
-    row1 = String(label="spatial_parameters", default="test-spatial")
-    row2 = String(label="temporal_parameters", default="test-temporal")
-
-    number1 = Integer(label="number parameter", default=1)
-    number2 = Float(label="float parameter", default=0.1)
-
-    string_data = StringArray(label="String data")
-
-
-    def return_test_data(self, length=0):
-        return numpy.arange(length)
+    Decorator that makes sure a function is executed in a 'user' environment,
+    removing any TVB specific configurations that alter either LD_LIBRARY_PATH
+    or LD_RUN_PATH.
+    """
     
-    
+    def new_function(*args, **kwargs):
+        # Wrapper function
+        ORIGINAL_LD_LIBRARY_PATH = os.environ.get('LD_LIBRARY_PATH', None)
+        ORIGINAL_LD_RUN_PATH = os.environ.get('LD_RUN_PATH', None)
+        if ORIGINAL_LD_LIBRARY_PATH:
+            del os.environ['LD_LIBRARY_PATH']
+        if ORIGINAL_LD_RUN_PATH:
+            del os.environ['LD_RUN_PATH']
+        func(*args, **kwargs)
+        ## Restore environment settings after function executed.
+        if ORIGINAL_LD_LIBRARY_PATH:
+            os.environ['LD_LIBRARY_PATH'] = ORIGINAL_LD_LIBRARY_PATH
+        if ORIGINAL_LD_RUN_PATH:
+            os.environ['LD_RUN_PATH'] = ORIGINAL_LD_RUN_PATH
+            
+    return new_function
+
