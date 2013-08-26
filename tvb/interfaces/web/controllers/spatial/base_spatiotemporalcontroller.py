@@ -24,7 +24,7 @@
 #   Paula Sanz Leon, Stuart A. Knock, M. Marmaduke Woodman, Lia Domide,
 #   Jochen Mersmann, Anthony R. McIntosh, Viktor Jirsa (2013)
 #       The Virtual Brain: a simulator of primate brain network dynamics.
-#   Frontiers in Neuroinformatics (in press)
+#   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
 
@@ -168,7 +168,7 @@ class SpatioTemporalController(base.BaseController):
         surface = ABCAdapter.load_entity_by_gid(surface_gid)
         base.add2session(PARAM_SURFACE, surface_gid)
         url_vertices_pick, url_normals_pick, url_triangles_pick = surface.get_urls_for_pick_rendering()
-        url_vertices, url_normals, url_triangles, alphas, alphas_indices = surface.get_urls_for_rendering(True, None)
+        url_vertices, url_normals, _, url_triangles, alphas, alphas_indices = surface.get_urls_for_rendering(True, None)
 
         template_specification = dict()
         template_specification['urlVerticesPick'] = json.dumps(url_vertices_pick)

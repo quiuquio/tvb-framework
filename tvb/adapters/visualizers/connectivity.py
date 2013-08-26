@@ -24,7 +24,7 @@
 #   Paula Sanz Leon, Stuart A. Knock, M. Marmaduke Woodman, Lia Domide,
 #   Jochen Mersmann, Anthony R. McIntosh, Viktor Jirsa (2013)
 #       The Virtual Brain: a simulator of primate brain network dynamics.
-#   Frontiers in Neuroinformatics (in press)
+#   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
 
@@ -136,14 +136,14 @@ class ConnectivityViewer(ABCDisplayer):
         return self.build_display_result("connectivity/portlet_preview", parameters, {})
 
 
-    def submit_connectivity(self, original_connectivity, new_weights, interest_area_indexes, **_):
+    def submit_connectivity(self, original_connectivity, new_weights, new_tracts, interest_area_indexes, **_):
         """
         Method to be called when user submits changes on the 
         Connectivity matrix in the Visualizer.
         """
         result = []
         conn = self.load_entity_by_gid(original_connectivity)
-        result_connectivity = conn.generate_new_connectivity(new_weights, interest_area_indexes, self.storage_path)
+        result_connectivity = conn.generate_new_connectivity(new_weights, interest_area_indexes, self.storage_path, new_tracts)
         result.append(result_connectivity)
 
         linked_region_mappings = dao.get_generic_entity(RegionMapping, original_connectivity, '_connectivity')
@@ -170,7 +170,7 @@ class ConnectivityViewer(ABCDisplayer):
         path_tracts = self.paths2url(input_data, 'tract_lengths')
 
         if surface_data:
-            url_vertices, url_normals, url_triangles = surface_data.get_urls_for_rendering()
+            url_vertices, url_normals, _, url_triangles = surface_data.get_urls_for_rendering()
         else:
             url_vertices = []
             url_triangles = []
@@ -199,7 +199,7 @@ class ConnectivityViewer(ABCDisplayer):
                              positions=input_data.centres, weights=input_data.weights,
                              tractsMin=json.dumps(minimum_t), tractsMax=json.dumps(maximum_t),
                              weightsMin=json.dumps(minimum), weightsMax=json.dumps(maximum),
-                             pointsLabels=input_data.region_labels,
+                             pointsLabels=input_data.region_labels, conductionSpeed=input_data.speed or 1,
                              urlVertices=json.dumps(url_vertices), urlTriangles=json.dumps(url_triangles),
                              urlNormals=json.dumps(url_normals), alpha_value=alpha_value,
                              connectivity_nose_correction=json.dumps(input_data.nose_correction),
@@ -230,7 +230,7 @@ class Connectivity3DViewer():
             color_list = colors.array_data.tolist()
             color_list = ABCDisplayer.get_one_dimensional_list(color_list, input_data.number_of_regions,
                                                                "Invalid input size for Sphere Colors")
-            color_list = numpy.nan_to_num(color_list).tolist()
+            color_list = numpy.nan_to_num(numpy.array(color_list, dtype=numpy.float64)).tolist()
         else:
             color_list = [1.0] * input_data.number_of_regions
 
@@ -238,7 +238,7 @@ class Connectivity3DViewer():
             rays_list = rays.array_data.tolist()
             rays_list = ABCDisplayer.get_one_dimensional_list(rays_list, input_data.number_of_regions,
                                                               "Invalid input size for Sphere Sizes")
-            rays_list = numpy.nan_to_num(rays_list).tolist()
+            rays_list = numpy.nan_to_num(numpy.array(rays_list, dtype=numpy.float64)).tolist()
         else:
             rays_list = [1.0] * input_data.number_of_regions
 
@@ -400,7 +400,7 @@ class Connectivity2DViewer():
         """
         if colors is None:
             return [self.DEFAULT_COLOR] * expected_size, None
-        colors = numpy.nan_to_num(colors.array_data).tolist()
+        colors = numpy.nan_to_num(numpy.array(colors.array_data, dtype=numpy.float64)).tolist()
         colors = ABCDisplayer.get_one_dimensional_list(colors, expected_size, "Invalid size for colors array!")
         result = []
         if step is None:
@@ -433,7 +433,7 @@ class Connectivity2DViewer():
             diff = self.MAX_RAY - self.MIN_RAY
         for ray in rays:
             result.append(self.MIN_RAY + self.MAX_RAY * (ray - min_x) / diff)
-        result = numpy.nan_to_num(result).tolist()
+        result = numpy.nan_to_num(numpy.array(result, dtype=numpy.float64)).tolist()
         return result, min(rays), max(rays)
 
 

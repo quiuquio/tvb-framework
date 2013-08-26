@@ -394,11 +394,14 @@ function ColSch_updateLegendColors(containerDiv, height) {
 }
 
 function ColSch_updateLegendLabels(container, minValue, maxValue, height) {
-    var legendLabels = $(container).find("td")
-    if (!legendLabels.length)                                               // create if doesn't exist
-        legendLabels = $("<table>").appendTo(container).height(height)      // add and style the table
-            .append("<tr><tr><tr><tr><tr><tr>")                             // add 6 rows
-            .find("tr").each(function(idx, elem) {                          // set their style
+    var table = $(container).is("table") ? $(container) : $(container).find("table")    // get the table
+    if (!table.length)
+        table = $("<table>").appendTo(container)                            // create one if it doesn't exist
+    table.height(height)                                                    // set its height
+    var legendLabels = $(table).find("td")                                  // search for td
+    if (!legendLabels.length)                                               // if none is found, assume tr also don't exist
+        legendLabels = $(table).append("<tr><tr><tr><tr><tr><tr>")          // so add 6 rows
+            .find("tr").each(function(idx, elem) {                          // get them and set their style
                 if (idx == 0)   elem.style.height = "20px"                  // the first one should stay at the top
                 else {
                     elem.style.height = "20%"                               // the other 5 are equally spread

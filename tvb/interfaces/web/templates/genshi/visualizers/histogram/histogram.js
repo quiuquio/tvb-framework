@@ -68,9 +68,8 @@ function _drawHistogramLegend() {
     ColSch_updateLegendColors(legendDiv[0], legendDiv.height() - 20)                    // -20 because of style
 
     // draw the labels
-    var legendValues = []
     var minValue = parseFloat($('#colorMinId').val()), maxValue = parseFloat($('#colorMaxId').val())
-    ColSch_updateLegendLabels($(legendDiv).children()[1], minValue, maxValue, legendDiv.height() - 20)
+    ColSch_updateLegendLabels($(legendDiv), minValue, maxValue, legendDiv.height() - 20)
 }
 
 function computeColors(colorsArray) {

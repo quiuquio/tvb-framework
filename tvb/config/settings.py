@@ -24,7 +24,7 @@
 #   Paula Sanz Leon, Stuart A. Knock, M. Marmaduke Woodman, Lia Domide,
 #   Jochen Mersmann, Anthony R. McIntosh, Viktor Jirsa (2013)
 #       The Virtual Brain: a simulator of primate brain network dynamics.
-#   Frontiers in Neuroinformatics (in press)
+#   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
 
@@ -124,7 +124,7 @@ class BaseProfile():
     # When launched on cluster, the MAX_DB_ASYNC_CONNECTIONS overwrites MAX_DB_CONNECTIONS value 
     MAX_DB_CONNECTIONS = 20
     MAX_DB_ASYNC_CONNECTIONS = 2
-    BASE_VERSION = "1.0.6"
+    BASE_VERSION = "1.0.7"
     # Nested transactions are not supported by all databases and not really necessary in TVB so far so
     # we don't support them yet. However when running tests we can use them to out advantage to rollback 
     # any database changes between tests.

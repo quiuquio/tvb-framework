@@ -39,6 +39,8 @@ function initShaders() {
     shaderProgram.alphaUniform = gl.getUniformLocation(shaderProgram, "uAlpha");
     shaderProgram.isPicking = gl.getUniformLocation(shaderProgram, "isPicking");
     shaderProgram.pickingColor = gl.getUniformLocation(shaderProgram, "pickingColor");
+    shaderProgram.colorUniform = gl.getUniformLocation(shaderProgram, "uColor");
+    shaderProgram.drawNodes = gl.getUniformLocation(shaderProgram, "drawNodes");
 
     shaderProgram.colorIndex = gl.getUniformLocation(shaderProgram, "uColorIndex");
     shaderProgram.colorsArray = [];
@@ -79,6 +81,7 @@ var NO_POSITIONS;
 // each element of this array will contains: 1) the buffer with vertices needed for drawing the square;
 // 2) the buffer with normals for each vertex of the square; 3) an array index buffer needed for drawing the square.
 var positionsBuffers = [];
+var positionsBuffers_3D = [];
 // this list contains an array index buffer for each point from the connectivity matrix. The indices tell us between
 // which points we should draw lines. All the lines that exit from a certain node.
 var CONN_comingOutLinesIndices = [];
@@ -101,6 +104,7 @@ var colorsArrayBuffer;
 // this array contains a color index for each point from the connectivity matrix. The color corresponding to that index
 // will be used for drawing the lines for that point
 var colorsIndexes =[];
+var conductionSpeed = 1;
 
 var alphaValue = 0;
 
@@ -109,8 +113,23 @@ var near = 0.1;
 var aspect = 1;
 var doPick = false;
 
+var showMetricDetails = false;
+
 //when this var reaches to zero => all data needed for displaying the surface are loaded
 var noOfBuffersToLoad = 3;
+
+var colorsWeights = null;
+var raysWeights = null;
+var CONN_lineWidthsBins = [];
+
+var maxLineWidth = 5.0;
+var minLineWidth = 1.0;
+var lineWidthNrOfBins = 10;
+
+function toogleShowMetrics() {
+	showMetricDetails = !showMetricDetails;
+	drawScene();
+}
 
 function customKeyDown(event) {
 	GL_handleKeyDown(event);
@@ -183,16 +202,29 @@ function initBuffers() {
 function displayPoints() {
     for (var i = 0; i < NO_POSITIONS; i++) {
     	// Next line was ADDED FOR PICK
+    	if (showMetricDetails) {
+    		var currentBuffers = positionsBuffers_3D[i];
+    		gl.uniform1i(shaderProgram.drawNodes, true);
+    	} else {
+    		var currentBuffers = positionsBuffers[i];
+    	}
         mvPickMatrix = GL_mvMatrix.dup();
         mvPushMatrix();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionsBuffers[i][0]);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, TRI, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionsBuffers[i][1]);
-        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, TRI, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, defaultColorIndexesBuffer);
-        gl.vertexAttribPointer(shaderProgram.colorAttribute, defaultColorIndexesBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, currentBuffers[0]);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, currentBuffers[0].itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, currentBuffers[1]);
+        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, currentBuffers[1].itemSize, gl.FLOAT, false, 0, 0);
+        
+        if (colorsWeights) {
+        	// We have some color weights defined (eg. connectivity viewer)
+        	var color = getGradientColor(colorsWeights[i], parseFloat($('#colorMinId').val()), parseFloat($('#colorMaxId').val()));
+        	gl.uniform3f(shaderProgram.colorUniform, color[0], color[1], color[2]);
+        }
+        
+        gl.bindBuffer(gl.ARRAY_BUFFER, currentBuffers[0]);
+        gl.vertexAttribPointer(shaderProgram.colorAttribute, currentBuffers[0].itemSize, gl.FLOAT, false, 0, 0);
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, positionsBuffers[i][2]);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, currentBuffers[2]);
        GFUNC_updateContextMenu(CONN_pickedIndex, GVAR_pointsLabels[CONN_pickedIndex],
            CONN_pickedIndex >= 0 && isAnyPointChecked(CONN_pickedIndex, CONN_comingInLinesIndices[CONN_pickedIndex], 0),
            CONN_pickedIndex >= 0 && isAnyPointChecked(CONN_pickedIndex, CONN_comingOutLinesIndices[CONN_pickedIndex], 1));
@@ -210,12 +242,14 @@ function displayPoints() {
         } else if (!hasPositiveWeights(i)) {
             gl.uniform1i(shaderProgram.colorIndex, BLACK_COLOR_INDEX);
         } else {
-        	gl.uniform1i(shaderProgram.colorIndex, NO_COLOR_INDEX);
+        	gl.uniform1i(shaderProgram.colorIndex, WHITE_COLOR_INDEX);
         }
         // End ADDED FOR PICK
         setMatrixUniforms();
-        gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+        // gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(gl.TRIANGLES, currentBuffers[2].numItems, gl.UNSIGNED_SHORT, 0);
         mvPopMatrix();
+        gl.uniform1i(shaderProgram.drawNodes, false);
     }
     // Next line was ADDED FOR PICK
     doPick = false;
@@ -339,13 +373,13 @@ function drawScene() {
 		    											 GL_colorPickerInitColors[i][1], 
 		    											 GL_colorPickerInitColors[i][2]);
 	            gl.bindBuffer(gl.ARRAY_BUFFER, positionsBuffers[i][0]);
-		        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, TRI, gl.FLOAT, false, 0, 0);
+		        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, positionsBuffers[i][0].itemSize, gl.FLOAT, false, 0, 0);
 				gl.bindBuffer(gl.ARRAY_BUFFER, positionsBuffers[i][1]);
-		        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, TRI, gl.FLOAT, false, 0, 0);
+		        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, positionsBuffers[i][1].itemSize, gl.FLOAT, false, 0, 0);
 		        
 		        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, positionsBuffers[i][2]);
 		        setMatrixUniforms();
-        		gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+        		gl.drawElements(gl.TRIANGLES, positionsBuffers[i][2].numItems, gl.UNSIGNED_SHORT, 0);
 	         }    
 	        var newPicked = GL_getPickedIndex();
 			if (newPicked!= undefined) {
@@ -362,27 +396,88 @@ function drawScene() {
  * Given a list of indexes will create the buffer of elements needed to draw
  * line between the points that correspond to those indexes.
  */
-function createLinesBuffer(listOfIndexes) {
-	linesBuffer = getElementArrayBuffer(listOfIndexes);
+function createLinesBuffer(dictOfIndexes) {
+	linesBuffer = [];
+	if (dictOfIndexes) {
+		for (var width in dictOfIndexes) {
+			var buffer = getElementArrayBuffer(dictOfIndexes[width]);
+			buffer.lineWidth = width;
+			linesBuffer.push(buffer);
+		}
+	}
+}
+
+
+function computeRay(rayWeight, minWeight, maxWeight) {
+    var minRay = 1;
+    var maxRay = 4;
+	if (minWeight != maxWeight) {
+		return minRay + [(rayWeight - minWeight) / (maxWeight - minWeight)] * (maxRay - minRay);
+	}	
+    else{
+  		return minRay + (maxRay - minRay) / 2;  	
+    }
+}
+
+
+/*
+ * Get the aproximated line width value using a histogram like behaviour.
+ */
+function CONN_getLineWidthValue(weightsValue) {
+	var minWeights = GVAR_interestAreaVariables[1].min_val;
+	var maxWeights = GVAR_interestAreaVariables[1].max_val;
+	if (maxWeights == minWeights) maxWeights = minWeights + 1;
+	var lineDiff = maxLineWidth - minLineWidth;
+	var scaling = (weightsValue - minWeights) / (maxWeights - minWeights);
+	var lineWidth = scaling * lineDiff;
+	var binInterval = lineDiff / lineWidthNrOfBins;
+	return (parseInt(lineWidth / binInterval) * binInterval + minLineWidth).toFixed(6);
+}
+
+
+/*
+ * Initialize the line widths histogram which can later on be used to plot lines
+ * with different widths.
+ */
+function CONN_initLinesHistorgram() {
+	CONN_lineWidthsBins = [];
+	var weights = GVAR_interestAreaVariables[1].values;
+	for (var i = 0; i < weights.length; i++) {
+		var row = [];
+		for (var j = 0; j < weights.length; j++) {
+			row.push(CONN_getLineWidthValue(weights[i][j]));
+		}
+		CONN_lineWidthsBins.push(row);
+	}
 }
 
 
 /**
- * Used for finding the indexes of the points that are connected by an edge. The returned list is used for creating
- * an element array buffer.
+ * Used for finding the indexes of the points that are connected by an edge. Will return a dictionary of the
+ * form { line_width: [array of indices] } from which we can draw the lines using the array of indices with
+ * using a given width.
  */
 function getLinesIndexes() {
-    var list = [];
+	var lines = {};
+	var binInterval = (maxLineWidth - minLineWidth) / lineWidthNrOfBins;
+	for (var bin = minLineWidth; bin <= maxLineWidth + 0.000001; bin += binInterval) {
+		lines[bin.toFixed(6)] = [];
+	}
     for (var i = 0; i < GVAR_connectivityMatrix.length; i++) {
         for (var j = 0; j < GVAR_connectivityMatrix[i].length; j++) {
             if (GVAR_connectivityMatrix[i][j] == 1) {
-                list.push(i);
-                list.push(j);
+            	try {
+            		var bin = CONN_lineWidthsBins[i][j];
+	            	lines[bin].push(i);
+	            	lines[bin].push(j);
+            	} catch(err) {
+            		console.log(err);
+            	}
+            	
             }
         }
     }
-
-    return list;
+    return lines;
 }
 
 
@@ -400,8 +495,8 @@ function highlightPoint() {
 }
 
 
-function _drawLines(linesVertexIndicesBuffer) {
-    gl.uniform1i(shaderProgram.colorIndex, NO_COLOR_INDEX);
+function _drawLines(linesBuffers) {
+	gl.uniform1i(shaderProgram.colorIndex, NO_COLOR_INDEX);
     gl.bindBuffer(gl.ARRAY_BUFFER, positionsPointsBuffer);
     gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, positionsPointsBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
@@ -410,10 +505,15 @@ function _drawLines(linesVertexIndicesBuffer) {
 
     gl.bindBuffer(gl.ARRAY_BUFFER, colorsArrayBuffer);
     gl.vertexAttribPointer(shaderProgram.colorAttribute, colorsArrayBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, linesVertexIndicesBuffer);
     setMatrixUniforms();
-    gl.drawElements(gl.LINES, linesVertexIndicesBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    
+	for (var i = 0; i < linesBuffers.length; i++) {
+		var linesVertexIndicesBuffer = linesBuffers[i];
+		gl.lineWidth(parseFloat(linesVertexIndicesBuffer.lineWidth));
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, linesVertexIndicesBuffer);
+    	gl.drawElements(gl.LINES, linesVertexIndicesBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+	}
+    gl.lineWidth(1.0);
 }
 
 /**
@@ -746,15 +846,21 @@ function connectivity_initCanvas() {
  * only once.
  */
 function saveRequiredInputs_con(fileWeights, fileTracts, filePositions, urlVerticesList, urlTrianglesList,
-								urlNormalsList, conn_nose_correction, alpha_value) {
+								urlNormalsList, conn_nose_correction, alpha_value, condSpeed, rays, colors) {
 	GVAR_initPointsAndLabels(filePositions);
     alphaValue = alpha_value;
     connectivity_nose_correction = $.parseJSON(conn_nose_correction);
     NO_POSITIONS = GVAR_positionsPoints.length;
-    GFUNC_initTractsAndWeights(fileWeights, fileTracts)
+    GFUNC_initTractsAndWeights(fileWeights, fileTracts);
+    if (rays) raysWeights = $.parseJSON(rays);
+    if (colors) colorsWeights = $.parseJSON(colors);
 
+	conductionSpeed = parseFloat(condSpeed);
     // Initialize the buffers for drawing the points
     for (i = 0; i < NO_POSITIONS; i++) {
+    	if (raysWeights) ray_value = computeRay(raysWeights[i], parseFloat($('#rayMinId').val()), parseFloat($('#rayMaxId').val()));
+        else ray_value = 3;
+        positionsBuffers_3D[i] = HLPR_sphereBufferAtPoint(gl, GVAR_positionsPoints[i], ray_value);
         positionsBuffers[i] = HLPR_bufferAtPoint(gl, GVAR_positionsPoints[i]);
     }
     initBuffers();
@@ -771,6 +877,7 @@ function saveRequiredInputs_con(fileWeights, fileTracts, filePositions, urlVerti
     GFUNC_initConnectivityMatrix(NO_POSITIONS);
     // Initialize the indices buffers for drawing the lines between the drawn points
     initLinesIndices();
+    CONN_initLinesHistorgram();
 }
 
 /**
@@ -780,12 +887,13 @@ function saveRequiredInputs_con(fileWeights, fileTracts, filePositions, urlVerti
  * be drawn alone, without widths and tracts.
  */
 function prepareConnectivity(fileWeights, fileTracts, filePositions, urlVerticesList , urlTrianglesList,
-                    urlNormalsList, conn_nose_correction, alpha_value, isSingleMode) {
+                    urlNormalsList, conn_nose_correction, alpha_value, isSingleMode, conductionSpeed, rays, colors) {
 	connectivity_initCanvas();
 	saveRequiredInputs_con(fileWeights, fileTracts, filePositions, urlVerticesList , urlTrianglesList,
-                    	   urlNormalsList, conn_nose_correction, alpha_value);
+                    	   urlNormalsList, conn_nose_correction, alpha_value, conductionSpeed, rays, colors);
     if (!isSingleMode) {
         GFUNC_addAllMatrixToInterestArea();
     }
+    connectivity_startGL(isSingleMode);
 }
 

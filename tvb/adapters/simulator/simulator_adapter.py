@@ -24,7 +24,7 @@
 #   Paula Sanz Leon, Stuart A. Knock, M. Marmaduke Woodman, Lia Domide,
 #   Jochen Mersmann, Anthony R. McIntosh, Viktor Jirsa (2013)
 #       The Virtual Brain: a simulator of primate brain network dynamics.
-#   Frontiers in Neuroinformatics (in press)
+#   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
 
@@ -49,6 +49,7 @@ from tvb.simulator.noise import Noise
 from tvb.core.adapters.abcadapter import ABCAsynchronous
 from tvb.core.adapters.exceptions import LaunchException
 from tvb.basic.traits.parameters_factory import get_traited_subclasses
+from tvb.datatypes.equations import HRFKernelEquation
 from tvb.datatypes.surfaces import Cortex
 from tvb.datatypes.simulation_state import SimulationState
 from tvb.datatypes import noise_framework
@@ -86,7 +87,8 @@ class SimulatorAdapter(ABCAsynchronous):
 
     RESULTS_MAP = {time_series.TimeSeriesEEG: ["SphericalEEG", "EEG"],
                    time_series.TimeSeriesMEG: ["SphericalMEG"],  # Add here also "MEG" monitor reference
-                   time_series.TimeSeries: ["GlobalAverage", "SpatialAverage"]}
+                   time_series.TimeSeries: ["GlobalAverage", "SpatialAverage"],
+                   time_series.TimeSeriesSEEG: ["SEEG"]}
 
                    # time_series.TimeSeriesVolume: ["Bold"],
                    #SK:   For a number of reasons, it's probably best to avoid returning TimeSeriesVolume ,
@@ -149,8 +151,9 @@ class SimulatorAdapter(ABCAsynchronous):
         monitors_list = []
         for monitor_name in monitors:
             if (monitors_parameters is not None) and (str(monitor_name) in monitors_parameters):
-                monitors_list.append(self.available_monitors[str(monitor_name)
-                                                             ](**monitors_parameters[str(monitor_name)]))
+                current_monitor_parameters = monitors_parameters[str(monitor_name)]
+                HRFKernelEquation.build_equation_from_dict('hrf_kernel', current_monitor_parameters, True)
+                monitors_list.append(self.available_monitors[str(monitor_name)](**current_monitor_parameters))
             else:
                 ### We have monitors without any UI settable parameter.
                 monitors_list.append(self.available_monitors[str(monitor_name)]())
@@ -257,6 +260,13 @@ class SimulatorAdapter(ABCAsynchronous):
                                                                      sensors=self.algorithm.monitors[m_ind].sensors,
                                                                      sample_period=sample_period,
                                                                      title=' ' + m_name, start_time=start_time)
+                
+            elif (m_name in self.RESULTS_MAP[time_series.TimeSeriesSEEG]
+                  and hasattr(self.algorithm.monitors[m_ind], 'sensors')):
+                result_datatypes[m_name] = time_series.TimeSeriesSEEG(storage_path=self.storage_path,
+                                                                      sensors=self.algorithm.monitors[m_ind].sensors,
+                                                                      sample_period=sample_period,
+                                                                      title=' ' + m_name, start_time=start_time)
 
             elif m_name in self.RESULTS_MAP[time_series.TimeSeries]:
                 result_datatypes[m_name] = time_series.TimeSeries(storage_path=self.storage_path,

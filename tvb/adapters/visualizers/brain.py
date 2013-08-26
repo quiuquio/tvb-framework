@@ -24,7 +24,7 @@
 #   Paula Sanz Leon, Stuart A. Knock, M. Marmaduke Woodman, Lia Domide,
 #   Jochen Mersmann, Anthony R. McIntosh, Viktor Jirsa (2013)
 #       The Virtual Brain: a simulator of primate brain network dynamics.
-#   Frontiers in Neuroinformatics (in press)
+#   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
 
@@ -41,7 +41,7 @@ from tvb.basic.filters.chain import FilterChain
 from tvb.core.entities.storage import dao
 from tvb.core.adapters.abcdisplayer import ABCDisplayer
 from tvb.datatypes.surfaces import RegionMapping, EEGCap, FaceSurface
-from tvb.datatypes.time_series import TimeSeries, TimeSeriesSurface, TimeSeriesEEG
+from tvb.datatypes.time_series import TimeSeries, TimeSeriesSurface, TimeSeriesEEG, TimeSeriesMEG, TimeSeriesSEEG
 
 
 MAX_MEASURE_POINTS_LENGTH = 235
@@ -118,13 +118,26 @@ class BrainViewer(ABCDisplayer):
         if surface is None:
             raise Exception("No not-none Mapping Surface found for display!")
 
-        url_vertices, url_normals, url_triangles, alphas, alphas_indices = surface.get_urls_for_rendering(True,
+        url_vertices, url_normals, url_lines, url_triangles, alphas, alphas_indices = surface.get_urls_for_rendering(True,
                                                                                                           region_map)
-        return one_to_one_map, url_vertices, url_normals, url_triangles, alphas, alphas_indices
+        return one_to_one_map, url_vertices, url_normals, url_lines, url_triangles, alphas, alphas_indices
+    
+    
+    def _get_url_for_region_boundaries(self, time_series, region_mapping=None):
+        one_to_one_map = isinstance(time_series, TimeSeriesSurface)
+        if not one_to_one_map and hasattr(time_series, 'connectivity'):
+            region_map = dao.get_generic_entity(RegionMapping, time_series.connectivity.gid, '_connectivity')
+            if len(region_map) < 1:
+                raise Exception("No Mapping Surface found for display!")
+            region_map = region_map[0]
+            surface = region_map.surface
+            return surface.get_url_for_region_boundaries(region_map)
+        else:
+            return ''
 
 
     def compute_preview_parameters(self, time_series):
-        one_to_one_map, url_vertices, url_normals, url_triangles, \
+        one_to_one_map, url_vertices, url_normals, url_lines, url_triangles, \
             alphas, alphas_indices = self._prepare_surface_urls(time_series)
         _, _, measure_points_no = self._retrieve_measure_points(time_series)
         time_0_data = time_series.read_data_page(0, 1, None)
@@ -133,6 +146,7 @@ class BrainViewer(ABCDisplayer):
         legend_labels = self._compute_legend_labels(min_val, max_val)
         return dict(isOneToOneMapping=one_to_one_map, urlVertices=json.dumps(url_vertices),
                     urlTriangles=json.dumps(url_triangles),
+                    urlLines=json.dumps(url_lines),
                     urlNormals=json.dumps(url_normals), alphas=json.dumps(alphas),
                     alphas_indices=json.dumps(alphas_indices),
                     base_activity_url=ABCDisplayer.VISUALIZERS_URL_PREFIX + time_series.gid, minActivity=min_val,
@@ -150,7 +164,7 @@ class BrainViewer(ABCDisplayer):
                     * a Face object cannot be found in database
 
         """
-        one_to_one_map, url_vertices, url_normals, url_triangles, \
+        one_to_one_map, url_vertices, url_normals, url_lines, url_triangles, \
             alphas, alphas_indices = self._prepare_surface_urls(time_series)
 
         measure_points, measure_points_labels, measure_points_no = self._retrieve_measure_points(time_series)
@@ -164,21 +178,24 @@ class BrainViewer(ABCDisplayer):
         face_surface = dao.get_generic_entity(FaceSurface, "FaceSurface", "type")
         if len(face_surface) == 0:
             raise Exception("No face object found in database.")
-        face_vertices, face_normals, face_triangles = face_surface[0].get_urls_for_rendering()
+        face_vertices, face_normals, _, face_triangles = face_surface[0].get_urls_for_rendering()
         face_object = json.dumps([face_vertices, face_normals, face_triangles])
 
         data_shape = time_series.read_data_shape()
         state_variables = time_series.labels_dimensions.get(time_series.labels_ordering[1], [])
 
+        boundary_url = self._get_url_for_region_boundaries(time_series)
+
         return dict(title="Cerebral Activity", isOneToOneMapping=one_to_one_map,
-                    urlVertices=json.dumps(url_vertices), urlTriangles=json.dumps(url_triangles),
-                    urlNormals=json.dumps(url_normals), urlMeasurePointsLabels=measure_points_labels,
-                    measure_points=measure_points, noOfMeasurePoints=measure_points_no,
-                    alphas=json.dumps(alphas), alphas_indices=json.dumps(alphas_indices),
-                    base_activity_url=base_activity_url, time=json.dumps(time_urls),
-                    minActivity=min_val, maxActivity=max_val, minActivityLabels=legend_labels,
-                    labelsStateVar=state_variables, labelsModes=range(data_shape[3]), extended_view=False,
-                    shelfObject=face_object, time_series=time_series, pageSize=self.PAGE_SIZE, nrOfPages=nr_of_pages)
+                    urlVertices=json.dumps(url_vertices), urlTriangles=json.dumps(url_triangles), 
+                    urlLines=json.dumps(url_lines), urlNormals=json.dumps(url_normals), 
+                    urlMeasurePointsLabels=measure_points_labels, measure_points=measure_points, 
+                    noOfMeasurePoints=measure_points_no, alphas=json.dumps(alphas), 
+                    alphas_indices=json.dumps(alphas_indices),base_activity_url=base_activity_url, 
+                    time=json.dumps(time_urls), minActivity=min_val, maxActivity=max_val, 
+                    minActivityLabels=legend_labels, labelsStateVar=state_variables, labelsModes=range(data_shape[3]), 
+                    extended_view=False, shelfObject=face_object, time_series=time_series, pageSize=self.PAGE_SIZE, 
+                    nrOfPages=nr_of_pages, boundary_url=boundary_url)
 
 
     @staticmethod
@@ -256,23 +273,27 @@ class BrainViewer(ABCDisplayer):
         return activity_base_url, time_urls, total_pages
 
 
-
 class BrainEEG(BrainViewer):
     """
     Visualizer merging Brain 3D display and EEG lines display.
     """
-    _ui_name = "Brain Activity with EEG lines"
-
+    _ui_name = "Brain Activity with Measure Points"
 
     def get_input_tree(self):
-        return [{'name': 'surface_activity', 'label': 'EEG activity',
-                 'type': TimeSeriesEEG, 'required': True,
-                 'description': 'Results after EEG Monitor are expected!'},
+        
+        return [{'name': 'surface_activity', 'label': 'Time Series (EEG or MEG)',
+                 'type': TimeSeries, 'required': True,
+                 'conditions': FilterChain(fields=[FilterChain.datatype + '.type'],
+                                           operations=["in"],
+                                           values=[['TimeSeriesEEG', 'TimeSeriesMEG']]),
+                 'description': 'Depending on the simulation length and your browser capabilities, you might experience'
+                                ' after multiple runs, browser crashes. In such cases, it is recommended to empty the'
+                                ' browser cache and try again. Sorry for the inconvenience.'},
                 {'name': 'eeg_cap', 'label': 'EEG Cap',
                  'type': EEGCap, 'required': False,
                  'description': 'The EEG Cap surface on which to display the results!'}]
-
-
+        
+        
     def _retrieve_measure_points(self, surface_activity):
         """
         Overwrite, and compute sensors positions after mapping or skin surface of unit-vectors
@@ -308,6 +329,7 @@ class BrainEEG(BrainViewer):
         params.update(EegMonitor().compute_parameters(surface_activity))
         params['extended_view'] = True
         params['isOneToOneMapping'] = False
+        params['brainViewerTemplate'] = 'view.html'
         return self.build_display_result("brain/extendedview", params,
                                          pages=dict(controlPage="brain/extendedcontrols",
                                                     channelsPage="commons/channel_selector.html"))
@@ -323,11 +345,43 @@ class BrainEEG(BrainViewer):
             if len(eeg_cap) < 1:
                 raise Exception("No EEG Cap Surface found for display!")
             self.eeg_cap = eeg_cap[0]
-        url_vertices, url_normals, url_triangles = self.eeg_cap.get_urls_for_rendering()
+        url_vertices, url_normals, url_lines, url_triangles = self.eeg_cap.get_urls_for_rendering()
         alphas = []
         alphas_indices = []
 
-        return one_to_one_map, url_vertices, url_normals, url_triangles, alphas, alphas_indices
+        return one_to_one_map, url_vertices, url_normals, url_lines, url_triangles, alphas, alphas_indices
 
-            
+
+class BrainSEEG(BrainEEG):
+    """
+    Visualizer merging Brain 3D display and MEG lines display.
+    """
+    _ui_name = "Brain Activity SEEG Viewer"
+
+
+    def get_input_tree(self):
+        return [{'name': 'surface_activity', 'label': 'SEEG activity',
+                 'type': TimeSeriesSEEG, 'required': True,
+                 'description': 'Results after SEEG Monitor are expected!'}]
+        
+    
+    def _retrieve_measure_points(self, surface_activity):
+        """
+        Overwrite, and compute sensors positions after mapping or skin surface of unit-vectors
+
+        :returns: measure points, measure points labels, measure points number
+        :rtype: tuple
+        """
+        measure_points = self.paths2url(surface_activity.sensors, 'locations')
+        measure_points_no = surface_activity.sensors.number_of_sensors
+        measure_points_labels = self.paths2url(surface_activity.sensors, 'labels')
+        return measure_points, measure_points_labels, measure_points_no
+    
+    
+    def launch(self, surface_activity, eeg_cap=None):
+        result_params = BrainEEG.launch(self, surface_activity)
+        result_params['brainViewerTemplate'] = "seeg_view.html"
+        result_params['urlVertices'] = None # Mark as None since we only display shelf face and no point to load these aswell
+        result_params['isSEEG'] = True
+        return result_params
         

@@ -24,7 +24,7 @@
 #   Paula Sanz Leon, Stuart A. Knock, M. Marmaduke Woodman, Lia Domide,
 #   Jochen Mersmann, Anthony R. McIntosh, Viktor Jirsa (2013)
 #       The Virtual Brain: a simulator of primate brain network dynamics.
-#   Frontiers in Neuroinformatics (in press)
+#   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
 
@@ -35,9 +35,9 @@
 from tvb.basic.config.settings import TVBSettings
 from tvb.core.adapters.abcadapter import ABCAsynchronous
 from tvb.datatypes.surfaces import LocalConnectivity
+from tvb.datatypes.equations import Equation
 import tvb.basic.traits.traited_interface as interface
-import tvb.basic.traits.parameters_factory as parameters_factory
-import tvb.datatypes.equations_data as equations_data
+
 
 
 class LocalConnectivityCreator(ABCAsynchronous):
@@ -80,8 +80,7 @@ class LocalConnectivityCreator(ABCAsynchronous):
         """
         Get the equation for the local connectivity from a dictionary of arguments.
         """
-        return parameters_factory.get_traited_instance_for_name(kwargs['equation'], equations_data.EquationData,
-                                            {'parameters': kwargs['equation_parameters'].get('parameters', {})})
+        return Equation.build_equation_from_dict('equation', kwargs)
 
 
     def get_required_disk_size(self, **kwargs):
