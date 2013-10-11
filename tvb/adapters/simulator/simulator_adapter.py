@@ -116,7 +116,8 @@ class SimulatorAdapter(ABCAsynchronous):
         sim.trait.bound = self.INTERFACE_ATTRIBUTES_ONLY
         result = sim.interface[self.INTERFACE_ATTRIBUTES]
         # We should add as hidden the Simulator State attribute.
-        result.append({'name': 'simulation_state', 'type': SimulationState, 'required': False, 'ui_hidden': True})
+        result.append({self.KEY_NAME: 'simulation_state', self.KEY_TYPE: SimulationState,
+                       self.KEY_LABEL: "Continuation of", self.KEY_REQUIRED: False, self.KEY_UI_HIDE: True})
         return result
 
 
@@ -330,15 +331,16 @@ class SimulatorAdapter(ABCAsynchronous):
         for param in ui_configurable_params:
             param_value = eval('model_instance.' + param)
             if isinstance(param_value, numpy.ndarray):
-                if len(param_value) == 1:
+                if len(param_value) == 1 or connectivity is None:
                     continue
-                if ((surface is not None and len(param_value) != surface.number_of_vertices)
-                        and (connectivity is not None and len(param_value) != connectivity.number_of_regions)):
-                    msg = str(surface.number_of_vertices) + ' or ' + str(connectivity.number_of_regions)
-                    msg = self._get_exception_message(param, msg, len(param_value))
-                    self.log.error(msg)
-                    raise LaunchException(msg)
-                elif connectivity is not None and len(param_value) != connectivity.number_of_regions:
+                if surface is not None:
+                    if (len(param_value) != surface.number_of_vertices
+                            and len(param_value) != connectivity.number_of_regions):
+                        msg = str(surface.number_of_vertices) + ' or ' + str(connectivity.number_of_regions)
+                        msg = self._get_exception_message(param, msg, len(param_value))
+                        self.log.error(msg)
+                        raise LaunchException(msg)
+                elif len(param_value) != connectivity.number_of_regions:
                     msg = self._get_exception_message(param, connectivity.number_of_regions, len(param_value))
                     self.log.error(msg)
                     raise LaunchException(msg)

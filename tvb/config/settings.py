@@ -117,14 +117,14 @@ class BaseProfile():
 
 
     # II. Attributes with value not changeable from settings page:
-    DB_CURRENT_VERSION = 5
+    DB_CURRENT_VERSION = 6
     # Overwrite number of connections to the DB. 
     # Otherwise might reach PostgreSQL limit when launching multiple concurrent operations.
     # MAX_DB_CONNECTION default value will be used for WEB  
     # When launched on cluster, the MAX_DB_ASYNC_CONNECTIONS overwrites MAX_DB_CONNECTIONS value 
     MAX_DB_CONNECTIONS = 20
     MAX_DB_ASYNC_CONNECTIONS = 2
-    BASE_VERSION = "1.0.7"
+    BASE_VERSION = "1.0.8"
     # Nested transactions are not supported by all databases and not really necessary in TVB so far so
     # we don't support them yet. However when running tests we can use them to out advantage to rollback 
     # any database changes between tests.
@@ -177,10 +177,7 @@ class BaseProfile():
     @staticmethod
     def CURRENT_VERSION():
         """ Concatenate BASE_VERSION with svn revision number"""
-        if FrameworkSettings.SVN_VERSION == -1:
-            return FrameworkSettings.BASE_VERSION
-        else:
-            return FrameworkSettings.BASE_VERSION + '-' + str(FrameworkSettings.SVN_VERSION)
+        return FrameworkSettings.BASE_VERSION + '-' + str(FrameworkSettings.SVN_VERSION)
 
 
     @ClassProperty
@@ -716,8 +713,8 @@ class BaseProfile():
         if self.is_windows():
             return os.path.join(os.path.dirname(FrameworkSettings.BIN_FOLDER), 'exe', self.get_python_exe_name())
         if self.is_mac():
-            root_folder = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(FrameworkSettings.BIN_FOLDER))))
-            return os.path.join(root_folder, 'MacOS', self.get_python_exe_name())
+            root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(FrameworkSettings.BIN_FOLDER))))
+            return os.path.join(root_dir, 'MacOS', self.get_python_exe_name())
         if self.is_linux():
             return os.path.join(os.path.dirname(FrameworkSettings.BIN_FOLDER), 'exe', self.get_python_exe_name())
         raise Exception("Invalid BUILD type found!!!")
@@ -832,7 +829,7 @@ class DeploymentProfile(BaseProfile):
         cfg = FrameworkSettings()
         data_path = cfg.get_library_folder()
         if cfg.is_windows():
-            # Add root folder as first in PYTHONPATH so we can find tvb there if we checked out from GIT for contributors
+            # Add root folder as first in PYTHONPATH so we can find TVB there in case of GIT contributors
             new_python_path = cfg.TVB_PATH + os.pathsep
             new_python_path += data_path + os.pathsep + os.path.join(data_path, 'lib-tk')
             os.environ['PYTHONPATH'] = new_python_path
@@ -847,7 +844,7 @@ class DeploymentProfile(BaseProfile):
             tcl_root = os.path.split(os.path.split(os.path.split(data_path)[0])[0])[0]
             setup_tk_tcl_environ(tcl_root)
 
-            #Add root folder as first in PYTHONPATH so we can find tvb there if we checked out from GIT for contributors
+            #Add root folder as first in PYTHONPATH so we can find TVB there in case of GIT contributors
             new_python_path = data_path + os.pathsep + os.path.join(data_path, 'site-packages.zip')
             new_python_path += os.pathsep + os.path.join(data_path, 'lib-dynload')
             new_python_path = cfg.TVB_PATH + os.pathsep + new_python_path
@@ -856,7 +853,7 @@ class DeploymentProfile(BaseProfile):
         if cfg.is_linux():
             # Note that for the Linux package some environment variables like LD_LIBRARY_PATH,
             # LD_RUN_PATH, PYTHONPATH and PYTHONHOME are set also in the startup scripts.
-            # Add root folder as first in PYTHONPATH so we can find tvb there if we checked out from GIT for contributors
+            # Add root folder as first in PYTHONPATH so we can find TVB there in case of GIT contributors
             new_python_path = cfg.TVB_PATH + os.pathsep + data_path
             new_python_path += os.pathsep + os.path.join(data_path, 'lib-tk')
             os.environ['PYTHONPATH'] = new_python_path

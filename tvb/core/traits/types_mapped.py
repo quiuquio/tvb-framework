@@ -44,23 +44,22 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 import tvb.basic.traits.types_mapped_light as mapped
 from tvb.basic.traits.util import get
 from tvb.basic.traits.core import FILE_STORAGE_NONE, KWARG_STORAGE_PATH, FILE_STORAGE_DEFAULT
-from tvb.basic.traits.exceptions import ValidationException, MissingEntityException
-from tvb.basic.traits.exceptions import StorageException
+from tvb.basic.traits.exceptions import ValidationException, MissingEntityException, StorageException
 from tvb.basic.logger.builder import get_logger
 from tvb.basic.config.settings import TVBSettings
 from tvb.core.traits.core import compute_table_name
 from tvb.core.entities import model
 from tvb.core.entities.storage import dao
-from tvb.core.entities.file.fileshelper import FilesHelper
-from tvb.core.entities.file.hdf5storage import HDF5StorageManager
+from tvb.core.entities.file.files_helper import FilesHelper
+from tvb.core.entities.file.hdf5_storage_manager import HDF5StorageManager
 from tvb.core.entities.file.exceptions import MissingDataSetException
 
 
 class MappedType(model.DataType, mapped.MappedTypeLight):
     """
-    Mix-in class combining core Traited mechanics with the db'ed DataType
-    class enabling SQLAlchemy.
+    Mix-in class combining core Traited mechanics with the db'ed DataType class enabling SQLAlchemy.
     """
+
     #### Transient fields below
     storage_path = None
     framework_metadata = None
@@ -71,8 +70,7 @@ class MappedType(model.DataType, mapped.MappedTypeLight):
     def __init__(self, **kwargs):
         """
         :param kwargs: initialization arguments for generic class.
-                       Traited fields are optional to appear here. 
-                       If not here, default traited value will be taken. 
+                       Traited fields are optional to appear here. If not here, default traited value will be taken.
         """
         if KWARG_STORAGE_PATH in kwargs:
             self.storage_path = kwargs[KWARG_STORAGE_PATH]
@@ -172,7 +170,7 @@ class MappedType(model.DataType, mapped.MappedTypeLight):
                                                       (self.__class__.__name__, key))
                         except IOError:
                             raise ValidationException("Could not store '%s' because there is no HDF5 file associated." %
-                                                      (self.__class__.__name__))
+                                                      self.__class__.__name__)
 
                 elif not hasattr(self, key) or getattr(self, key) is None:
                     raise ValidationException("Could not store '%s' because required attribute '%s' is missing." %
@@ -517,7 +515,7 @@ class MappedType(model.DataType, mapped.MappedTypeLight):
                                                 result_meta[self.METADATA_ARRAY_MEAN] * curr_no) / (prev_no + curr_no)
             result_meta[self._METADATA_ARRAY_SIZE] = prev_no + curr_no
 
-            # ---------------------------- END ARRAY ATTR METADATAS ------------------------
+    # ---------------------------- END ARRAY ATTR METADATAS ------------------------
 
 
 

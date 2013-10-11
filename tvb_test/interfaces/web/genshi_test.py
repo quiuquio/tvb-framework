@@ -38,18 +38,18 @@ import re
 import unittest
 import numpy
 import cherrypy
+from BeautifulSoup import BeautifulSoup
+from genshi.template.loader import TemplateLoader
 from tvb.basic.config.settings import TVBSettings as cfg
 import tvb.basic.traits as trait
 import tvb.interfaces.web.templates.genshi.flow as root_html
-import tvb.interfaces.web.controllers.basecontroller as base
-from BeautifulSoup import BeautifulSoup
-from genshi.template.loader import TemplateLoader
+import tvb.interfaces.web.controllers.base_controller as base
 from tvb.core.adapters.abcadapter import ABCAdapter
 from tvb.core.adapters.introspector import Introspector
 from tvb.core.entities.storage import dao
-from tvb.core.services.flowservice import FlowService
-from tvb.core.services.operationservice import OperationService
-from tvb.interfaces.web.controllers.flowcontroller import FlowController
+from tvb.core.services.flow_service import FlowService
+from tvb.core.services.operation_service import OperationService, RANGE_PARAMETER_1, RANGE_PARAMETER_2
+from tvb.interfaces.web.controllers.flow_controller import FlowController
 from tvb.interfaces.web.entities.context_selected_adapter import SelectedAdapterContext
 from tvb_test.adapters.ndimensionarrayadapter import NDimensionArrayAdapter
 from tvb_test.core.base_testcase import BaseTestCase
@@ -60,8 +60,7 @@ import tvb_test.adapters as adapters_init
 
 def _template2string(template_specification):
     """
-    Here we use the TemplateLoader from Genshi, 
-    so we are linked to this library for comparison.
+    Here we use the TemplateLoader from Genshi, so we are linked to this library for comparison.
     """
     template_specification[base.KEY_SHOW_ONLINE_HELP] = False
     path_to_form = os.path.join(os.path.dirname(root_html.__file__), 'genericAdapterFormFields.html')
@@ -76,11 +75,9 @@ class TestTrait(trait.core.Type):
     """ Test class with traited attributes"""
 
     test_array = trait.types_mapped_light.Array(label="State Variables range [[lo],[hi]]",
-                                                default=numpy.array([[-3.0, -6.0], [3.0, 6.0]]),
-                                                dtype="float")
+                                                default=numpy.array([[-3.0, -6.0], [3.0, 6.0]]), dtype="float")
 
-    test_dict = trait.types_basic.Dict(label="State Variable ranges [lo, hi].",
-                                       default={"V": -3.0, "W": -6.0})
+    test_dict = trait.types_basic.Dict(label="State Variable ranges [lo, hi].", default={"V": -3.0, "W": -6.0})
 
 
 
@@ -99,13 +96,17 @@ class TraitAdapter(ABCAdapter):
         traited.trait.bound = 'attributes-only'
         return traited.interface['attributes']
 
-
     def get_output(self):
         return []
 
-
     def launch(self, **kwargs):
         pass
+
+    def get_required_memory_size(self, **kwargs):
+        return 0
+
+    def get_required_disk_size(self, **kwargs):
+        return 0
 
 
 
@@ -217,18 +218,19 @@ class GenshiTestSimple(GenshiTest):
         all_inputs = self.soup.findAll('input', attrs=dict(name=exp))
         count_disabled = 0
         for one_entry in all_inputs:
+            ## Replacing with IN won't work
             if one_entry.has_key('disabled'):
                 count_disabled += 1
-        self.assertEqual(len(all_inputs), 5, "Some inputs not generated or too many inputs generated")
-        self.assertEqual(count_disabled, 4, "Disabling input fields was not done correctly")
+        self.assertEqual(5, len(all_inputs), "Some inputs not generated or too many inputs generated")
+        self.assertEqual(4, count_disabled, "Disabling input fields was not done correctly")
 
 
     def test_hidden_ranger_fields(self):
         """ 
         Check that the default ranger hidden fields are generated correctly 
         """
-        ranger1 = self.soup.findAll('input', attrs=dict(type="hidden", id="range_1"))
-        ranger2 = self.soup.findAll('input', attrs=dict(type="hidden", id="range_2"))
+        ranger1 = self.soup.findAll('input', attrs=dict(type="hidden", id=RANGE_PARAMETER_1))
+        ranger2 = self.soup.findAll('input', attrs=dict(type="hidden", id=RANGE_PARAMETER_2))
         self.assertEqual(len(ranger1), 1, "First ranger generated wrong")
         self.assertEqual(len(ranger2), 1, "Second ranger generated wrong")
 
@@ -318,7 +320,6 @@ class GenshiTestGroup(GenshiTest):
     various fields are generated correctly.
     """
 
-
     def setUp(self):
         """
         Set up any additionally needed parameters.
@@ -344,10 +345,6 @@ class GenshiTestGroup(GenshiTest):
         self.soup = BeautifulSoup(resulted_html)
 
 
-    #        file = open("output.html", 'w')
-    #        file.write(self.soup.prettify())
-    #        file.close()
-
     def tearDown(self):
         cfg.CURRENT_DIR = self.old_path
         del adapters_init.__xml_folders__
@@ -366,18 +363,18 @@ class GenshiTestGroup(GenshiTest):
 
     def test_sub_algorithms_correct(self):
         """
-        Test that the two subalgorithms are correctly generated and that
+        Test that the two sub-algorithms are correctly generated and that
         only one of them is not disabled.
         """
-        fail_message = "The subalgorithms are not correctly generated"
         exp = re.compile('data_bct*')
         sub_algos = self.soup.findAll('div', attrs=dict(id=exp))
-        self.assertTrue(len(sub_algos) == 2, fail_message)
+        self.assertEqual(2, len(sub_algos))
         disabled = 0
         for one_entry in sub_algos:
+            ## Replacing with IN won't work
             if one_entry.has_key('disabled'):
                 disabled += 1
-        self.assertTrue(disabled == 1, fail_message)
+        self.assertEqual(1, disabled)
 
 
 

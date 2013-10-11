@@ -47,12 +47,12 @@ from tvb.basic.logger.builder import get_logger
 from tvb.basic.traits.types_mapped import MappedType
 from tvb.core.utils import date2string, string2array, LESS_COMPLEX_TIME_FORMAT
 from tvb.core.entities.storage import dao
-from tvb.core.entities.file.fileshelper import FilesHelper
-from tvb.core.entities.file.filesupdatemanager import FilesUpdateManager
+from tvb.core.entities.file.files_helper import FilesHelper
+from tvb.core.entities.file.files_update_manager import FilesUpdateManager
 from tvb.core.entities.file.exceptions import FileVersioningException
 from tvb.core.entities.transient.structure_entities import DataTypeMetaData
 from tvb.core.adapters.exceptions import IntrospectionException, InvalidParameterException, LaunchException
-from tvb.core.adapters.exceptions import MethodUnimplementedException, NoMemoryAvailableException
+from tvb.core.adapters.exceptions import NoMemoryAvailableException
 from tvb.core.adapters.xml_reader import ELEM_OPTIONS, ELEM_OUTPUTS, INPUTS_KEY
 
 import tvb.basic.traits.traited_interface as interface
@@ -210,24 +210,24 @@ class ABCAdapter(object):
         pass
 
 
+    @abstractmethod
     def get_required_memory_size(self, **kwargs):
         """
         Abstract method to be implemented in each adapter. Should return the required memory
         for launching the adapter.
         """
-        raise MethodUnimplementedException(""" Method get_required_memory_size(self) needs
-        to be implemented in each class that inherits from ABCAdapter.""")
+        pass
 
 
+    @abstractmethod
     def get_required_disk_size(self, **kwargs):
         """
         Abstract method to be implemented in each adapter. Should return the required memory
         for launching the adapter in kilo-Bytes.
         """
-        raise MethodUnimplementedException(""" You need to implement a method get_required_disk_size(self, **kwargs)
-        that should estimate the required disk size for the result of an succesfull launch (in kiloBytes).""")
+        pass
         
-        
+
     def get_execution_time_approximation(self, **kwargs):
         """
         Method should approximate based on input arguments, the time it will take for the operation 

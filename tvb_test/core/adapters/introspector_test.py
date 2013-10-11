@@ -38,13 +38,14 @@ import os
 import unittest
 from tvb.core.entities.storage import dao
 from tvb.core.adapters.introspector import Introspector
-from tvb.core.services.projectservice import initialize_storage
+from tvb.core.services.project_service import initialize_storage
 from tvb.basic.config.settings import TVBSettings as cfg
 from tvb_test.core.base_testcase import BaseTestCase
 
+
 class IntrospectorTest(BaseTestCase):
     """
-    Test class for the introspector module.
+    Test class for the introspection module.
     """
     
     def setUp(self):
@@ -77,7 +78,7 @@ class IntrospectorTest(BaseTestCase):
         all_categories = dao.get_algorithm_categories()
         category_ids = [cat.id for cat in all_categories if cat.displayname == "AdaptersTest"]
         groups = dao.get_groups_by_categories(category_ids)
-        self.assertEqual(len(groups), 11, "Introspection failed!")
+        self.assertEqual(10, len(groups), "Introspection failed!")
         nr_adapters_mod2 = 0
         for algorithm in groups:
             self.assertTrue(algorithm.module in ['tvb_test.adapters.testadapter1', 'tvb_test.adapters.testadapter2',
@@ -85,14 +86,14 @@ class IntrospectorTest(BaseTestCase):
                                                  'tvb_test.adapters.ndimensionarrayadapter', 
                                                  "tvb.adapters.analyzers.group_python_adapter",
                                                  "tvb_test.adapters.testgroupadapter"],
-                            "Unknown Adapter:" + str(algorithm.module))
-            self.assertTrue(algorithm.classname in ["TestAdapter1", "TestAdapterDatatypeInput",  
-                                                    "TestAdapter2", "TestAdapter22", "TestAdapter3", 
-                                                    "NDimensionArrayAdapter", "PythonAdapter",  "TestAdapterHDDRequired",
-                                                    "TestAdapterHugeMemoryRequired", "TestAdapterNoMemoryImplemented", "TestGroupAdapter"],
+                            "Unknown Adapter module:" + str(algorithm.module))
+            self.assertTrue(algorithm.classname in ["TestAdapter1", "TestAdapterDatatypeInput", "TestAdapter2",
+                                                    "TestAdapter22", "TestAdapter3", "TestGroupAdapter",
+                                                    "NDimensionArrayAdapter", "PythonAdapter", "TestAdapterHDDRequired",
+                                                    "TestAdapterHugeMemoryRequired"],
                             "Unknown Adapter Class:" + str(algorithm.classname))
             if algorithm.module == 'tvb_test.adapters.testadapter2':
-                nr_adapters_mod2 = nr_adapters_mod2 + 1
+                nr_adapters_mod2 += 1
         self.assertEqual(nr_adapters_mod2, 2, "Two adapters should have been loaded from module tvb_test.adapters2!")
 
 
