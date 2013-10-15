@@ -84,6 +84,7 @@ from tvb.interfaces.web.controllers.spatial.localconnectivitycontroller import L
 from tvb.interfaces.web.controllers.spatial.noiseconfigurationcontroller import NoiseConfigurationController
 
 from tvb.interfaces.web.controllers.api.simulator import SimulatorController as SimulatorAPIController
+from tvb.interfaces.web.controllers.api.burst import BurstAPIController
 
 LOGGER = get_logger('tvb.interface.web.run')
 CONFIG_EXISTS = not SettingsService.is_first_run()
@@ -129,6 +130,7 @@ def init_cherrypy(arguments=None):
 
     # mount basic controller; later, mount one that uses BurstService & cetera
     cherrypy.tree.mount(SimulatorAPIController(), "/api/simulator/", config=CONFIGUER)
+    cherrypy.tree.mount(BurstAPIController(), "/api/burst/", config=CONFIGUER)
 
     cherrypy.config.update(CONFIGUER)
 

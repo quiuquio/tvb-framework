@@ -114,6 +114,7 @@ class BurstController(base.BaseController):
             template_specification['inputList'] = adapter_interface
 
         selected_portlets = session_stored_burst.update_selected_portlets()
+
         template_specification['burst_list'] = self.burst_service.get_available_bursts(base.get_current_project().id)
         template_specification['portletList'] = portlets_list
         template_specification['selectedPortlets'] = json.dumps(selected_portlets)
@@ -316,7 +317,6 @@ class BurstController(base.BaseController):
         """
         self._validate_burst_name(burst_name)
         self.burst_service.rename_burst(burst_id, burst_name)
-
 
     @cherrypy.expose
     @ajax_call()
