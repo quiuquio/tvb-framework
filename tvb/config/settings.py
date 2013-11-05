@@ -40,7 +40,7 @@ from sys import platform
 from subprocess import Popen, PIPE
 from tvb.basic.profile import TvbProfile as tvb_profile
 from tvb.basic.config.utils import ClassProperty, EnhancedDictionary
-
+from functools import wraps
 
 
 def settings_loaded():
@@ -48,21 +48,13 @@ def settings_loaded():
     Annotation to check if file settings are loaded before returning attribute.
     """
 
-
     def dec(func):
-        """ Allow to get the signature back"""
-
-
-        def deco(*a, **b):
-            """ Allow to get the doc-string back"""
+        @wraps(func)        
+        def deco(*a, **b):            
             if FrameworkSettings.FILE_SETTINGS is None:
                 FrameworkSettings.read_config_file()
             return func(*a, **b)
-
-
         return deco
-
-
     return dec
 
 
@@ -117,14 +109,14 @@ class BaseProfile():
 
 
     # II. Attributes with value not changeable from settings page:
-    DB_CURRENT_VERSION = 6
+    DB_CURRENT_VERSION = 7
     # Overwrite number of connections to the DB. 
     # Otherwise might reach PostgreSQL limit when launching multiple concurrent operations.
     # MAX_DB_CONNECTION default value will be used for WEB  
     # When launched on cluster, the MAX_DB_ASYNC_CONNECTIONS overwrites MAX_DB_CONNECTIONS value 
     MAX_DB_CONNECTIONS = 20
     MAX_DB_ASYNC_CONNECTIONS = 2
-    BASE_VERSION = "1.0.8"
+    BASE_VERSION = "1.1"
     # Nested transactions are not supported by all databases and not really necessary in TVB so far so
     # we don't support them yet. However when running tests we can use them to out advantage to rollback 
     # any database changes between tests.
