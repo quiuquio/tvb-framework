@@ -215,14 +215,15 @@ class OperationGroup(Base, Exportable):
     project = relationship(Project, backref=backref('OPERATION_GROUPS', order_by=id, cascade="all,delete"))
 
 
-    def __init__(self, project_id, name='incomplete', ranges=[]):
+    def __init__(self, project_id, name='incomplete', ranges=None):
         self.name = name
-        if len(ranges) > 0:
-            self.range1 = ranges[0]
-        if len(ranges) > 1:
-            self.range2 = ranges[1]
-        if len(ranges) > 2:
-            self.range3 = ranges[2]
+        if ranges:
+            if len(ranges) > 0:
+                self.range1 = ranges[0]
+            if len(ranges) > 1:
+                self.range2 = ranges[1]
+            if len(ranges) > 2:
+                self.range3 = ranges[2]
         self.gid = generate_guid()
         self.fk_launched_in = project_id
 
@@ -271,29 +272,15 @@ class OperationGroup(Base, Exportable):
         loaded_json = json.loads(range_value)
         range_name = loaded_json[0]
         range_values = loaded_json[1]
-        can_interpolate_range = True  # Assume this is a numeric range that we can interpolate
+        are_all_numbers = True  # Assume this is a numeric range that we can interpolate
         for idx, entry in enumerate(range_values):
             try:
                 range_values[idx] = float(entry)
             except ValueError:
                 # It's a DataType range
-                can_interpolate_range = False
-        return can_interpolate_range, range_name, range_values
-
-
-    @property
-    def has_only_numeric_ranges(self):
-        """
-        :returns: True when all range fields are either None or could be parsed into a numeric array.
-        """
-        is_numeric = [self.load_range_numbers(self.range1)[0],
-                      self.load_range_numbers(self.range2)[0],
-                      self.load_range_numbers(self.range3)[0]]
-
-        for num in is_numeric:
-            if num is False:
-                return False
-        return True
+                are_all_numbers = False
+                range_values[idx] = entry
+        return are_all_numbers, range_name, range_values
 
 
 
@@ -349,6 +336,7 @@ class Operation(Base, Exportable):
         self.start_date = start_date
         self.completion_date = completion_date
         self.status = status
+        self.visible = True
         self.fk_operation_group = op_group_id
         self.range_values = range_values
         self.user_group = user_group

@@ -3,29 +3,14 @@
     <script type="text/javascript" src="/static/js/sylvester.js"></script>
     <script type="text/javascript" src="/static/js/glUtils.js"></script>
     <script type="text/javascript" src="/static/js/zoom.js"></script>
-    <script type="text/javascript" src="/static_view/brain/scripts/brainLegend.js?4266"></script>
+    <script type="text/javascript" src="/static_view/commons/scripts/brainLegend.js?4266"></script>
     <script type="text/javascript" src="/static/js/webGL_ShaderAndMatrixes.js?5001"></script>
     <script type="text/javascript" src="/static/js/webGL_Mouse.js?4266"></script>
     <script type="text/javascript" src="/static/js/webGL_Pick.js?4266"></script>
     <script type="text/javascript" src="/static/js/webGL_Connectivity.js?4411"></script>
     <script type="text/javascript" src="/static/colorScheme/js/colorSchemeComponent.js"></script>
-    
-    <script id="shader-fs" type="x-shader/x-fragment">
-        #ifdef GL_ES
-		    precision highp float;
-		#endif
-		varying vec3 vLightWeighting;
-		varying vec4 vColor;
-		varying float picked;
 
-		void main(void) {
-		    if (picked == 0.0) {
-				gl_FragColor = vec4(vColor.rgb * vLightWeighting, vColor.a);
-			} else {
-				gl_FragColor = vColor;
-			}
-		}
-	</script>
+    <xi:include href="../visualizers/commons/fragment_shader.html" />
 
 	<script id="shader-vs" type="x-shader/x-vertex">
 	    attribute vec3 aVertexPosition;
@@ -86,7 +71,7 @@
         </div>
         <div class="brainDiv">
             <!--Draw brain-->
-            <xi:include href="../visualizers/brain/brain_component.html"/>
+            <xi:include href="../visualizers/commons/brain_component.html"/>
             ${draw_brain_component("GLcanvas", None)}
         </div>
         <div class="helper">

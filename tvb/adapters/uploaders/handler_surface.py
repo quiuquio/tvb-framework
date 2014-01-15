@@ -90,23 +90,20 @@ def _create_c_data(file_prefix, src, metadata_dict, fileformat='Other'):
     """
     Creates a CData object from the given parameters
     """
+    if not src:
+        return None
+
     if fileformat == 'NumPy':
-        if src:
-            numpy_data = numpy.loadtxt(src)
-            if not os.path.exists(NUMPY_TEMP_FOLDER):
-                os.makedirs(NUMPY_TEMP_FOLDER)
-            temp_file, uq_name = get_unique_file_name(NUMPY_TEMP_FOLDER, file_prefix + ".npy")
-            numpy.save(temp_file, numpy_data)
-            data = CData(uq_name, temp_file, fileformat='Other')
-            data.update_metadata(metadata_dict)
-        else:
-            data = None
+        numpy_data = numpy.loadtxt(src)
+        if not os.path.exists(NUMPY_TEMP_FOLDER):
+            os.makedirs(NUMPY_TEMP_FOLDER)
+        temp_file, uq_name = get_unique_file_name(NUMPY_TEMP_FOLDER, file_prefix + ".npy")
+        numpy.save(temp_file, numpy_data)
+        data = CData(uq_name, temp_file, fileformat='Other')
     else:
-        if src:
-            data = CData(file_prefix, src, fileformat=fileformat)
-            data.update_metadata(metadata_dict)
-        else:
-            data = None
+        data = CData(file_prefix, src, fileformat=fileformat)
+
+    data.update_metadata(metadata_dict)
     return data
 
 
@@ -217,16 +214,16 @@ def gifti2surface(gifti_image, vertices_array=None, normals_array=None, triangle
         if triangles_min_vertex == -1 and not zero_based_val:
             raise RuntimeError("Your triangles contains a negative vertex index. May be you have a ZERO based surface.")
         else:
-            raise RuntimeError("Your triangles contains a negative vertex index: %d" %triangles_min_vertex)
+            raise RuntimeError("Your triangles contains a negative vertex index: %d" % triangles_min_vertex)
     
     no_of_vertices = len(surface.vertices)        
     triangles_max_vertex = numpy.amax(surface.triangles)
     if triangles_max_vertex >= no_of_vertices:
         if triangles_max_vertex == no_of_vertices and zero_based_val:
-            raise RuntimeError("Your triangles contains an invalid vertex index: %d. \
-            May be your surface is NOT ZERO based."%triangles_max_vertex)
+            raise RuntimeError("Your triangles contains an invalid vertex index: %d. "
+                               "Maybe your surface is NOT ZERO based." % triangles_max_vertex)
         else:
-            raise RuntimeError("Your triangles contains an invalid vertex index: %d." %triangles_max_vertex)
+            raise RuntimeError("Your triangles contains an invalid vertex index: %d." % triangles_max_vertex)
     
     return surface, meta[constants.KEY_UID]
 
@@ -282,7 +279,7 @@ def cdata2region_mapping(region_mapping_data, meta, storage_path):
     gid = dao.get_last_data_with_uid(meta[constants.KEY_CONNECTIVITY_UID], Connectivity)
     connectivity = ABCAdapter.load_entity_by_gid(gid)
     
-    region_mapping = surfaces.RegionMapping(storage_path = storage_path)
+    region_mapping = surfaces.RegionMapping(storage_path=storage_path)
     region_mapping.array_data = read_list_data(region_mapping_path, dtype=numpy.int32)
     region_mapping.connectivity = connectivity
     region_mapping.surface = surface_data
@@ -309,7 +306,7 @@ def cdata2eeg_mapping(eeg_mapping_data, meta, storage_path, expected_shape=0):
     gid = dao.get_last_data_with_uid(meta[constants.KEY_SURFACE_UID], surfaces.CorticalSurface)
     surface_data = ABCAdapter.load_entity_by_gid(gid)
     
-    projection_matrix = projections.ProjectionSurfaceEEG(storage_path = storage_path)
+    projection_matrix = projections.ProjectionSurfaceEEG(storage_path=storage_path)
     projection_matrix.projection_data = eeg_projection_data
     projection_matrix.sources = surface_data
     projection_matrix.sensors = None

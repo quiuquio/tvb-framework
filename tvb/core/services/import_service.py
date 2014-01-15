@@ -49,6 +49,7 @@ from tvb.core.entities import model
 from tvb.core.entities.storage import dao, transactional
 from tvb.core.entities.model.model_burst import BURST_INFO_FILE, BURSTS_DICT_KEY, DT_BURST_MAP
 from tvb.core.services.exceptions import ProjectImportException
+from tvb.core.services.flow_service import FlowService
 from tvb.core.services.project_service import ProjectService
 from tvb.core.entities.file.xml_metadata_handlers import XMLReader
 from tvb.core.entities.file.files_helper import FilesHelper
@@ -75,6 +76,35 @@ class ImportService():
         self.created_projects = []
 
 
+    def _download_and_unpack_project_zip(self, uploaded, uq_file_name, temp_folder):
+
+        if isinstance(uploaded, FieldStorage) or isinstance(uploaded, Part):
+            if not uploaded.file:
+                raise ProjectImportException("Please select the archive which contains the project structure.")
+            with open(uq_file_name, 'wb') as file_obj:
+                file_obj.write(uploaded.file.read())
+        else:
+            shutil.copyfile(uploaded, uq_file_name)
+
+        try:
+            self.files_helper.unpack_zip(uq_file_name, temp_folder)
+        except FileStructureException, excep:
+            self.logger.exception(excep)
+            raise ProjectImportException("Bad ZIP archive provided. A TVB exported project is expected!")
+
+
+    @staticmethod
+    def _compute_unpack_path():
+        """
+        :return: the name of the folder where to expand uploaded zip
+        """
+        now = datetime.now()
+        date_str = "%d-%d-%d_%d-%d-%d_%d" % (now.year, now.month, now.day, now.hour,
+                                             now.minute, now.second, now.microsecond)
+        uq_name = "%s-ImportProject" % date_str
+        return os.path.join(cfg.TVB_TEMP_FOLDER, uq_name)
+
+
     @transactional
     def import_project_structure(self, uploaded, user_id):
         """
@@ -92,53 +122,59 @@ class ImportService():
         self.user_id = user_id
         self.created_projects = []
 
-        # Now we compute the name of the file where to store uploaded project
-        now = datetime.now()
-        date_str = "%d-%d-%d_%d-%d-%d_%d" % (now.year, now.month, now.day, now.hour,
-                                             now.minute, now.second, now.microsecond)
-        uq_name = "%s-ImportProject" % date_str
-        uq_file_name = os.path.join(cfg.TVB_TEMP_FOLDER, uq_name + ".zip")
+        # Now compute the name of the folder where to explode uploaded ZIP file
+        temp_folder = self._compute_unpack_path()
+        uq_file_name = temp_folder + ".zip"
 
-        temp_folder = None
         try:
-            if isinstance(uploaded, FieldStorage) or isinstance(uploaded, Part):
-                if uploaded.file:
-                    file_obj = open(uq_file_name, 'wb')
-                    file_obj.write(uploaded.file.read())
-                    file_obj.close()
-                else:
-                    raise ProjectImportException("Please select the archive which contains the project structure.")
-            else:
-                shutil.copyfile(uploaded, uq_file_name)
-
-            # Now compute the name of the folder where to explode uploaded ZIP file
-            temp_folder = os.path.join(cfg.TVB_TEMP_FOLDER, uq_name)
-            try:
-                self.files_helper.unpack_zip(uq_file_name, temp_folder)
-            except FileStructureException, excep:
-                self.logger.exception(excep)
-                raise ProjectImportException("Bad ZIP archive provided. A TVB exported project is expected!")
-
-            try:
-                self._import_project_from_folder(temp_folder)
-            except Exception, excep:
-                self.logger.exception(excep)
-                self.logger.debug("Error encountered during import. Deleting projects created during this operation.")
-
-                # Roll back projects created so far
-                project_service = ProjectService()
-                for project in self.created_projects:
-                    project_service.remove_project(project.id)
-
-                raise ProjectImportException(str(excep))
-
+            self._download_and_unpack_project_zip(uploaded, uq_file_name, temp_folder)
+            self._import_project_from_folder(temp_folder)
+        except Exception, excep:
+            self.logger.exception(excep)
+            self.logger.debug("Error encountered during import. Deleting projects created during this operation.")
+            # Roll back projects created so far
+            project_service = ProjectService()
+            for project in self.created_projects:
+                project_service.remove_project(project.id)
+            raise ProjectImportException(str(excep))
         finally:
             # Now delete uploaded file
             if os.path.exists(uq_file_name):
                 os.remove(uq_file_name)
             # Now delete temporary folder where uploaded ZIP was exploded.
-            if temp_folder is not None and os.path.exists(temp_folder):
+            if os.path.exists(temp_folder):
                 shutil.rmtree(temp_folder)
+
+
+    @staticmethod
+    def _load_burst_info_from_json(project_path):
+        bursts_dict = {}
+        dt_mappings_dict = {}
+        bursts_file = os.path.join(project_path, BURST_INFO_FILE)
+        if os.path.isfile(bursts_file):
+            with open(bursts_file) as f:
+                bursts_info_dict = json.load(f)
+            bursts_dict = bursts_info_dict[BURSTS_DICT_KEY]
+            dt_mappings_dict = bursts_info_dict[DT_BURST_MAP]
+        return bursts_dict, dt_mappings_dict
+
+
+    def _import_bursts(self, project_entity, bursts_dict):
+        """
+        Re-create old bursts, but keep a mapping between the id it has here and the old-id it had
+        in the project where they were exported, so we can re-add the datatypes to them.
+        """
+        burst_ids_mapping = {}
+
+        for old_burst_id in bursts_dict:
+            burst_information = BurstInformation.load_from_dict(bursts_dict[old_burst_id])
+            burst_entity = model.BurstConfiguration(project_entity.id)
+            burst_entity.from_dict(burst_information.data)
+            burst_entity = dao.store_entity(burst_entity)
+            burst_ids_mapping[int(old_burst_id)] = burst_entity.id
+            # We don't need the data in dictionary form anymore, so update it with new BurstInformation object
+            bursts_dict[old_burst_id] = burst_information
+        return burst_ids_mapping
 
 
     def _import_project_from_folder(self, temp_folder):
@@ -153,14 +189,6 @@ class ImportService():
         for project_path in project_roots:
             project_entity = self.__populate_project(project_path)
 
-            bursts_dict = {}
-            dt_mappings_dict = {}
-            bursts_file = os.path.join(project_path, BURST_INFO_FILE)
-            if os.path.isfile(bursts_file):
-                bursts_info_dict = json.loads(open(bursts_file, 'r').read())
-                bursts_dict = bursts_info_dict[BURSTS_DICT_KEY]
-                dt_mappings_dict = bursts_info_dict[DT_BURST_MAP]
-
             # Compute the path where to store files of the imported project
             new_project_path = os.path.join(cfg.TVB_STORAGE, FilesHelper.PROJECTS_FOLDER, project_entity.name)
             if project_path != new_project_path:
@@ -168,21 +196,13 @@ class ImportService():
                 shutil.rmtree(project_path)
 
             self.created_projects.append(project_entity)
-            # Re-create old bursts, but keep a mapping between the id it has here and the old-id it had
-            # in the project where they were exported, so we can re-add the datatypes to them.
-            burst_ids_mapping = {}
+
             # Keep a list with all burst that were imported since we will want to also add the workflow
             # steps after we are finished with importing the operations and datatypes. We need to first
             # stored bursts since we need to know which new id's they have for operations parent_burst.
-            if bursts_dict:
-                for old_burst_id in bursts_dict:
-                    burst_information = BurstInformation.load_from_dict(bursts_dict[old_burst_id])
-                    burst_entity = model.BurstConfiguration(project_entity.id)
-                    burst_entity.from_dict(burst_information.data)
-                    burst_entity = dao.store_entity(burst_entity)
-                    burst_ids_mapping[int(old_burst_id)] = burst_entity.id
-                    # We don't need the data in dictionary form anymore, so update it with new BurstInformation object
-                    bursts_dict[old_burst_id] = burst_information
+            bursts_dict, dt_mappings_dict = self._load_burst_info_from_json(new_project_path)
+            burst_ids_mapping = self._import_bursts(project_entity, bursts_dict)
+
             # Now import project operations
             self.import_project_operations(project_entity, new_project_path, dt_mappings_dict, burst_ids_mapping)
             # Now we can finally import workflow related entities
@@ -192,11 +212,14 @@ class ImportService():
     def import_workflows(self, project, bursts_dict, burst_ids_mapping):
         """
         Import the workflow entities for all bursts imported in the project.
+
         :param project: the current
+
         :param bursts_dict: a dictionary that holds all the required information in order to
                             import the bursts from the new project
+
         :param burst_ids_mapping: a dictionary of the form {old_burst_id : new_burst_id} so we
-                            know what burst to link each workflow to
+                                  know what burst to link each workflow to
         """
         for burst_id in bursts_dict:
             workflows_info = bursts_dict[burst_id].get_workflows()
@@ -216,9 +239,11 @@ class ImportService():
         in the same method, since if a wf_step has to be omited for some reason, we also need to
         omit that view step.
         :param workflow: a model.Workflow entity from which we need to add workflow steps
-        :param wf_steps: a list of WorkflowStepInformation entities, from which we will rebuild \
+
+        :param wf_steps: a list of WorkflowStepInformation entities, from which we will rebuild 
                          the workflow steps
-        :param view_steps: a list of WorkflowViewStepInformation entities, from which we will \
+
+        :param view_steps: a list of WorkflowViewStepInformation entities, from which we will 
                            rebuild the workflow view steps
 
         """
@@ -247,31 +272,95 @@ class ImportService():
             dao.store_entity(view_step_entity)
 
 
-    def import_project_operations(self, project, import_path, dt_burst_mappings=None, burst_ids_mapping=None):
+    def _append_tmp_to_folders_containing_operations(self, import_path):
         """
-        This method scans provided folder and identify all operations that needs to be imported
+        Find folders containing operations and rename them, return the renamed paths
         """
+        pths = []
+        for root, _, files in os.walk(import_path):
+            if FilesHelper.TVB_OPERARATION_FILE in files:
+                # Found an operation folder - append TMP to its name
+                tmp_op_folder = root + 'tmp'
+                os.rename(root, tmp_op_folder)
+                operation_file_path = os.path.join(tmp_op_folder, FilesHelper.TVB_OPERARATION_FILE)
+                pths.append(operation_file_path)
+        return pths
+
+
+    def _load_operations_from_paths(self, project, op_paths):
+        """
+        Load operations from paths containing them.
+        :returns: Operations ordered by start/creation date to be sure data dependency is resolved correct
+        """
+        def by_time(op):
+            return op.start_date or op.create_date or datetime.now()
+
+        operations = []
+
+        for operation_file_path in op_paths:
+            operation = self.__build_operation_from_file(project, operation_file_path)
+            operation.import_file = operation_file_path
+            operations.append(operation)
+
+        operations.sort(key=by_time)
+        return operations
+
+
+    def _load_datatypes_from_operation_folder(self, op_path, operation_entity, datatype_group):
+        """
+        Loads datatypes from operation folder
+        :returns: Datatypes ordered by creation date (to solve any dependencies)
+        """
+        all_datatypes = []
+        for file_name in os.listdir(op_path):
+            if file_name.endswith(FilesHelper.TVB_STORAGE_FILE_EXTENSION):
+                file_update_manager = FilesUpdateManager()
+                file_update_manager.upgrade_file(os.path.join(op_path, file_name))
+                datatype = self.load_datatype_from_file(op_path, file_name, operation_entity.id, datatype_group)
+                all_datatypes.append(datatype)
+        all_datatypes.sort(key=lambda dt: dt.create_date)
+        return all_datatypes
+
+
+    def _store_imported_datatypes_in_db(self, project, all_datatypes, dt_burst_mappings, burst_ids_mapping):
         if burst_ids_mapping is None:
             burst_ids_mapping = {}
         if dt_burst_mappings is None:
             dt_burst_mappings = {}
-        # Identify folders containing operations
-        operations = []
-        for root, _, files in os.walk(import_path):
-            if FilesHelper.TVB_OPERARATION_FILE in files:
-                # Found an operation folder - append TMP to its name
-                tmp_op_folder = os.path.join(os.path.split(root)[0], os.path.split(root)[1] + 'tmp')
-                os.rename(root, tmp_op_folder)
 
-                operation_file_path = os.path.join(tmp_op_folder, FilesHelper.TVB_OPERARATION_FILE)
-                operation = self.__build_operation_from_file(project, operation_file_path)
-                operation.import_file = operation_file_path
-                operations.append(operation)
+        for datatype in all_datatypes:
+            if datatype.gid in dt_burst_mappings:
+                old_burst_id = dt_burst_mappings[datatype.gid]
+                if old_burst_id is not None:
+                    datatype.fk_parent_burst = burst_ids_mapping[old_burst_id]
+
+            datatype_allready_in_tvb = dao.get_datatype_by_gid(datatype.gid)
+
+            if not datatype_allready_in_tvb:
+                self.store_datatype(datatype)
+            else:
+                FlowService.create_link([datatype_allready_in_tvb.id], project.id)
+
+    def _store_imported_images(self, project, operation_entity):
+        """
+        Import all images from operation
+        """
+        images_root = self.files_helper.get_images_folder(project.name, operation_entity.id)
+        if os.path.exists(images_root):
+            for root, _, files in os.walk(images_root):
+                for file_name in files:
+                    if file_name.endswith(FilesHelper.TVB_FILE_EXTENSION):
+                        self.__populate_image(os.path.join(root, file_name), project.id, operation_entity.id)
+
+
+    def import_project_operations(self, project, import_path, dt_burst_mappings=None, burst_ids_mapping=None):
+        """
+        This method scans provided folder and identify all operations that needs to be imported
+        """
+        op_paths = self._append_tmp_to_folders_containing_operations(import_path)
+        operations = self._load_operations_from_paths(project, op_paths)
 
         imported_operations = []
-
-        # Now we sort operations by start date, to be sure data dependency is resolved correct
-        operations = sorted(operations, key=lambda operation: operation.start_date)
 
         # Here we process each operation found
         for operation in operations:
@@ -285,34 +374,10 @@ class ImportService():
                 shutil.rmtree(new_operation_path)
                 shutil.move(old_operation_folder, new_operation_path)
 
-            # Now process data types for each operation
-            all_datatypes = []
-            for file_name in os.listdir(new_operation_path):
-                if file_name.endswith(FilesHelper.TVB_STORAGE_FILE_EXTENSION):
-                    file_update_manager = FilesUpdateManager()
-                    file_update_manager.upgrade_file(os.path.join(new_operation_path, file_name))
-                    datatype = self.load_datatype_from_file(new_operation_path, file_name,
-                                                            operation_entity.id, datatype_group)
-                    all_datatypes.append(datatype)
+            all_datatypes = self._load_datatypes_from_operation_folder(new_operation_path, operation_entity, datatype_group)
+            self._store_imported_datatypes_in_db(project, all_datatypes, dt_burst_mappings, burst_ids_mapping)
+            self._store_imported_images(project, operation_entity)
 
-            # Before inserting into DB sort data types by creation date (to solve any dependencies)
-            all_datatypes = sorted(all_datatypes, key=lambda datatype: datatype.create_date)
-
-            # Now store data types into DB
-            for datatype in all_datatypes:
-                if datatype.gid in dt_burst_mappings:
-                    old_burst_id = dt_burst_mappings[datatype.gid]
-                    if old_burst_id is not None:
-                        datatype.fk_parent_burst = burst_ids_mapping[old_burst_id]
-                self.store_datatype(datatype)
-
-            # Now import all images from current operation
-            images_root = self.files_helper.get_images_folder(project.name, operation_entity.id)
-            if os.path.exists(images_root):
-                for root, _, files in os.walk(images_root):
-                    for file_name in files:
-                        if file_name.endswith(FilesHelper.TVB_FILE_EXTENSION):
-                            self.__populate_image(os.path.join(root, file_name), project.id, operation_entity.id)
             imported_operations.append(operation_entity)
 
         return imported_operations
@@ -353,7 +418,7 @@ class ImportService():
         class_name = meta_structure[DataTypeMetaData.KEY_CLASS_NAME]
         class_module = meta_structure[DataTypeMetaData.KEY_MODULE]
         datatype = __import__(class_module, globals(), locals(), [class_name])
-        datatype = eval("datatype." + class_name)
+        datatype = getattr(datatype, class_name)
         type_instance = manager_of_class(datatype).new_instance()
 
         # Now we fill data into instance

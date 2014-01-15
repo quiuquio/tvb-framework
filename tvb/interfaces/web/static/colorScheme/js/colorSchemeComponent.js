@@ -42,8 +42,8 @@ function getNewNodeColor() {
  * @param endColorComponentId id of the container in which will be drawn the color picker for the end color
  */
 function drawColorPickerComponent(startColorComponentId, endColorComponentId) {
-	start_color_css = 'rgb(' + startColorRGB[0] + ',' + startColorRGB[1] + ',' + startColorRGB[2] + ')';
-	end_color_css = 'rgb(' + endColorRGB[0] + ',' + endColorRGB[1] + ',' + endColorRGB[2] + ')';
+	var start_color_css = 'rgb(' + startColorRGB[0] + ',' + startColorRGB[1] + ',' + startColorRGB[2] + ')';
+	var end_color_css = 'rgb(' + endColorRGB[0] + ',' + endColorRGB[1] + ',' + endColorRGB[2] + ')';
     $('#' + startColorComponentId).ColorPicker({
         color: start_color_css,
         onShow: function (colpkr) {
@@ -83,13 +83,12 @@ function drawColorPickerComponent(startColorComponentId, endColorComponentId) {
             }
         }
     });
-
     $('#' + startColorComponentId + ' div').css('backgroundColor', start_color_css);
     $('#' + endColorComponentId + ' div').css('backgroundColor', end_color_css);
 }
 
 function getGradientColorString(pointValue, min, max) {
-    rgb_values = getGradientColor(pointValue, min, max);
+    var rgb_values = getGradientColor(pointValue, min, max);
     return "rgb("+Math.round(rgb_values[0]*255)+","+ Math.round(rgb_values[1]*255)+","+ Math.round(rgb_values[2]*255)+")";
 }
 
@@ -131,13 +130,14 @@ function clampValue(value) {
 /**
  * Sets the current color scheme to the given one
  * @param scheme The color scheme to use; currently supported: 'linear', 'rainbow', 'hotcold', 'TVB', 'sparse'
+ *               'light-hotcold', 'light-TVB'
  */
 function ColSch_setColorScheme(scheme) {
-    $(".colorSchemeSettings").hide();
-    $("#" + scheme + "ColSchFieldSet").show();
+    $('fieldset[id^="colorSchemeFieldSet_"]').hide();
     _colorScheme = scheme;
     if (_refreshCallback) {
-        _refreshCallback()
+        $("#colorSchemeFieldSet_" + scheme).show();
+        _refreshCallback();
     }
 }
 
@@ -151,12 +151,17 @@ function ColSch_setColorScheme(scheme) {
 function ColSch_initColorSchemeParams(minValue, maxValue, refreshFunction) {
     _refreshCallback = refreshFunction;
     // initialise the linear params
-    $("#rangerForLinearColSch").slider({
+    var elemSliderSelector = $("#rangerForLinearColSch");
+    if (elemSliderSelector.length < 1){
+        displayMessage("Color scheme component not found for initialization...", "warningMessage");
+        return;
+    }
+    elemSliderSelector.slider({
         range: true, min: minValue, max: maxValue, step: 0.001,
         values: [minValue, maxValue],
         slide: function(event, ui) {                            // update the UI
-                event.target.parentElement.previousElementSibling.innerHTML = ui.values[0].toFixed(3);
-                event.target.parentElement.nextElementSibling.innerHTML     = ui.values[1].toFixed(3)
+                $("#sliderMinValue").html(ui.values[0].toFixed(3));
+                $("#sliderMaxValue").html(ui.values[1].toFixed(3));
         },
         change: function(event, ui) {
             _linearGradientStart = (ui.values[0] - minValue) / (maxValue - minValue);    // keep the interest interval
@@ -191,25 +196,104 @@ function ColSch_initColorSchemeParams(minValue, maxValue, refreshFunction) {
  * according to the current <code>_colorScheme</code>
  *
  * @param pointValue The value whose corresponding color is returned
+ * @param max   The maximum value of the array, to use for computing gradient
+ * @param min   Maximum value in colors array.
  *
  * NOTE: The following condition should be true: <code> min <= pointValue <= max </code>
  */
 function getGradientColor(pointValue, min, max) {
     if (min == max)         // the interval is empty, so start color is the only possible one
         return [normalizedStartColorRGB[0], normalizedStartColorRGB[1], normalizedStartColorRGB[2]];
+    if (pointValue < min)
+        pointValue = min;   // avoid rounding problems
+    if (pointValue > max)
+        pointValue = max;
     var result = [];
     var normalizedValue = (pointValue - min) / (max - min);
     if (!_colorScheme || _colorScheme == "linear")                // default is "linear"
         result =  getLinearGradientColor(normalizedValue);
     else if (_colorScheme == "rainbow")
         result = getRainbowColor(normalizedValue);
-    else if (_colorScheme == "hotcold")
+    else if (_colorScheme == "hotcold" || _colorScheme == "lightHotcold" || _colorScheme == "transparentHotCold")
         result = getHotColdColor(normalizedValue);
-    else if (_colorScheme == "TVB")
+    else if (_colorScheme == "TVB" || _colorScheme == "lightTVB")
         result = getTvbColor(normalizedValue);
     else if (_colorScheme == "sparse")
         result = getSparseColor(normalizedValue);
     return result
+}
+
+/**
+ * 3d viewer styling
+ * Css class like idea. In the future we might move these to css
+ * class -> prop value list
+ */
+var ColSchDarkTheme = {
+    connectivityStepPlot : {
+        lineColor: [0.1, 0.1, 0.2],
+        noValueColor: [0.0, 0.0, 0.0],
+        backgroundColor: [0.05, 0.05, 0.05, 1.0],
+        outlineColor: [0.3, 0.3, 0.3],
+        selectedOutlineColor: [0.2, 0.2, 0.8]
+    },
+    connectivityPlot : {
+        backgroundColor: [0.05, 0.05, 0.05, 1.0]
+    },
+    surfaceViewer : {
+        backgroundColor: [0.05, 0.05, 0.05, 1.0]
+            //, boundaryLineColor
+    //, navigatorColor
+    //, faceColor
+    //, ambientLight
+    }
+};
+
+var ColSchLightTheme = {
+    connectivityStepPlot : {
+        lineColor: [0.7, 0.7, 0.8],
+        noValueColor: [0.9, 0.9, 0.9],
+        backgroundColor: [1.0, 1.0, 1.0, 1.0],
+        outlineColor: [0.5, 0.5, 0.5],
+        selectedOutlineColor: [0.4, 0.4, 0.7]
+    },
+    connectivityPlot : {
+        backgroundColor: [1.0, 1.0, 1.0, 1.0]
+    },
+    surfaceViewer : {
+        backgroundColor: [1.0, 1.0, 1.0, 1.0]
+    }
+};
+
+var ColSchTransparentTheme = {
+    connectivityStepPlot : {
+        lineColor: [0.7, 0.7, 0.8],
+        noValueColor: [0.9, 0.9, 0.9],
+        backgroundColor: [0.0, 0.0, 0.0, 0.0],
+        outlineColor: [0.5, 0.5, 0.5],
+        selectedOutlineColor: [0.4, 0.4, 0.7]
+    },
+    connectivityPlot : {
+        backgroundColor: [0.0, 0.0, 0.0, 0.0]
+    },
+    surfaceViewer : {
+        backgroundColor: [0.0, 0.0, 0.0, 0.0]
+    }
+};
+
+/**
+ * For each color scheme return a 3d theme
+ */
+function ColSchGetTheme(){
+    return {
+        linear : ColSchDarkTheme,
+        TVB : ColSchDarkTheme,
+        rainbow : ColSchDarkTheme,
+        hotcold : ColSchDarkTheme,
+        sparse: ColSchDarkTheme,
+        lightHotcold : ColSchLightTheme,
+        lightTVB : ColSchLightTheme,
+        transparentHotCold : ColSchTransparentTheme
+    }[_colorScheme||'linear'];
 }
 
 /**
@@ -218,6 +302,8 @@ function getGradientColor(pointValue, min, max) {
  *
  * @param {Array} values The values for which the colors are generated;
  *                       Condition: min <= values[i] <= max (for every values[i])
+ * @param {Float} max   The maximum value of the array, to use for computing gradient
+ * @param {Float} min   Maximum value in colors array.
  * @param {Float32Array} outputArray If specified, this is filled with the computed
  *                     Condition: outputArray.length = 4 * values.length (RGBA colors)
  * @returns {Array} If <code>outputArray</code> was not specified, a normal array is returned;
@@ -227,7 +313,7 @@ function getGradientColorArray(values, min, max, outputArray) {
     var result = [], color = [];
     for (var i = 0; i < values.length; ++i) {
         color = getGradientColor(values[i], min, max);
-        color.push(1)                               // add the alpha value
+        color.push(1);                               // add the alpha value
         if (outputArray)
             outputArray.set(color, i * 4);
         else

@@ -27,20 +27,21 @@
 #   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
+
 """
 .. moduleauthor:: Calin Pavel <calin.pavel@codemart.ro>
 .. moduleauthor:: Lia Domide <lia.domide@codemart.ro>
 """
 
-from tvb.core.adapters.abcadapter import ABCSynchronous
-from tvb.core.entities.file.files_helper import FilesHelper
-from tvb.basic.traits.util import read_list_data
-from tvb.datatypes.connectivity import Connectivity
-from tvb.core.adapters.exceptions import LaunchException
 import numpy
+from tvb.adapters.uploaders.abcuploader import ABCUploader
+from tvb.basic.traits.util import read_list_data
+from tvb.core.entities.file.files_helper import FilesHelper
+from tvb.core.adapters.exceptions import LaunchException
+from tvb.datatypes.connectivity import Connectivity
 
 
-class ZIPConnectivityImporter(ABCSynchronous):
+class ZIPConnectivityImporter(ABCUploader):
     """
     Handler for uploading a Connectivity archive, with files holding 
     text export of connectivity data from Numpy arrays.
@@ -50,18 +51,15 @@ class ZIPConnectivityImporter(ABCSynchronous):
     _ui_description = "Import a Connectivity from ZIP"
     
     WEIGHT_TOKEN = "weight"
-    POSITION_TOKEN = "position"
+    CENTRES_TOKEN = "centres"
     TRACT_TOKEN = "tract"
     ORIENTATION_TOKEN = "orientation"
     AREA_TOKEN = "area"
     CORTICAL_INFO = "cortical"
     HEMISPHERE_INFO = "hemisphere"
             
-    def __init__(self):
-        ABCSynchronous.__init__(self)
-    
-    
-    def get_input_tree(self):
+
+    def get_upload_input_tree(self):
         """
         Take as input a ZIP archive.
         """
@@ -74,20 +72,7 @@ class ZIPConnectivityImporter(ABCSynchronous):
         
     def get_output(self):
         return [Connectivity]
-    
-    
-    def get_required_memory_size(self, **kwargs):
-        """
-        Return the required memory to run this algorithm.
-        """
-        # Don't know how much memory is needed.
-        return -1
-    
-    def get_required_disk_size(self, **kwargs):
-        """
-        Returns the required disk size to be able to run the adapter.
-        """
-        return 0
+
 
     def launch(self, uploaded, rotate_x=0, rotate_y=0, rotate_z=0):
         """
@@ -121,9 +106,9 @@ class ZIPConnectivityImporter(ABCSynchronous):
             if file_name.lower().find(self.WEIGHT_TOKEN) >= 0:
                 weights_matrix = read_list_data(file_name)
                 continue
-            if file_name.lower().find(self.POSITION_TOKEN) >= 0:
-                centres = read_list_data(file_name, skiprows=1, usecols=[1, 2, 3])
-                labels_vector = read_list_data(file_name, dtype=numpy.str, skiprows=1, usecols=[0])
+            if file_name.lower().find(self.CENTRES_TOKEN) >= 0:
+                centres = read_list_data(file_name, usecols=[1, 2, 3])
+                labels_vector = read_list_data(file_name, dtype=numpy.str, usecols=[0])
                 continue
             if file_name.lower().find(self.TRACT_TOKEN) >= 0:
                 tract_matrix = read_list_data(file_name)

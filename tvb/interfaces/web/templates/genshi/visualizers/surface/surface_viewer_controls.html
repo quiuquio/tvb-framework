@@ -1,0 +1,31 @@
+<fieldset xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:py="http://genshi.edgewall.org/">
+    <dl>
+        <xi:include href='../../flow/color_scheme.html'/>
+
+        <dt>Toggle</dt>
+        <dd><input id="showBrainLines" type="checkbox" onchange="toggleDrawTriangleLines();" tabindex="1"/>
+            <label for="showBrainLines">surface triangles</label>
+        </dd>
+
+        <dt></dt>
+        <dd>
+            <input id="ctrl-action-points" type="checkbox" onchange="wireFrame();" tabindex="1"
+                title="Display only a cloud of points, without triangles" />
+            <label for="ctrl-action-points">points display</label>
+        </dd>
+
+        <py:if test="hasRegionMap">
+            <dt></dt>
+            <dd>
+                <input id="showBrainBoundaries" type="checkbox" onchange="toggleDrawBoundaries();" tabindex="1"/>
+                <label for="showBrainBoundaries">region boundaries</label>
+            </dd>
+
+            <dt></dt>
+            <dd><input id="showMeasurePoints" type="checkbox" onchange="toggleMeasureNodes();" tabindex="1"/>
+                <label for="showMeasurePoints">measure points</label>
+            </dd>
+        </py:if>
+
+    </dl>
+</fieldset>

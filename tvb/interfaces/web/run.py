@@ -43,19 +43,21 @@ from cherrypy import Tool
 from sys import platform, argv
 
 ### This will set running profile from arguments.
+### Reload modules, only when running, thus avoid problems when sphinx generates documentation
 from tvb.basic.profile import TvbProfile
-TvbProfile.set_profile(argv, True)
-from tvb.basic.config.settings import TVBSettings
+TvbProfile.set_profile(argv, True, try_reload=(__name__ == '__main__'))
 
 ### For Linux Distribution, correctly set MatplotLib Path, before start.
+from tvb.basic.config.settings import TVBSettings
 if TVBSettings().is_linux():
     os.environ['MATPLOTLIBDATA'] = os.path.join(TVBSettings().get_library_folder(), 'mpl-data')
 
-### Import MPLH5 to have the back-end Thread started.
-from tvb.interfaces.web.mplh5 import mplh5_server
+### Import MPLH5 asap, to have the back-end Thread started before other pylab/matplotlib import
 from tvb.basic.logger.builder import get_logger
-LOGGER = get_logger('tvb.interfaces.web.mplh5.mplh5_server')
-mplh5_server.start_server(LOGGER)
+if __name__ == "__main__":
+    from tvb.interfaces.web.mplh5 import mplh5_server
+    LOGGER = get_logger('tvb.interfaces.web.mplh5.mplh5_server')
+    mplh5_server.start_server(LOGGER)
 
 from tvb.core.adapters.abcdisplayer import ABCDisplayer
 from tvb.core.decorators import user_environment_execution
@@ -68,7 +70,6 @@ from tvb.interfaces.web.controllers.users_controller import UserController
 from tvb.interfaces.web.controllers.help.help_controller import HelpController
 from tvb.interfaces.web.controllers.project.project_controller import ProjectController
 from tvb.interfaces.web.controllers.project.figure_controller import FigureController
-from tvb.interfaces.web.controllers.project.dti_pipeline_controller import DTIPipelineController
 from tvb.interfaces.web.controllers.flow_controller import FlowController
 from tvb.interfaces.web.controllers.settings_controller import SettingsController
 from tvb.interfaces.web.controllers.burst.burst_controller import BurstController
@@ -83,7 +84,7 @@ from tvb.interfaces.web.controllers.spatial.noise_configuration_controller impor
 from tvb.interfaces.web.controllers.api.simulator_controller import SimulatorController
 
 
-LOGGER = get_logger('tvb.interface.web.run')
+LOGGER = get_logger('tvb.interfaces.web.run')
 CONFIG_EXISTS = not SettingsService.is_first_run()
 PARAM_RESET_DB = "reset"
 
@@ -91,7 +92,7 @@ PARAM_RESET_DB = "reset"
 ### While running distribution/console, default encoding is ASCII
 reload(sys)
 sys.setdefaultencoding('utf-8')
-LOGGER.info("TVB application running using encoding: " + sys.getdefaultencoding())
+LOGGER.info("TVB application will be running using encoding: " + sys.getdefaultencoding())
 
 
 
@@ -113,7 +114,6 @@ def init_cherrypy(arguments=None):
     cherrypy.tree.mount(FigureController(), "/project/figure/", config=CONFIGUER)
     cherrypy.tree.mount(FlowController(), "/flow/", config=CONFIGUER)
     cherrypy.tree.mount(SettingsController(), "/settings/", config=CONFIGUER)
-    cherrypy.tree.mount(DTIPipelineController(), "/pipeline/", config=CONFIGUER)
     cherrypy.tree.mount(HelpController(), "/help/", config=CONFIGUER)
     cherrypy.tree.mount(BurstController(), "/burst/", config=CONFIGUER)
     cherrypy.tree.mount(ParameterExplorationController(), "/burst/explore/", config=CONFIGUER)

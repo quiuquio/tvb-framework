@@ -55,8 +55,10 @@ class ContextDiscretePSE(EnhancedDictionary):
     LINE_SEPARATOR = "<br/>"
     
     
-    def __init__(self, datatype_group_gid, labels_x, labels_y, color_metric, size_metric, back_page):
+    def __init__(self, datatype_group_gid, color_metric, size_metric, back_page):
+
         super(ContextDiscretePSE, self).__init__()
+
         self.datatype_group_gid = datatype_group_gid
         self.min_color = sys.float_info.max
         self.max_color = sys.float_info.min
@@ -64,14 +66,25 @@ class ContextDiscretePSE(EnhancedDictionary):
         self.max_shape_size_weight = sys.float_info.min
         self.has_started_ops = False
         self.status = 'started'
-        self.labels_x = labels_x
-        self.labels_y = labels_y
+        self.title_x, self.title_y = "", ""
+        self.values_x, self.labels_x, self.values_y, self.labels_y = [], [], [], []
         self.series_array, self.data, self.available_metrics = [], [], []
         self.datatypes_dict = {}
         self.color_metric = color_metric
         self.size_metric = size_metric
         self.pse_back_page = back_page
-    
+
+
+    def setRanges(self, title_x, values_x, labels_x, title_y, values_y, labels_y):
+
+        self.title_x = title_x
+        self.values_x = values_x
+        self.labels_x = labels_x
+
+        self.title_y = title_y
+        self.values_y = values_y
+        self.labels_y = labels_y
+
         
     def prepare_individual_jsons(self):
         """
@@ -111,7 +124,8 @@ class ContextDiscretePSE(EnhancedDictionary):
                     datatype_tooltip = datatype_tooltip + self.LINE_SEPARATOR + str(key) + ": " + str(value)
             node_info[self.KEY_TOOLTIP] = datatype_tooltip
         else:
-            node_info[self.KEY_TOOLTIP] = "No result available. Operation is in status: %s" % operation.status.split('-')[1]
+            tooltip = "No result available. Operation is in status: %s" % operation.status.split('-')[1]
+            node_info[self.KEY_TOOLTIP] = tooltip
         return node_info
     
     
@@ -160,8 +174,8 @@ class ContextDiscretePSE(EnhancedDictionary):
             self.max_color += 1
             
         all_series = []
-        for i, key_1 in enumerate(self.labels_x):
-            for j, key_2 in enumerate(self.labels_y):
+        for i, key_1 in enumerate(self.values_x):
+            for j, key_2 in enumerate(self.values_y):
                 datatype_gid = None
                 if self.KEY_GID in final_dict[key_1][key_2]:
                     #This means the operation was finished
@@ -186,9 +200,9 @@ class ContextDiscretePSE(EnhancedDictionary):
         #each shape from the UI corresponds to a dataType. In this matrix we
         #keep information about those dataTypes.
         matrix = []
-        for i, x_label in enumerate(self.labels_x):
+        for i, x_label in enumerate(self.values_x):
             matrix.append([])
-            for y_label in self.labels_y:
+            for y_label in self.values_y:
                 matrix[i].append(final_dict[x_label][y_label])
         
         self.data = matrix

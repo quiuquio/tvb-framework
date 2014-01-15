@@ -39,6 +39,7 @@ import os
 import json
 import psutil
 import numpy
+from functools import wraps
 from datetime import datetime
 from copy import copy
 from abc import ABCMeta, abstractmethod
@@ -78,16 +79,12 @@ def nan_not_allowed():
 
     e.g. If inside a method annotated with this method we have something like numpy.log(-1),
          then LaunchException is thrown.
-
     """
 
-
     def wrap(func):
-        """Wrap current function with a lock mechanism"""
 
-
+        @wraps(func)
         def new_function(*args, **kw):
-            """ New function will actually write the Lock."""
             old_fp_error_handling = numpy.seterr(divide='raise', invalid='raise')
             try:
                 return func(*args, **kw)
@@ -96,10 +93,7 @@ def nan_not_allowed():
             finally:
                 numpy.seterr(**old_fp_error_handling)
 
-
         return new_function
-
-
     return wrap
 
 
@@ -110,25 +104,17 @@ def nan_allowed():
     It should be used on Adapter methods where computation of NaN/ Inf/etc. is allowed.
     """
 
-
     def wrap(func):
-        """Wrap current function with a lock mechanism"""
 
-
+        @wraps(func)
         def new_function(*args, **kw):
-            """ New function will actually write the Lock."""
             old_fp_error_handling = numpy.seterr(all='ignore')
             try:
                 return func(*args, **kw)
-            except Exception:
-                pass
             finally:
                 numpy.seterr(**old_fp_error_handling)
 
-
         return new_function
-
-
     return wrap
 
 
@@ -271,7 +257,7 @@ class ABCAdapter(object):
             if available_disk_space < 0:
                 raise NoMemoryAvailableException("You have exceeded you HDD space quota"
                                                  " by %d. Stopping execution." % (available_disk_space,))
-            if (available_disk_space - required_disk_space) < 0:
+            if available_disk_space - required_disk_space < 0:
                 raise NoMemoryAvailableException("You only have %s kiloBytes of HDD available but the operation you "
                                                  "launched might require %d. "
                                                  "Stopping execution..." % (available_disk_space, required_disk_space))
@@ -434,15 +420,15 @@ class ABCAdapter(object):
             return adapter_instance
         except Exception, excep:
             get_logger("ABCAdapter").exception(excep)
-            raise IntrospectionException(excep.message)
+            raise IntrospectionException(str(excep))
 
 
     ####### METHODS for PROCESSING PARAMETERS start here #############################
 
     def review_operation_inputs(self, parameters):
         """
-        :returns: a list with the inputs from the parameters list that are instances of DataType,
-                 and a dictionary with all parameters which are different than the declared defauts
+        :returns: a list with the inputs from the parameters list that are instances of DataType,\
+            and a dictionary with all parameters which are different than the declared defauts
         """
         flat_interface = self.flaten_input_interface()
         return self._review_operation_inputs(parameters, flat_interface)
@@ -467,23 +453,22 @@ class ABCAdapter(object):
                     if eq_datatype is not None:
                         inputs_datatypes.append(eq_datatype)
                         is_datatype = True
-                else:
-                    if type(field_dict[self.KEY_TYPE]) in (str, unicode):
-                        point_separator = field_dict[self.KEY_TYPE].rfind('.')
-                        if point_separator > 0:
-                            module = field_dict[self.KEY_TYPE][:point_separator]
-                            classname = field_dict[self.KEY_TYPE][(point_separator + 1):]
-                            try:
-                                module = __import__(module, [], locals(), globals())
-                                class_entity = eval("module." + classname)
-                                if issubclass(class_entity, MappedType):
-                                    data_gid = parameters.get(str(field_dict[self.KEY_NAME]))
-                                    data_type = ABCAdapter.load_entity_by_gid(data_gid)
-                                    if data_type:
-                                        inputs_datatypes.append(data_type)
-                                        is_datatype = True
-                            except ImportError, _:
-                                pass
+                elif type(field_dict[self.KEY_TYPE]) in (str, unicode):
+                    point_separator = field_dict[self.KEY_TYPE].rfind('.')
+                    if point_separator > 0:
+                        module = field_dict[self.KEY_TYPE][:point_separator]
+                        classname = field_dict[self.KEY_TYPE][(point_separator + 1):]
+                        try:
+                            module = __import__(module, [], locals(), globals())
+                            class_entity = eval("module." + classname)
+                            if issubclass(class_entity, MappedType):
+                                data_gid = parameters.get(str(field_dict[self.KEY_NAME]))
+                                data_type = ABCAdapter.load_entity_by_gid(data_gid)
+                                if data_type:
+                                    inputs_datatypes.append(data_type)
+                                    is_datatype = True
+                        except ImportError, _:
+                            pass
 
                 if is_datatype:
                     changed_parameters[field_dict[self.KEY_LABEL]] = inputs_datatypes[-1].display_name
@@ -514,15 +499,24 @@ class ABCAdapter(object):
         """
         if algorithm_inputs is None:
             return
+
         for entry in algorithm_inputs:
             ## First handle this level of the tree, adding defaults where required
-            if (entry[self.KEY_NAME] not in kwargs and self.KEY_REQUIRED in entry and (entry[self.KEY_REQUIRED] is True)
-                    and self.KEY_DEFAULT in entry and entry[self.KEY_TYPE] != xml_reader.TYPE_DICT):
+            if (entry[self.KEY_NAME] not in kwargs
+                and self.KEY_REQUIRED in entry
+                and entry[self.KEY_REQUIRED] is True
+                and self.KEY_DEFAULT in entry
+                and entry[self.KEY_TYPE] != xml_reader.TYPE_DICT):
+
                 kwargs[entry[self.KEY_NAME]] = entry[self.KEY_DEFAULT]
+
         for entry in algorithm_inputs:
             ## Now that first level was handled, go recursively on selected options only          
-            if ((self.KEY_REQUIRED in entry) and entry[self.KEY_REQUIRED] and (ABCAdapter.KEY_OPTIONS in entry)
-                    and (entry[ABCAdapter.KEY_OPTIONS] is not None)):
+            if (self.KEY_REQUIRED in entry
+                and entry[self.KEY_REQUIRED] is True
+                and ABCAdapter.KEY_OPTIONS in entry
+                and entry[ABCAdapter.KEY_OPTIONS] is not None):
+
                 for option in entry[ABCAdapter.KEY_OPTIONS]:
                     #Only go recursive on option that was submitted
                     if option[self.KEY_VALUE] == kwargs[entry[self.KEY_NAME]]:
@@ -538,87 +532,89 @@ class ABCAdapter(object):
         kwa = {}
         simple_select_list, to_skip_dict_subargs = [], []
         for row in self.flaten_input_interface():
+            row_attr = row[xml_reader.ATT_NAME]
+            row_type = row[xml_reader.ATT_TYPE]
             ## If required attribute was submitted empty no point to continue, so just raise exception
-            if (validation_required and row.get(xml_reader.ATT_REQUIRED, False)
-                    and row[xml_reader.ATT_NAME] in kwargs and kwargs[row[xml_reader.ATT_NAME]] == ""):
+            if (validation_required
+                and row.get(xml_reader.ATT_REQUIRED, False)
+                and row_attr in kwargs
+                and kwargs[row_attr] == ""):
+
                 raise InvalidParameterException("Parameter %s is required for %s but no value was submitted!"
-                                                "Please relaunch with valid parameters." % (row[xml_reader.ATT_NAME],
-                                                                                            self.__class__.__name__))
-            if row[xml_reader.ATT_TYPE] == xml_reader.TYPE_DICT:
-                kwa[row[xml_reader.ATT_NAME]], taken_keys = self.__get_dictionary(row, **kwargs)
+                                "Please relaunch with valid parameters." % (row_attr,  self.__class__.__name__))
+
+            if row_type == xml_reader.TYPE_DICT:
+                kwa[row_attr], taken_keys = self.__get_dictionary(row, **kwargs)
                 for key in taken_keys:
                     if key in kwa:
                         del kwa[key]
                     to_skip_dict_subargs.append(key)
                 continue
             ## Dictionary subargs that were previously processed should be ignored
-            if row[xml_reader.ATT_NAME] in to_skip_dict_subargs:
+            if row_attr in to_skip_dict_subargs:
                 continue
 
-            if row[xml_reader.ATT_NAME] not in kwargs.keys():
+            if row_attr not in kwargs:
                 ## DataType sub-attributes are not submitted with GID in their name...
-                kwa_name = self.__find_field_submitted_name(kwargs, row[xml_reader.ATT_NAME], True)
+                kwa_name = self.__find_field_submitted_name(kwargs, row_attr, True)
                 if kwa_name is None:
                     ## Do not populate attributes not submitted
                     continue
-                kwargs[row[xml_reader.ATT_NAME]] = kwargs[kwa_name]
+                kwargs[row_attr] = kwargs[kwa_name]
                 ## del kwargs[kwa_name] (don't remove the original param, as it is useful for retrieving op. input DTs)
 
             elif self.__is_parent_not_submitted(row, kwargs):
                 ## Also do not populate sub-attributes from options not selected
-                del kwargs[row[xml_reader.ATT_NAME]]
+                del kwargs[row_attr]
                 continue
 
-            if row[xml_reader.ATT_TYPE] == xml_reader.TYPE_ARRAY:
-                kwa[row[xml_reader.ATT_NAME]] = self.__convert_to_array(kwargs[row[xml_reader.ATT_NAME]], row)
+            if row_type == xml_reader.TYPE_ARRAY:
+                kwa[row_attr] = self.__convert_to_array(kwargs[row_attr], row)
                 if xml_reader.ATT_MINVALUE in row and xml_reader.ATT_MAXVALUE:
-                    self.__validate_range_for_array_input(kwa[row[xml_reader.ATT_NAME]], row)
-            elif row[xml_reader.ATT_TYPE] == xml_reader.TYPE_LIST:
-                if not isinstance(kwargs[row[xml_reader.ATT_NAME]], list):
-                    kwa[row[xml_reader.ATT_NAME]] = json.loads(kwargs[row[xml_reader.ATT_NAME]])
-            elif row[xml_reader.ATT_TYPE] == xml_reader.TYPE_BOOL:
-                if not kwargs[row[xml_reader.ATT_NAME]]:
-                    kwa[row[xml_reader.ATT_NAME]] = False
+                    self.__validate_range_for_array_input(kwa[row_attr], row)
+            elif row_type == xml_reader.TYPE_LIST:
+                if not isinstance(kwargs[row_attr], list):
+                    kwa[row_attr] = json.loads(kwargs[row_attr])
+            elif row_type == xml_reader.TYPE_BOOL:
+                kwa[row_attr] = bool(kwargs[row_attr])
+
+            elif row_type == xml_reader.TYPE_INT:
+                if kwargs[row_attr] is None or kwargs[row_attr] in ['', 'None']:
+                    kwa[row_attr] = None
                 else:
-                    kwa[row[xml_reader.ATT_NAME]] = True
-            elif row[xml_reader.ATT_TYPE] == xml_reader.TYPE_INT:
-                if (kwargs[row[xml_reader.ATT_NAME]] is None or kwargs[row[xml_reader.ATT_NAME]] == ''
-                        or kwargs[row[xml_reader.ATT_NAME]] == 'None'):
-                    kwa[row[xml_reader.ATT_NAME]] = None
-                else:
-                    val = int(kwargs[row[xml_reader.ATT_NAME]])
-                    kwa[row[xml_reader.ATT_NAME]] = val
+                    val = int(kwargs[row_attr])
+                    kwa[row_attr] = val
                     if xml_reader.ATT_MINVALUE in row and xml_reader.ATT_MAXVALUE:
-                        self.__validate_range_for_value_input(kwa[row[xml_reader.ATT_NAME]], row)
-            elif row[xml_reader.ATT_TYPE] == xml_reader.TYPE_FLOAT:
-                if kwargs[row[xml_reader.ATT_NAME]] == '' or kwargs[row[xml_reader.ATT_NAME]] == 'None':
-                    kwa[row[xml_reader.ATT_NAME]] = None
+                        self.__validate_range_for_value_input(kwa[row_attr], row)
+            elif row_type == xml_reader.TYPE_FLOAT:
+                if kwargs[row_attr] in ['', 'None']:
+                    kwa[row_attr] = None
                 else:
-                    val = float(kwargs[row[xml_reader.ATT_NAME]])
-                    kwa[row[xml_reader.ATT_NAME]] = val
+                    val = float(kwargs[row_attr])
+                    kwa[row_attr] = val
                     if xml_reader.ATT_MINVALUE in row and xml_reader.ATT_MAXVALUE:
-                        self.__validate_range_for_value_input(kwa[row[xml_reader.ATT_NAME]], row)
-            elif row[xml_reader.ATT_TYPE] == xml_reader.TYPE_STR:
-                kwa[row[xml_reader.ATT_NAME]] = kwargs[row[xml_reader.ATT_NAME]]
-            elif row[xml_reader.ATT_TYPE] in [xml_reader.TYPE_SELECT, xml_reader.TYPE_MULTIPLE]:
-                val = kwargs[row[xml_reader.ATT_NAME]]
-                if row[xml_reader.ATT_TYPE] == xml_reader.TYPE_MULTIPLE and not isinstance(val, list):
+                        self.__validate_range_for_value_input(kwa[row_attr], row)
+            elif row_type == xml_reader.TYPE_STR:
+                kwa[row_attr] = kwargs[row_attr]
+            elif row_type in [xml_reader.TYPE_SELECT, xml_reader.TYPE_MULTIPLE]:
+                val = kwargs[row_attr]
+                if row_type == xml_reader.TYPE_MULTIPLE and not isinstance(val, list):
                     val = [val]
-                kwa[row[xml_reader.ATT_NAME]] = val
-                if row[xml_reader.ATT_TYPE] == xml_reader.TYPE_SELECT:
-                    simple_select_list.append(row[xml_reader.ATT_NAME])
-            elif row[xml_reader.ATT_TYPE] == xml_reader.TYPE_UPLOAD:
-                val = kwargs[row[xml_reader.ATT_NAME]]
-                kwa[row[xml_reader.ATT_NAME]] = val
+                kwa[row_attr] = val
+                if row_type == xml_reader.TYPE_SELECT:
+                    simple_select_list.append(row_attr)
+            elif row_type == xml_reader.TYPE_UPLOAD:
+                val = kwargs[row_attr]
+                kwa[row_attr] = val
             else:
                 ## DataType parameter to be processed:
-                simple_select_list.append(row[xml_reader.ATT_NAME])
-                datatype_gid = kwargs[row[xml_reader.ATT_NAME]]
+                simple_select_list.append(row_attr)
+                datatype_gid = kwargs[row_attr]
                 ## Load filtered and trimmed attribute (e.g. field is applied if specified):
-                kwa[row[xml_reader.ATT_NAME]] = self.__load_entity(row, datatype_gid, kwargs)
+                kwa[row_attr] = self.__load_entity(row, datatype_gid, kwargs)
                 if xml_reader.ATT_FIELD in row:
                     #Add entity_GID to the parameters to recognize original input
-                    kwa[row[xml_reader.ATT_NAME] + '_gid'] = datatype_gid
+                    kwa[row_attr + '_gid'] = datatype_gid
 
         return self.collapse_arrays(kwa, simple_select_list)
 
@@ -639,6 +635,7 @@ class ABCAdapter(object):
                                                 row[xml_reader.ATT_MINVALUE], row[xml_reader.ATT_MAXVALUE],
                                                 min_val, max_val))
         except Exception:
+            # fixme: this looks weird
             pass
 
 
@@ -656,7 +653,7 @@ class ABCAdapter(object):
                 input_data = eval(str(input_data))
                 # TODO move at a different level
                 equation_type = input_data.get(self.KEY_DTYPE, None)
-                if equation_type == None:
+                if equation_type is None:
                     self.log.warning("Cannot figure out type of equation from input dictionary: %s. "
                                      "Returning []." % (str(input_data,)))
                     return []
@@ -968,10 +965,10 @@ class ABCAdapter(object):
             new_p = copy(param)
             if param[ABCAdapter.KEY_NAME] in data:
                 new_p[ABCAdapter.KEY_DEFAULT] = data[param[ABCAdapter.KEY_NAME]]
-            if (ABCAdapter.KEY_ATTRIBUTES in param) and (param[ABCAdapter.KEY_ATTRIBUTES] is not None):
+            if param.get(ABCAdapter.KEY_ATTRIBUTES) is not None:
                 new_p[ABCAdapter.KEY_ATTRIBUTES] = ABCAdapter.fill_defaults(param[ABCAdapter.KEY_ATTRIBUTES], data,
                                                                             fill_unselected_branches)
-            if (ABCAdapter.KEY_OPTIONS in param) and (param[ABCAdapter.KEY_OPTIONS] is not None):
+            if param.get(ABCAdapter.KEY_OPTIONS) is not None:
                 new_options = param[ABCAdapter.KEY_OPTIONS]
                 if param[ABCAdapter.KEY_NAME] in data or fill_unselected_branches:
                     selected_values = []
@@ -999,15 +996,15 @@ class ABCAdapter(object):
                 new_param[ABCAdapter.KEY_NAME] = prefix + param[self.KEY_NAME]
             result.append(new_param)
 
-            if (self.KEY_OPTIONS in param) and (param[self.KEY_OPTIONS] is not None):
+            if param.get(self.KEY_OPTIONS) is not None:
                 for option in param[self.KEY_OPTIONS]:
                     ### SELECT or SELECT_MULTIPLE attributes
-                    if (self.KEY_ATTRIBUTES in option) and (option[self.KEY_ATTRIBUTES] is not None):
+                    if option.get(self.KEY_ATTRIBUTES) is not None:
                         new_prefix = ABCAdapter.form_prefix(param[ABCAdapter.KEY_NAME], prefix, option[self.KEY_VALUE])
                         extra_list = self._flaten(option[self.KEY_ATTRIBUTES], new_prefix)
                         result.extend(extra_list)
 
-            if (self.KEY_ATTRIBUTES in param) and (param[self.KEY_ATTRIBUTES] is not None):
+            if param.get(self.KEY_ATTRIBUTES) is not None:
                 ### DATATYPE attributes
                 new_prefix = ABCAdapter.form_prefix(param[ABCAdapter.KEY_NAME], prefix, None)
                 extra_list = self._flaten(param[self.KEY_ATTRIBUTES], new_prefix)
@@ -1030,8 +1027,8 @@ class ABCAdapter(object):
                 new_name = prefix + param[ABCAdapter.KEY_NAME]
                 prepared_param[ABCAdapter.KEY_NAME] = new_name
 
-            if (((ABCAdapter.KEY_TYPE not in param) or param[ABCAdapter.KEY_TYPE] in ABCAdapter.STATIC_ACCEPTED_TYPES)
-                    and (ABCAdapter.KEY_OPTIONS in param) and (param[ABCAdapter.KEY_OPTIONS] is not None)):
+            if ((ABCAdapter.KEY_TYPE not in param or param[ABCAdapter.KEY_TYPE] in ABCAdapter.STATIC_ACCEPTED_TYPES)
+                    and param.get(ABCAdapter.KEY_OPTIONS) is not None):
                 add_prefix_option = ((ABCAdapter.KEY_TYPE in param) and
                                      (param[ABCAdapter.KEY_TYPE] == xml_reader.TYPE_MULTIPLE
                                       or param[ABCAdapter.KEY_TYPE] == xml_reader.TYPE_SELECT))
@@ -1039,9 +1036,9 @@ class ABCAdapter(object):
                 prepared_param[ABCAdapter.KEY_OPTIONS] = ABCAdapter.prepare_param_names(param[ABCAdapter.KEY_OPTIONS],
                                                                                         new_prefix, add_prefix_option)
 
-            if (ABCAdapter.KEY_ATTRIBUTES in param) and (param[ABCAdapter.KEY_ATTRIBUTES] is not None):
+            if param.get(ABCAdapter.KEY_ATTRIBUTES) is not None:
                 new_prefix = prefix
-                is_dict = (ABCAdapter.KEY_TYPE in param) and (param[ABCAdapter.KEY_TYPE] == 'dict')
+                is_dict = param.get(ABCAdapter.KEY_TYPE) == 'dict'
                 if add_option_prefix:
                     new_prefix = prefix + ABCAdapter.KEYWORD_OPTION
                     new_prefix = new_prefix + param[ABCAdapter.KEY_VALUE]
@@ -1162,7 +1159,7 @@ class ABCGroupAdapter(ABCAdapter):
         return eval("reference." + class_name)
 
 
-    def build_result(self, algorithm, result, inputs={}):
+    def build_result(self, algorithm, result, inputs):
         """
         Build an actual Python object, based on the XML interface description.
         Put inside the resulting Python object, the call result. 

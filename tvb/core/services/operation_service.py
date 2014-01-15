@@ -157,7 +157,7 @@ class OperationService:
             return self._send_to_cluster(operations, adapter_instance)
 
 
-    def _prepare_metadata(self, initial_metadata, algo_category, operation_group=None, submit_data={}):
+    def _prepare_metadata(self, initial_metadata, algo_category, operation_group, submit_data):
         """
         Gather metadata from submitted fields and current to be execute algorithm.
         Will populate STATE, GROUP in metadata
@@ -190,7 +190,7 @@ class OperationService:
                     set_values.append(val)
                     values_str = values_str + " " + str(val)
             values = values_str
-        return str(values).lstrip().rstrip()
+        return str(values).strip()
     
     
     def group_operation_launch(self, user_id, project_id, adapter_id, category_id, **kwargs):

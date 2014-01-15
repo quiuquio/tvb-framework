@@ -16,7 +16,7 @@ var doPick = false;					// No picking by default
 var nrOfSteps = 6;					// Number of space-time plots we will draw in scene
 var colorsForPicking = [];			// The colors which are used for the picking scheme
 
-var plotTranslations = [];			// Keep track of the transation for each plot. 
+var plotTranslations = [];			// Keep track of the translation for each plot.
 var plotRotations = [];				// Keep track of the rotations for each plot
 var zoomedInMatrix = -1;			// The matrix witch is currently zoomed in on
 var clickedMatrix = -1;
@@ -25,8 +25,8 @@ var backupRotations = [];
 var animationStarted = false;
 var alphaValueSpaceTime = 1.0;				// original alpha value for default plot		
 var backupAlphaValue = alphaValueSpaceTime;	// backup used in animations
-var minTractValue = -1;
-var maxTractValue = -1;
+var minSelectedDelayValue = -1;
+var maxSelectedDelayValue = -1;
 var animationTimeout = 3;
 var animationGranularity = 50;
 
@@ -43,10 +43,6 @@ function customMouseDown_SpaceTime(event) {
 	}
 }
 
-function nullEventHandler() {
-	// Just do nothing for most events since we don't want zooming or other fancy stuff.
-}
-
 function initColorsForPicking() {
 	colorsForPicking = [];
 	for (var i=0; i <= nrOfSteps; i++) {
@@ -54,7 +50,7 @@ function initColorsForPicking() {
 		var r = parseInt(1.0 / (i + 1) * 255);
 		var g = parseInt(i / nrOfSteps * 255);
 		var b = 0.0;
-		colorsForPicking.push([r / 255, g / 255, b / 255])
+		colorsForPicking.push([r / 255, g / 255, b / 255]);
 		var colorKey = r + '' + g + '0';
 		GL_colorPickerMappingDict[colorKey] = i;
 	}
@@ -79,6 +75,7 @@ function initShaders_SPACETIME() {
 
 
 function connectivitySpaceTime_startGL() {
+	conectivitySpaceTime_initCanvas();
 	//Do the required initializations for the connectivity space-time visualizer
     initShaders_SPACETIME();
 
@@ -86,9 +83,17 @@ function connectivitySpaceTime_startGL() {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
 
-	drawSceneSpaceTime();
+	updateSpaceTimeHeader();
 }
 
+function _GL_createBuffer(data, type){
+    type = type || gl.ARRAY_BUFFER;
+    var buff = gl.createBuffer();
+    gl.bindBuffer(type, buff);
+    gl.bufferData(type, data, gl.STATIC_DRAW);
+    buff.numItems = data.length;
+    return buff;
+}
 
 /*
  * Create the required buffers for the space-time plot.
@@ -96,76 +101,70 @@ function connectivitySpaceTime_startGL() {
 function createConnectivityMatrix() {
 	var nrElems = GVAR_interestAreaVariables[GVAR_selectedAreaType].values.length;
 	// starting 'x' and 'y' axis values for the plot in order to center around (0, 0)
-	var startX = - (plotSize / 2);	
-	var startY = - (plotSize / 2);
+	var startX = - plotSize / 2;
+	var startY = - plotSize / 2;
 	// The size of a matrix element
 	var elementSize = plotSize / nrElems;
 	// Create arrays from start for performance reasons 
 	var vertices = new Float32Array(nrElems * nrElems * 4 * 3);
-	var normals = [];
+	var normals = new Float32Array(nrElems * nrElems * 4 * 3);
 	var indices = new Uint16Array(nrElems * nrElems * 2 * 3);
 	var linesIndices = new Uint16Array(nrElems * nrElems * 2 * 4);
+
+    var linearIndex = -1;
+
 	for (var i = 0; i < nrElems; i++) {
 		for (var j = 0; j < nrElems; j++) {
+            linearIndex += 1;
 			// For each separate element, compute the position of the 4 required vertices
 			// depending on the position from the connectivity matrix
-			var upperLeft = [startX + j * elementSize, startY + i * elementSize, defaultZ];
-			var upperRight = [startX + (j + 1) * elementSize, startY + i * elementSize, defaultZ];
-			var lowerLeft = [startX + j * elementSize, startY + (i + 1) * elementSize, defaultZ];
-			var lowerRight = [startX + (j + 1) * elementSize, startY + (i + 1) * elementSize, defaultZ];
-			// Since the vertice array is flatten, and there are 4 vertices per one element,
+			var upperLeftX = startX + j * elementSize;
+            var upperLeftY = startY + i * elementSize;
+
+            // Since the vertex array is flatten, and there are 4 vertices per one element,
 			// in order to fill the position in the vertice array we need to fill all 12 elements
-			vertices[3 * 4 * (i * nrElems + j)] = upperLeft[0];
-			vertices[3 * 4 * (i * nrElems + j) + 1] = upperLeft[1];
-			vertices[3 * 4 * (i * nrElems + j) + 2] = upperLeft[2];
-			vertices[3 * 4 * (i * nrElems + j) + 3] = upperRight[0];
-			vertices[3 * 4 * (i * nrElems + j) + 4] = upperRight[1];
-			vertices[3 * 4 * (i * nrElems + j) + 5] = upperRight[2];
-			vertices[3 * 4 * (i * nrElems + j) + 6] = lowerLeft[0];
-			vertices[3 * 4 * (i * nrElems + j) + 7] = lowerLeft[1];
-			vertices[3 * 4 * (i * nrElems + j) + 8] = lowerLeft[2];
-			vertices[3 * 4 * (i * nrElems + j) + 9] = lowerRight[0];
-			vertices[3 * 4 * (i * nrElems + j) + 10] = lowerRight[1];
-			vertices[3 * 4 * (i * nrElems + j) + 11] = lowerRight[2];
-			// For the normals it's easier since we only need one normal for each vertex
-			for (var k = 0; k < 4; k++) {
-				normals.concat([0, 0, -1]);
-			}
-			// We have 2 triangles, which again are flatten so we need to fill 6 index elements
-			indices[3 * 2 * (i * nrElems + j)] = 4 * (i * nrElems + j);
-			indices[3 * 2 * (i * nrElems + j) + 1] = 4 * (i * nrElems + j) + 1;
-			indices[3 * 2 * (i * nrElems + j) + 2] = 4 * (i * nrElems + j) + 2;
-			indices[3 * 2 * (i * nrElems + j) + 3] = 4 * (i * nrElems + j) + 1;
-			indices[3 * 2 * (i * nrElems + j) + 4] = 4 * (i * nrElems + j) + 2;
-			indices[3 * 2 * (i * nrElems + j) + 5] = 4 * (i * nrElems + j) + 3;
-			
+            var elemVertices = [
+                upperLeftX, upperLeftY, defaultZ,
+                upperLeftX + elementSize, upperLeftY, defaultZ, //upper right
+                upperLeftX, upperLeftY + elementSize, defaultZ, //lower left
+                upperLeftX + elementSize, upperLeftY + elementSize, defaultZ // lower right
+            ];
+
+            var indexBase = 4 * linearIndex;
+
+            // For the normals it's easier since we only need one normal for each vertex
+            var elemNormals = [
+                0, 0, -1,
+                0, 0, -1,
+                0, 0, -1,
+                0, 0, -1
+            ];
+
+            // We have 2 triangles, which again are flatten so we need to fill 6 index elements
+            var elemIndices = [
+                indexBase + 0, indexBase + 1, indexBase + 2,
+                indexBase + 1, indexBase + 2, indexBase + 3
+            ];
+
 			// For the lines we have 4 lines per element, flatten again, so 8 index elements to fill
-			linesIndices[4 * 2 * (i * nrElems + j)] = 4 * (i * nrElems + j);
-			linesIndices[4 * 2 * (i * nrElems + j) + 1] = 4 * (i * nrElems + j) + 1;
-			linesIndices[4 * 2 * (i * nrElems + j) + 2] = 4 * (i * nrElems + j) + 1;
-			linesIndices[4 * 2 * (i * nrElems + j) + 3] = 4 * (i * nrElems + j) + 3;
-			linesIndices[4 * 2 * (i * nrElems + j) + 4] = 4 * (i * nrElems + j) + 2;
-			linesIndices[4 * 2 * (i * nrElems + j) + 5] = 4 * (i * nrElems + j) + 3;
-			linesIndices[4 * 2 * (i * nrElems + j) + 6] = 4 * (i * nrElems + j) + 2;
-			linesIndices[4 * 2 * (i * nrElems + j) + 7] = 4 * (i * nrElems + j) + 0;
+            var elemLines = [
+                indexBase + 0, indexBase + 1,
+                indexBase + 1, indexBase + 3,
+                indexBase + 2, indexBase + 3,
+                indexBase + 2, indexBase + 0
+            ];
+
+            vertices.set(elemVertices, 3 * 4 * linearIndex);
+            normals.set(elemNormals, 3 * 4 * linearIndex);
+            indices.set(elemIndices, 3 * 2 * linearIndex);
+            linesIndices.set(elemLines, 4 * 2 * linearIndex);
 		}
 	}
 	// Now create all the required buffers having the computed data.
-	normals = new Float32Array(normals);
-	verticesBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-    normalsBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
-    indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-    indexBuffer.numItems = indices.length;
-    linesIndexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, linesIndexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, linesIndices, gl.STATIC_DRAW);
-    linesIndexBuffer.numItems = linesIndices.length;
+    verticesBuffer = _GL_createBuffer(vertices);
+    normalsBuffer = _GL_createBuffer(normals);
+    indexBuffer = _GL_createBuffer(indices, gl.ELEMENT_ARRAY_BUFFER);
+    linesIndexBuffer = _GL_createBuffer(linesIndices, gl.ELEMENT_ARRAY_BUFFER);
     createOutlineSquare(startX, startY, elementSize, nrElems);
 }
 
@@ -173,22 +172,18 @@ function createConnectivityMatrix() {
  * Compute the required vertex and idex for the square outline of the full connectivity matrix
  */
 function createOutlineSquare(startX, startY, elementSize, nrElems) {
-	var outlineVertices = [startX, startY, defaultZ,
-    					   startX + nrElems * elementSize, startY, defaultZ,
-    					   startX, startY + nrElems * elementSize, defaultZ,
-    					   startX + nrElems * elementSize, startY + nrElems * elementSize, defaultZ];
+    var width = nrElems * elementSize;
+	var outlineVertices = [
+        startX, startY, defaultZ,
+        startX + width, startY, defaultZ,
+        startX, startY + width, defaultZ,
+        startX + width, startY + width, defaultZ
+    ];
     var outlineNormals = [0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1];
     var outlineLines = [0, 1, 0, 2, 1, 3, 2, 3];
-    outlineVerticeBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, outlineVerticeBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(outlineVertices), gl.STATIC_DRAW);
-    outlineNormalsBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, outlineNormalsBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(outlineNormals), gl.STATIC_DRAW);
-    outlineLinesBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, outlineLinesBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(outlineLines), gl.STATIC_DRAW);
-    outlineLinesBuffer.numItems = outlineLines.length;
+    outlineVerticeBuffer = _GL_createBuffer(new Float32Array(outlineVertices));
+    outlineNormalsBuffer = _GL_createBuffer(new Float32Array(outlineNormals));
+    outlineLinesBuffer = _GL_createBuffer(new Uint16Array(outlineLines), gl.ELEMENT_ARRAY_BUFFER);
 }
 
 
@@ -204,28 +199,31 @@ function createOutlineSquare(startX, startY, elementSize, nrElems) {
  * 			 rest the color black is used.
  */
 function generateColors(tractValue, intervalLength) {
+    var theme = ColSchGetTheme().connectivityStepPlot;
 	var matrixWeightsValues = GVAR_interestAreaVariables[1].values;
 	var matrixTractsValues = GVAR_interestAreaVariables[2].values;
 	var minWeightsValue = GVAR_interestAreaVariables[1].min_val;
 	var maxWeightsValue = GVAR_interestAreaVariables[1].max_val;
 	var nrElems = matrixWeightsValues.length;
 	var colors = new Float32Array(nrElems * nrElems * 3 * 4);
+    var linearIndex = -1;
+
 	for (var i = 0; i < nrElems; i++) {
 		for (var j = 0; j < nrElems; j++) {
-			for (var k = 0; k < 4; k++) {
-				// For each element generate 4 identical colors coresponding to the 4 vertices used for the element
-				var delayValue = matrixTractsValues[i][nrElems - j - 1] / conductionSpeed;
-				if (delayValue >= (tractValue - intervalLength / 2) && delayValue <= (tractValue + intervalLength / 2)) {
-					var color = getGradientColor(matrixWeightsValues[i][nrElems - j - 1], minWeightsValue, maxWeightsValue);
-					for (var colorIdx = 0; colorIdx < 3; colorIdx++) {
-						colors[3 * 4 * (i * nrElems + j) + k * 3 + colorIdx] = color[colorIdx];
-					}
-				} else {
-					colors[3 * 4 * (i * nrElems + j) + k * 3] = 0;
-					colors[3 * 4 * (i * nrElems + j) + k * 3 + 1] = 0;
-					colors[3 * 4 * (i * nrElems + j) + k * 3 + 2] = 0;
-				}
-			}
+            linearIndex += 1;
+            // For each element generate 4 identical colors coresponding to the 4 vertices used for the element
+            var delayValue = matrixTractsValues[i][nrElems - j - 1] / conductionSpeed;
+            var color;
+
+            if (delayValue >= (tractValue - intervalLength / 2) &&
+                delayValue <= (tractValue + intervalLength / 2)) {
+                color = getGradientColor(matrixWeightsValues[i][nrElems - j - 1], minWeightsValue, maxWeightsValue);
+            }else{
+                color = theme.noValueColor;
+            }
+
+            color = [].concat(color, color, color, color);
+            colors.set(color, 3 * 4 * linearIndex);
 		}
 	}
 	var buffer = gl.createBuffer();
@@ -239,33 +237,61 @@ function generateColors(tractValue, intervalLength) {
  * Update the header with informations about matrices.
  */ 
 function updateSpaceTimeHeader() {
-	var minTract = $('#fromTractValue').val();
-	if (minTract == "") {
-		minTract = minTractValue;
-	} else {
-		minTract = parseFloat(minTract);
-	}
-	
-	var maxTract = $('#toTractValue').val();
-	if (maxTract == "") {
-		maxTract = maxTractValue;
-	} else {
-		maxTract = parseFloat(maxTract);
-	}
-	
-	if (minTract < GVAR_interestAreaVariables[2].min_val) minTract = GVAR_interestAreaVariables[2].min_val;
-	if (maxTract < 0) maxTract = maxTractValue;
-	if (maxTract > GVAR_interestAreaVariables[2].max_val) maxTract = GVAR_interestAreaVariables[2].max_val;
-	if (minTract > maxTract) {
-		var swapAux = minTract;
-		minTract = maxTract;
-		maxTract = swapAux;
-	}
-	minTractValue = minTract;
-	maxTractValue = maxTract;
-	$('#fromTractValue').val(minTractValue.toFixed(2));
-	$('#toTractValue').val(maxTractValue.toFixed(2));
-	initColorBuffers();
+
+    function parseFloatDefault(valueUI, defaultValue){
+        var resultValue = parseFloat(valueUI);
+        if(isNaN(resultValue)){
+            return defaultValue;
+        }else{
+            return resultValue;
+        }
+    }
+
+    var fromDelaysInput = $('#fromDelaysValue');
+    var toDelaysInput = $('#toDelaysValue');
+    var conductionSpeedInput = $('#conductionSpeedValue');
+    var currentMinDelay, currentMaxDelay;
+    var uiConductionSpeed = parseFloatDefault(conductionSpeedInput.val(), conductionSpeed);
+
+    // if conduction speed has changed adjust tract bounds
+    if(uiConductionSpeed !== conductionSpeed){
+        conductionSpeed = uiConductionSpeed;
+        currentMinDelay = GVAR_interestAreaVariables[2].min_val / conductionSpeed;
+        currentMaxDelay = GVAR_interestAreaVariables[2].max_val / conductionSpeed;
+        _connectivitySpaceTimeUpdateLegend();
+
+    } else {
+        // read delay bounds specified by user in UI, in case invalid defaults are previous values
+        currentMinDelay = parseFloatDefault(fromDelaysInput.val(), minSelectedDelayValue);
+        currentMaxDelay = parseFloatDefault(toDelaysInput.val(), maxSelectedDelayValue);
+
+        // ensure validity for tract bounds
+        var maxAcceptedDelay = GVAR_interestAreaVariables[2].max_val / conductionSpeed;
+        var minAcceptedDelay = GVAR_interestAreaVariables[2].min_val / conductionSpeed;
+
+        if (currentMinDelay > currentMaxDelay) {
+            var swapAux = currentMinDelay;
+            currentMinDelay = currentMaxDelay;
+            currentMaxDelay = swapAux;
+        }
+        if (currentMinDelay < minAcceptedDelay){
+            currentMinDelay = minAcceptedDelay;
+        }
+        if (currentMaxDelay > maxAcceptedDelay || currentMaxDelay < 0) {
+            currentMaxDelay = maxAcceptedDelay;
+        }
+    }
+
+    //set globals
+	minSelectedDelayValue = currentMinDelay;
+	maxSelectedDelayValue = currentMaxDelay;
+
+    //update ui
+	fromDelaysInput.val(minSelectedDelayValue.toFixed(2));
+	toDelaysInput.val(maxSelectedDelayValue.toFixed(2));
+    conductionSpeedInput.val(conductionSpeed.toFixed(2));
+
+	ConnStepPlotInitColorBuffers();
 	if (clickedMatrix >= 0) {
 		doZoomOutAnimation();
 	} else {
@@ -274,16 +300,19 @@ function updateSpaceTimeHeader() {
 }
 
 
-function initColorBuffers() {
+function ConnStepPlotInitColorBuffers() {
 	initColorsForPicking();
     plotColorBuffers = [];
-	var stepValue = (maxTractValue - minTractValue) / nrOfSteps;
-	plotColorBuffers.push(generateColors((maxTractValue + minTractValue) / 2, maxTractValue - minTractValue));
+	var stepValue = (maxSelectedDelayValue - minSelectedDelayValue) / nrOfSteps;
+	plotColorBuffers.push(generateColors((maxSelectedDelayValue + minSelectedDelayValue) / 2, maxSelectedDelayValue - minSelectedDelayValue));
 	// In order to avoid floating number approximations which keep the loop for one more iteration just approximate by
 	// substracting 0.1
-	for (var tractValue = minTractValue + stepValue / 2; tractValue < parseInt(maxTractValue) - 0.1; tractValue = tractValue + stepValue) {
+	for (var tractValue = minSelectedDelayValue + stepValue / 2; tractValue < parseInt(maxSelectedDelayValue) - 0.1; tractValue = tractValue + stepValue) {
 		plotColorBuffers.push(generateColors(tractValue, stepValue));
 	} 
+    var theme = ColSchGetTheme().connectivityStepPlot;
+    gl.clearColor(theme.backgroundColor[0], theme.backgroundColor[1], theme.backgroundColor[2], theme.backgroundColor[3]);
+    drawSceneSpaceTime();
 }
 
 /*
@@ -292,15 +321,12 @@ function initColorBuffers() {
 function conectivitySpaceTime_initCanvas() {
 	var canvas = document.getElementById(CONNECTIVITY_SPACE_TIME_CANVAS_ID);
     initGL(canvas);
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    var theme = ColSchGetTheme().connectivityStepPlot;
+    gl.clearColor(theme.backgroundColor[0], theme.backgroundColor[1], theme.backgroundColor[2], theme.backgroundColor[3]);
     plotSize = parseInt(canvas.clientWidth / 3);	// Compute the size of one connectivity plot depending on the canvas width
     createConnectivityMatrix();
-    canvas.onkeydown = nullEventHandler;
-    canvas.onkeyup = nullEventHandler;
     canvas.onmousedown = customMouseDown_SpaceTime;
-    document.onmouseup = nullEventHandler;
-    document.onmousemove = nullEventHandler;
-    
+
     plotTranslations = [];
     plotRotations = [];
     plotTranslations.push([-parseInt(canvas.clientWidth / 4), 0, 0]);	//The translation for the left-most full connectivity matrix
@@ -310,27 +336,33 @@ function conectivitySpaceTime_initCanvas() {
     	plotRotations.push([80 - i * nrOfSteps, [0, 1, 0]]);
     }
     
-    if (minTractValue < 0) {
-    	minTractValue = GVAR_interestAreaVariables[2].min_val / conductionSpeed;
+    if (minSelectedDelayValue < 0) {
+    	minSelectedDelayValue = GVAR_interestAreaVariables[2].min_val / conductionSpeed;
     }
-	if (maxTractValue < 0) {
-		maxTractValue = GVAR_interestAreaVariables[2].max_val / conductionSpeed;
+	if (maxSelectedDelayValue < 0) {
+		maxSelectedDelayValue = GVAR_interestAreaVariables[2].max_val / conductionSpeed;
 	}
 	
-    updateSpaceTimeHeader();
     clickedMatrix = -1;
-    
-    document.getElementById("leg_min_tract").innerHTML = "Min tract length : " + GVAR_interestAreaVariables[2].min_val + ' mm';
-    document.getElementById("leg_max_tract").innerHTML = "Max tract length : " + GVAR_interestAreaVariables[2].max_val + ' mm';
-    document.getElementById("leg_min_weights").innerHTML = "Min weight : " + GVAR_interestAreaVariables[1].min_val;
-    document.getElementById("leg_max_weights").innerHTML = "Max weight : " + GVAR_interestAreaVariables[1].max_val;
+
+    _connectivitySpaceTimeUpdateLegend();
 }
 
+function _connectivitySpaceTimeUpdateLegend(){
+    $('#leg_min_tract').html("Min tract length : " + GVAR_interestAreaVariables[2].min_val.toFixed(2) + ' mm');
+    $('#leg_max_tract').html("Max tract length : " + GVAR_interestAreaVariables[2].max_val.toFixed(2) + ' mm');
+    $('#leg_min_weights').html("Min weight : " + GVAR_interestAreaVariables[1].min_val.toFixed(2));
+    $('#leg_max_weights').html("Max weight : " + GVAR_interestAreaVariables[1].max_val.toFixed(2));
+    $('#leg_conduction_speed').html("Conduction speed : " + conductionSpeed.toFixed(2));
+    $('#leg_min_delay').html('Min delay : ' + (GVAR_interestAreaVariables[2].min_val / conductionSpeed).toFixed(2) + ' ms');
+    $('#leg_max_delay').html('Max delay : ' + (GVAR_interestAreaVariables[2].max_val / conductionSpeed).toFixed(2) + ' ms');
+}
 
 /*
  * Draw the full matrix, with the outline square.
  */
 function drawFullMatrix(doPick, idx) {
+    var theme = ColSchGetTheme().connectivityStepPlot;
 	mvPushMatrix();
 	
 	// Translate and rotate to get a good view 
@@ -341,45 +373,46 @@ function drawFullMatrix(doPick, idx) {
 	// Draw the actual matrix.
 	gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
     gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, TRI, gl.FLOAT, false, 0, 0);
-	gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, TRI, gl.FLOAT, false, 0, 0);
+//	gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
+//    gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, TRI, gl.FLOAT, false, 0, 0);
 	setMatrixUniforms();
 	
 	if (doPick) {
 		var currentPickColor = colorsForPicking[idx];
 		gl.uniform3f(shaderProgram.pickingColor, currentPickColor[0], currentPickColor[1], currentPickColor[2]);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	    gl.drawElements(gl.TRIANGLES, indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 	} else {
 		gl.bindBuffer(gl.ARRAY_BUFFER, plotColorBuffers[idx]);
 	    gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, 3, gl.FLOAT, false, 0, 0);
 	    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 		gl.drawElements(gl.TRIANGLES, indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-	    gl.uniform3f(shaderProgram.lineColor, 0.1, 0.1, 0.2);
+	    gl.uniform3f(shaderProgram.lineColor, theme.lineColor[0], theme.lineColor[1], theme.lineColor[2]);
 		gl.uniform1i(shaderProgram.drawLines, true);
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, linesIndexBuffer);
+        gl.lineWidth(1.0);
 		gl.drawElements(gl.LINES, linesIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 		gl.uniform1i(shaderProgram.drawLines, false);
 		
 		// Now draw the square outline
 		if (idx == clickedMatrix) {
-			gl.uniform3f(shaderProgram.lineColor, 0.2, 0.2, 0.8);
+			gl.uniform3f(shaderProgram.lineColor, theme.selectedOutlineColor[0], theme.selectedOutlineColor[1], theme.selectedOutlineColor[2]);
 	    	gl.lineWidth(3.0);
 		} else {
-			gl.uniform3f(shaderProgram.lineColor, 0.3, 0.3, 0.3);
+			gl.uniform3f(shaderProgram.lineColor, theme.outlineColor[0], theme.outlineColor[1], theme.outlineColor[2]);
 			gl.lineWidth(2.0);
 		}
 	    gl.bindBuffer(gl.ARRAY_BUFFER, outlineVerticeBuffer);
 	    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, TRI, gl.FLOAT, false, 0, 0);
-		gl.bindBuffer(gl.ARRAY_BUFFER, outlineNormalsBuffer);
-	    gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, TRI, gl.FLOAT, false, 0, 0);
+//		gl.bindBuffer(gl.ARRAY_BUFFER, outlineNormalsBuffer);
+//	    gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, TRI, gl.FLOAT, false, 0, 0);
 	    gl.uniform1i(shaderProgram.drawLines, true);
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, outlineLinesBuffer);
 		gl.drawElements(gl.LINES, outlineLinesBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 		gl.lineWidth(2.0);
 		gl.uniform1i(shaderProgram.drawLines, false);
 	}
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	gl.drawElements(gl.TRIANGLES, indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-	
+
     mvPopMatrix();
 }
 
@@ -417,10 +450,10 @@ function animationStep(step, animationSteps, animations, zoomIn) {
 		var matrixSelected = document.getElementById('selectedMatrixValue');
 		if (zoomIn) {
 			zoomedInMatrix = clickedMatrix;
-			var stepValue = (maxTractValue - minTractValue) / nrOfSteps;
+			var stepValue = (maxSelectedDelayValue - minSelectedDelayValue) / nrOfSteps;
 			if (zoomedInMatrix != 0) {
-				var fromTractVal = (minTractValue + stepValue * (zoomedInMatrix - 1)).toFixed(2)
-				var toTractVal = (minTractValue + stepValue * zoomedInMatrix).toFixed(2)
+				var fromTractVal = (minSelectedDelayValue + stepValue * (zoomedInMatrix - 1)).toFixed(2);
+				var toTractVal = (minSelectedDelayValue + stepValue * zoomedInMatrix).toFixed(2);
 				matrixSelected.innerHTML = '[' + fromTractVal + '..' + toTractVal + ']';
 			} else {
 				matrixSelected.innerHTML = 'Full matrix';
@@ -479,42 +512,31 @@ function doZoomOutAnimation() {
  * Draw the entire space plot matrices.
  */
 function drawSceneSpaceTime() {
-	if (!doPick) {
-		gl.uniform1f(shaderProgram.alphaValue, alphaValueSpaceTime);
-		gl.uniform1f(shaderProgram.isPicking, 0);
-		gl.uniform3f(shaderProgram.pickingColor, 1, 1, 1);
-		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-	    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-	    perspective(45, gl.viewportWidth / gl.viewportHeight , 0.1, 2000.0);
-	    loadIdentity();
-	    // Translate to get a good view.
-	    mvTranslate([0.0, 0.0, -600]);
-	    
-		for (var i = 0; i < plotColorBuffers.length; i++) {
-			drawFullMatrix(false, i);
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    // View angle is 45, we want to see object from 0.1 up to 800 distance from viewer
+    perspective(45, gl.viewportWidth / gl.viewportHeight, near, 800.0);
+
+    loadIdentity();
+    // Translate to get a good view.
+    mvTranslate([0.0, 0.0, -600]);
+
+    if (!doPick) {
+        gl.uniform1f(shaderProgram.alphaValue, alphaValueSpaceTime);
+        gl.uniform1f(shaderProgram.isPicking, 0);
+        gl.uniform3f(shaderProgram.pickingColor, 1, 1, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+		for (var ii = 0; ii < plotColorBuffers.length; ii++) {
+			drawFullMatrix(false, ii);
 		}
-		
-	    //gl.disable(gl.BLEND);
-	    //gl.enable(gl.DEPTH_TEST);
 	} else {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, GL_colorPickerBuffer);
-   		gl.disable(gl.BLEND) 
-        gl.disable(gl.DITHER)
-        gl.disable(gl.FOG) 
-        gl.disable(gl.LIGHTING) 
-        gl.disable(gl.TEXTURE_1D) 
-        gl.disable(gl.TEXTURE_2D) 
-        gl.disable(gl.TEXTURE_3D) 
+   		gl.disable(gl.BLEND);
+        gl.disable(gl.DITHER);
    		gl.uniform1f(shaderProgram.isPicking, 1);	
    		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    	// View angle is 45, we want to see object from 0.1 up to 800 distance from viewer
-    	aspect = gl.viewportWidth / gl.viewportHeight;
-    	perspective(45, aspect , near, 800.0);
-    	loadIdentity();
-    	// Translate to get a good view.
-	    mvTranslate([0.0, 0.0, -600]);
-	    
+
 		for (var i = 0; i < plotColorBuffers.length; i++) {
 			drawFullMatrix(true, i);
 		}

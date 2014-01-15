@@ -30,7 +30,7 @@
 """
 .. moduleauthor:: Calin Pavel <calin.pavel@codemart.ro>
 """
-from tvb.core.adapters.abcadapter import ABCSynchronous
+from tvb.adapters.uploaders.abcuploader import ABCUploader
 from tvb.core.adapters.exceptions import LaunchException, ParseException
 from tvb.adapters.uploaders.gifti.gifti_parser import GIFTIParser
 from tvb.basic.logger.builder import get_logger
@@ -38,7 +38,7 @@ from tvb.datatypes.time_series import TimeSeriesSurface
 from tvb.datatypes.surfaces import CorticalSurface
 
 
-class GIFTITimeSeriesImporter(ABCSynchronous):
+class GIFTITimeSeriesImporter(ABCUploader):
     """
         This importer is responsible for import of a TimeSeries from GIFTI format (XML file)
         and store them in TVB.
@@ -47,59 +47,42 @@ class GIFTITimeSeriesImporter(ABCSynchronous):
     _ui_subsection = "gifti_timeseries_importer"
     _ui_description = "Import TimeSeries from GIFTI"
     
-    def get_input_tree(self):
+    def get_upload_input_tree(self):
         """
             Take as input a .GII file.
         """
-        return [{'name': 'data_file', 'type': 'upload', 'required_type': '',
+        return [{'name': 'data_file', 'type': 'upload', 'required_type': '.gii',
                  'label': 'Please select file to import (.gii)', 'required': True},
                 {'name': 'surface', 'label': 'Brain Surface', 
-                 'type' : CorticalSurface, 'required':True, 
+                 'type': CorticalSurface, 'required': True,
                  'description': 'The Brain Surface used to generate imported TimeSeries.'}
                 ]
         
         
     def get_output(self):
         return [TimeSeriesSurface]
-    
-
-    def get_required_memory_size(self, **kwargs):
-        """
-        Return the required memory to run this algorithm.
-        """
-        # Don't know how much memory is needed.
-        return -1
-    
-    def get_required_disk_size(self, **kwargs):
-        """
-        Returns the required disk size to be able to run the adapter.
-        """
-        return 0
 
     def launch(self, data_file, surface=None):
         """
-            Execute import operations: 
+        Execute import operations:
         """
         if surface is None:
-            raise LaunchException("No surface selected. Please initiate " 
-                                  + "upload again and select a brain surface.")
+            raise LaunchException("No surface selected. Please initiate upload again and select a brain surface.")
             
         parser = GIFTIParser(self.storage_path, self.operation_id)
         try:
             time_series = parser.parse(data_file)
-
             ts_data_shape = time_series.read_data_shape()
+
             if surface.number_of_vertices != ts_data_shape[1]:
-                msg = ("Imported time series doesn't have values for all surface vertices."
-                       + "Surface has %d vertices while time series has %d values.")%\
-                       (surface.number_of_vertices, ts_data_shape[1])
-                       
+                msg = "Imported time series doesn't have values for all surface vertices. Surface has %d vertices " \
+                      "while time series has %d values." % (surface.number_of_vertices, ts_data_shape[1])
                 raise LaunchException(msg)
             else:
                 time_series.surface = surface
-                
-                 
-            return [time_series]             
+
+            return [time_series]
+
         except ParseException, excep:
             logger = get_logger(__name__)
             logger.exception(excep)

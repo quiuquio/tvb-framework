@@ -37,7 +37,7 @@ function GFUN_initializeConnectivityFull() {
 
         //Draw any additional elements like color picking and hide all tabs but the default one
         ColSch_initColorSchemeParams(GVAR_interestAreaVariables[GVAR_selectedAreaType]['min_val'],
-                                     GVAR_interestAreaVariables[GVAR_selectedAreaType]['max_val'], MATRIX_colorTable);
+                                     GVAR_interestAreaVariables[GVAR_selectedAreaType]['max_val'], _onColorSchemeChanged);
         drawSimpleColorPicker('nodeColorSelector');
         SEL_createOperationsTable();
 
@@ -45,6 +45,14 @@ function GFUN_initializeConnectivityFull() {
         $('#rightSideDefaultSelectedTabId').click();
 }
 
+function _onColorSchemeChanged(){
+    MATRIX_colorTable();
+    if(SELECTED_TAB == CONNECTIVITY_TAB){
+        ConnPlotUpdateColors();
+    }else if(SELECTED_TAB == CONNECTIVITY_SPACE_TIME_TAB){
+        ConnStepPlotInitColorBuffers();
+    }
+}
 
 function _customMouseWheelEvent(delta) {
     GL_handleMouseWeel(delta);
@@ -230,6 +238,9 @@ function GFUNC_addNodeToNodesWithPositiveWeight(selectedNodeIndex) {
     }
 }
 
+/**
+ * @return {boolean}
+ */
 function GFUNC_isIndexInNodesWithPositiveWeight(nodeIndex) {
     var elemIdx = $.inArray(nodeIndex, GVAR_connectivityNodesWithPositiveWeight);
     return elemIdx != -1;
@@ -255,6 +266,9 @@ function GFUNC_addNodeToInterestArea(selectedNodeIndex) {
     }
 }
 
+/**
+ * @return {boolean}
+ */
 function GFUNC_isNodeAddedToInterestArea(nodeIndex) {
     var elemIdx = $.inArray(nodeIndex, GVAR_interestAreaNodeIndexes);
     return elemIdx != -1;
@@ -295,7 +309,7 @@ function GFUNC_doSelectionSave() {
                 	}
                     
                 } ,
-                error: function(r) {
+                error: function() {
                     displayMessage("Selection was not saved properly.", "errorMessage");
                 }
             });		
@@ -310,8 +324,8 @@ function GFUNC_refreshWithNewSelection(selectComp) {
 	for (var i = 0; i < NO_POSITIONS; i++) {
         GFUNC_removeNodeFromInterestArea(i);
 	}
-	for (var i = 0; i < selectionNodes.length; i++) {
-		var idx = GVAR_pointsLabels.indexOf(selectionNodes[i]);
+	for (var ii = 0; ii < selectionNodes.length; ii++) {
+		var idx = GVAR_pointsLabels.indexOf(selectionNodes[ii]);
 		if (idx >= 0) {
 			GFUNC_addNodeToInterestArea(idx);				
 		}
@@ -374,14 +388,14 @@ var GVAR_interestAreaVariables = {
 		 'min_val':0, 
 		 'max_val':0,
 		 'legend_div_id': 'tracts-legend'}
-}
+};
 
 function hideRightSideTabs(selectedHref) {
-	$(".matrix-switcher li").each(function (listItem){
+	$(".matrix-switcher li").each(function (){
 		$(this).removeClass('active');
 	});
 	selectedHref.parentElement.className = 'active';
-	$(".matrix-viewer").each(function (divElem) {
+	$(".matrix-viewer").each(function () {
 		$(this).hide();
 	});
 }
@@ -433,16 +447,16 @@ function GFUNC_refreshOnContextChange() {
 	 GFUNC_updateLeftSideVisualization();
 	 var selection_button = $("#save-selection-button");
 	 selection_button.unbind('click');
-	 selection_button.bind('click', function(event) {GFUNC_doSelectionSave()});
+	 selection_button.bind('click', function() {GFUNC_doSelectionSave()});
 	 selection_button.removeClass('action-idle');
 }
 
 function hideLeftSideTabs(selectedHref) {
-	$(".view-switcher li").each(function (listItem) {
+	$(".view-switcher li").each(function () {
 		$(this).removeClass('active');
 	});
 	selectedHref.parentElement.className = 'active';
-	$(".monitor-container").each(function (divMonitor) {
+	$(".monitor-container").each(function () {
 		$(this).hide();
         $(this).find('canvas').each(function () {
             if (this.drawForImageExport)            // remove redrawing method such that only current view is exported
@@ -503,9 +517,7 @@ function startMPLH5ConnectivityView() {
 }
 
 function startSpaceTimeConnectivity() {
-	$("#monitor-plot-id").show()
-        .find('#GLcanvas_SPACETIME')[0].redrawFunctionRef = drawSceneSpaceTime;   // interface-like function used in HiRes image exporting
-	conectivitySpaceTime_initCanvas();
+	$("#monitor-plot-id").show().find('#GLcanvas_SPACETIME')[0].redrawFunctionRef = drawSceneSpaceTime;   // interface-like function used in HiRes image exporting
 	connectivitySpaceTime_startGL();
 	SELECTED_TAB = CONNECTIVITY_SPACE_TIME_TAB;
 }

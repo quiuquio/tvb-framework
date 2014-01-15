@@ -29,18 +29,17 @@
 #
 
 """
-Created on Jan 22, 2013
-
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 """
 
 import numpy
-from tvb.datatypes.lookup_tables import LookUpTable, PsiTable, NerfTable
-from tvb.core.adapters.abcadapter import ABCSynchronous
-from tvb.core.adapters.exceptions import LaunchException
+from tvb.adapters.uploaders.abcuploader import ABCUploader
 from tvb.basic.logger.builder import get_logger
+from tvb.core.adapters.exceptions import LaunchException
+from tvb.datatypes.lookup_tables import LookUpTable, PsiTable, NerfTable
 
-class LookupTableImporter(ABCSynchronous):
+
+class LookupTableImporter(ABCUploader):
 
     _ui_name = "Lookup Table"
     _ui_subsection = "lookup_table_importer"
@@ -48,47 +47,34 @@ class LookupTableImporter(ABCSynchronous):
     
     PSI_TABLE = 'Psi Table'
     NERF_TABLE = 'Nerf Table'
-    
-    def __init__(self):
-        ABCSynchronous.__init__(self)
-        self.logger = get_logger(self.__class__.__module__)
+    logger = get_logger(__name__)
 
-    def get_input_tree(self):
+
+    def get_upload_input_tree(self):
         """
         Define input parameters for this importer.
         """
-        return [{'name': 'psi_table_file', 'type': 'upload', 'required_type':'txt', 
+        return [{'name': 'psi_table_file', 'type': 'upload', 'required_type': '.npz',
                  'label': 'Please upload Psi table file in NPZ format.', 'required': True,
-                 'description': 'Expected a NPZ file containing Psi table data.' },
+                 'description': 'Expected a NPZ file containing Psi table data.'},
+
                 {'name': 'table_type', 'type': 'select', 
                  'label': 'Table type: ', 'required': True,
-                 'options': [{'name':self.PSI_TABLE,'value': self.PSI_TABLE},
-                             {'name':self.NERF_TABLE,'value': self.NERF_TABLE}]
-                 },
-                ]
-                             
+                 'options': [{'name': self.PSI_TABLE, 'value': self.PSI_TABLE},
+                             {'name': self.NERF_TABLE, 'value': self.NERF_TABLE}]
+                 }]
+
+
     def get_output(self):
         return [LookUpTable]
 
-    def get_required_memory_size(self, **kwargs):
-        """
-        Return the required memory to run this algorithm.
-        """
-        # Don't know how much memory is needed.
-        return -1
-    
-    def get_required_disk_size(self, **kwargs):
-        """
-        Returns the required disk size to be able to run the adapter.
-        """
-        return 0
-    
+
     def launch(self, psi_table_file, table_type):
         """
         Created required sensors from the uploaded file.
         """
         if psi_table_file is None:
-            raise LaunchException ("Please select Psi table file which contains data to import")
+            raise LaunchException("Please select Psi table file which contains data to import")
         try:
             table_data = numpy.load(psi_table_file)
         except IOError, msg:
@@ -97,27 +83,20 @@ class LookupTableImporter(ABCSynchronous):
         
         if table_type == self.PSI_TABLE:
             table_inst = PsiTable()
-            table_inst.storage_path = self.storage_path
-            table_inst.xmin = numpy.array(table_data['min_max'][0] if table_data is not None else [])
-            table_inst.xmax = numpy.array(table_data['min_max'][1] if table_data is not None else [])
-            table_inst.data = numpy.array(table_data['f'] if table_data is not None else [])
-            table_inst.number_of_values = table_data['f'].shape[0] if table_data is not None else 0
-            table_inst.df = numpy.array(table_data['df'] if table_data is not None else [])
-            table_inst.dx = numpy.array(float(table_inst.xmax - table_inst.xmin) / table_inst.number_of_values)
-            table_inst.invdx = numpy.array(1 / table_inst.dx)
         elif table_type == self.NERF_TABLE:
             table_inst = NerfTable()
-            table_inst.storage_path = self.storage_path
-            table_inst.xmin = numpy.array(table_data['min_max'][0] if table_data is not None else [])
-            table_inst.xmax = numpy.array(table_data['min_max'][1] if table_data is not None else [])
-            table_inst.data = numpy.array(table_data['f'] if table_data is not None else [])
-            table_inst.number_of_values = table_data['f'].shape[0] if table_data is not None else 0
-            table_inst.df = numpy.array(table_data['df'] if table_data is not None else [])
-            table_inst.dx = numpy.array(float(table_inst.xmax - table_inst.xmin) / table_inst.number_of_values)
-            table_inst.invdx = numpy.array(1 / table_inst.dx)
         else:
-            raise LaunchException("Could not determine table type from selected option %s"%(table_type,))
-        
+            raise LaunchException("Could not determine table type from selected option %s" % table_type)
+
+        table_inst.storage_path = self.storage_path
+        table_inst.xmin = numpy.array(table_data['min_max'][0] if table_data is not None else [])
+        table_inst.xmax = numpy.array(table_data['min_max'][1] if table_data is not None else [])
+        table_inst.data = numpy.array(table_data['f'] if table_data is not None else [])
+        table_inst.number_of_values = table_data['f'].shape[0] if table_data is not None else 0
+        table_inst.df = numpy.array(table_data['df'] if table_data is not None else [])
+        table_inst.dx = numpy.array(float(table_inst.xmax - table_inst.xmin) / table_inst.number_of_values)
+        table_inst.invdx = numpy.array(1 / table_inst.dx)
+
         return [table_inst]
     
     

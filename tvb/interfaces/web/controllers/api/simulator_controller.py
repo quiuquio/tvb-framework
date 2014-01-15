@@ -37,7 +37,7 @@ Defines a controller providing an HTTP/JSON API for the simulator
 """
 
 import os
-import md5
+import hashlib
 import json
 import datetime
 import functools
@@ -183,7 +183,7 @@ class SimulatorController(base.BaseController):
 
     def __init__(self, nproc=2):
         super(SimulatorController, self).__init__()
-        self.reset(nproc=2)
+        self.reset(nproc=nproc)
 
 
     @cherrypy.expose
@@ -234,7 +234,7 @@ class SimulatorController(base.BaseController):
         ix = self.nsim
         spec['ix'] = ix
         spec['datetime'] = datetime.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
-        spec['md5sum'] = md5.md5(json.dumps(spec)).hexdigest()
+        spec['md5sum'] = hashlib.md5(json.dumps(spec)).hexdigest()
         spec['async_result'] = self.pool.apply_async(build_and_run, (spec.copy(), ))
         self.sims[ix] = spec
         return str(ix)
@@ -289,7 +289,7 @@ if __name__ == '__main__':
 
         @cherrypy.expose
         def version(self):
-            return '0.0'  # TODO TVB version
+            return '1.1'  # TODO TVB version
 
     api = API()
     api.simulator = SimulatorController()

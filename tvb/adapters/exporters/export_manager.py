@@ -41,8 +41,10 @@ from tvb.adapters.exporters.tvb_export import TVBExporter
 from tvb.adapters.exporters.cifti_export import CIFTIExporter 
 from tvb.adapters.exporters.exceptions import ExportException, InvalidExportDataException
 from tvb.basic.config.settings import TVBSettings as cfg
+from tvb.config import TVB_IMPORTER_MODULE, TVB_IMPORTER_CLASS
+from tvb.core.entities import model
 from tvb.core.entities.model.model_burst import BURST_INFO_FILE, BURSTS_DICT_KEY, DT_BURST_MAP
-from tvb.core.entities.file.files_helper import FilesHelper
+from tvb.core.entities.file.files_helper import FilesHelper, TvbZip
 from tvb.core.entities.transient.burst_export_entities import BurstInformation, WorkflowInformation
 from tvb.core.entities.transient.burst_export_entities import WorkflowStepInformation, WorkflowViewStepInformation
 from tvb.core.entities.storage import dao
@@ -148,6 +150,77 @@ class ExportManager:
         return export_data
 
 
+    @staticmethod
+    def _get_linked_datatypes_storage_path(project):
+        """
+        :return: the file paths to the datatypes that are linked in `project`
+        """
+        paths = []
+        for lnk_dt in dao.get_linked_datatypes_for_project(project.id):
+            # get datatype as a mapped type
+            lnk_dt = dao.get_datatype_by_gid(lnk_dt.gid)
+            paths.append(lnk_dt.get_storage_file_path())
+        return paths
+
+
+    def _export_linked_datatypes(self, project, zip_file):
+        files_helper = FilesHelper()
+        linked_paths = self._get_linked_datatypes_storage_path(project)
+
+        if not linked_paths:
+            # do not export an empty operation
+            return
+
+        # Make a import operation which will contain links to other projects
+        alg_group = dao.find_group(TVB_IMPORTER_MODULE, TVB_IMPORTER_CLASS)
+        algo = dao.get_algorithm_by_group(alg_group.id)
+        op = model.Operation(None, project.id, algo.id, '', start_date=datetime.now())
+        op.project = project
+        op.algorithm = algo
+        op.id = 'links-to-external-projects'
+        op.mark_complete(model.STATUS_FINISHED)
+
+        # write operation.xml to disk
+        files_helper.write_operation_metadata(op)
+        op_folder = files_helper.get_operation_folder(op.project.name, op.id)
+        operation_xml = files_helper.get_operation_meta_file_path(op.project.name, op.id)
+        op_folder_name = os.path.basename(op_folder)
+
+        # add operation.xml
+        zip_file.write(operation_xml, op_folder_name + '/' + os.path.basename(operation_xml))
+
+        # add linked datatypes to archive in the import operation
+        for pth in linked_paths:
+            zip_pth = op_folder_name + '/' + os.path.basename(pth)
+            zip_file.write(pth, zip_pth)
+
+        # remove these files, since we only want them in export archive
+        files_helper.remove_folder(op_folder)
+
+
+    def _export_bursts(self, project, zip_file):
+        bursts_dict = {}
+        datatype_burst_mapping = {}
+        bursts_count = dao.get_bursts_for_project(project.id, count=True)
+        for start_idx in range(0, bursts_count, BURST_PAGE_SIZE):
+            bursts = dao.get_bursts_for_project(project.id, page_start=start_idx, page_end=start_idx + BURST_PAGE_SIZE)
+            for burst in bursts:
+                self._build_burst_export_dict(burst, bursts_dict)
+
+        datatypes_count = dao.get_datatypes_for_project(project.id, count=True)
+        for start_idx in range(0, datatypes_count, DATAYPES_PAGE_SIZE):
+            datatypes = dao.get_datatypes_for_project(project.id, page_start=start_idx,
+                                                      page_end=start_idx + DATAYPES_PAGE_SIZE)
+            for datatype in datatypes:
+                datatype_burst_mapping[datatype.gid] = datatype.fk_parent_burst
+
+        project_folder = FilesHelper().get_project_folder(project)
+        bursts_file_name = os.path.join(project_folder, BURST_INFO_FILE)
+        burst_info = {BURSTS_DICT_KEY: bursts_dict,
+                      DT_BURST_MAP: datatype_burst_mapping}
+        zip_file.writestr(os.path.basename(bursts_file_name), json.dumps(burst_info))
+
+
     def export_project(self, project):
         """
         Given a project root and the TVB storage_path, create a ZIP
@@ -159,42 +232,22 @@ class ExportManager:
 
         files_helper = FilesHelper()
         project_folder = files_helper.get_project_folder(project)
-        
-        bursts_dict = {}
-        datatype_burst_mapping = {}
-        bursts_count = dao.get_bursts_for_project(project.id, count=True)
-        for start_idx in range(0, bursts_count, BURST_PAGE_SIZE):
-            bursts = dao.get_bursts_for_project(project.id, page_start=start_idx, page_end=start_idx + BURST_PAGE_SIZE)
-            for burst in bursts:
-                self._build_burst_export_dict(burst, bursts_dict)
-                
-        datatypes_count = dao.get_datatypes_for_project(project.id, count=True)
-        for start_idx in range(0, datatypes_count, DATAYPES_PAGE_SIZE):
-            datatypes = dao.get_datatypes_for_project(project.id, page_start=start_idx,
-                                                      page_end=start_idx + DATAYPES_PAGE_SIZE)
-            for datatype in datatypes:
-                datatype_burst_mapping[datatype.gid] = datatype.fk_parent_burst
 
         # Compute path and name of the zip file
         now = datetime.now()
         date_str = now.strftime("%Y-%m-%d_%H-%M")
         zip_file_name = "%s_%s.%s" % (date_str, project.name, self.ZIP_FILE_EXTENSION)
-        
-        export_folder = self._build_data_export_folder(project)    
-        result_path = os.path.join(export_folder, zip_file_name) 
-        
-        bursts_file_name = os.path.join(project_folder, BURST_INFO_FILE)
-        burst_info = {BURSTS_DICT_KEY: bursts_dict,
-                      DT_BURST_MAP: datatype_burst_mapping}
-        with open(bursts_file_name, 'w') as bursts_file:
-            bursts_file.write(json.dumps(burst_info))
-            
-        # pack project content into a ZIP file
-        result_zip = files_helper.zip_folder(result_path, project_folder)
-        
-        # remove these files, since we only want them in export archive
-        os.remove(bursts_file_name)
-        return result_zip
+
+        export_folder = self._build_data_export_folder(project)
+        result_path = os.path.join(export_folder, zip_file_name)
+
+        with TvbZip(result_path, "w") as zip_file:
+            # pack project content into a ZIP file
+            zip_file.write_folder(project_folder)
+            self._export_bursts(project, zip_file)
+            self._export_linked_datatypes(project, zip_file)
+
+        return result_path
     
     
     def _build_workflow_step_info(self, workflow):
