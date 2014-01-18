@@ -27,21 +27,21 @@
 #   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
+
 """
 .. moduleauthor:: Calin Pavel <calin.pavel@codemart.ro>
 .. moduleauthor:: Lia Domide <lia.domide@codemart.ro>
 """
 
-from tvb.core import utils
-from tvb.core.adapters.abcadapter import ABCSynchronous
-from tvb.core.entities.file.fileshelper import FilesHelper
-from tvb.basic.traits.util import read_list_data
-from tvb.datatypes.connectivity import Connectivity
-from tvb.core.adapters.exceptions import LaunchException
 import numpy
+from tvb.adapters.uploaders.abcuploader import ABCUploader
+from tvb.basic.traits.util import read_list_data
+from tvb.core.entities.file.files_helper import FilesHelper
+from tvb.core.adapters.exceptions import LaunchException
+from tvb.datatypes.connectivity import Connectivity
 
 
-class ZIPConnectivityImporter(ABCSynchronous):
+class ZIPConnectivityImporter(ABCUploader):
     """
     Handler for uploading a Connectivity archive, with files holding 
     text export of connectivity data from Numpy arrays.
@@ -51,46 +51,30 @@ class ZIPConnectivityImporter(ABCSynchronous):
     _ui_description = "Import a Connectivity from ZIP"
     
     WEIGHT_TOKEN = "weight"
-    POSITION_TOKEN = "position"
+    CENTRES_TOKEN = "centres"
     TRACT_TOKEN = "tract"
     ORIENTATION_TOKEN = "orientation"
     AREA_TOKEN = "area"
     CORTICAL_INFO = "cortical"
     HEMISPHERE_INFO = "hemisphere"
             
-    def __init__(self):
-        ABCSynchronous.__init__(self)
-    
-    
-    def get_input_tree(self):
+
+    def get_upload_input_tree(self):
         """
         Take as input a ZIP archive.
         """
         return [{'name': 'uploaded', 'type': 'upload', 'required_type': 'application/zip',
                  'label': 'Connectivity file (zip)', 'required': True},
-                {'name':'rotate_x', 'label': 'Rotate x', 'type':'int', 'default':0, 'minValue':0, 'maxValue':360},
-                {'name':'rotate_y', 'label': 'Rotate y', 'type':'int', 'default':0, 'minValue':0, 'maxValue':360},
-                {'name':'rotate_z', 'label': 'Rotate z', 'type':'int', 'default':0, 'minValue':0, 'maxValue':360}]
+                {'name': 'rotate_x', 'label': 'Rotate x', 'type': 'int', 'default': 0, 'minValue': 0, 'maxValue': 360},
+                {'name': 'rotate_y', 'label': 'Rotate y', 'type': 'int', 'default': 0, 'minValue': 0, 'maxValue': 360},
+                {'name': 'rotate_z', 'label': 'Rotate z', 'type': 'int', 'default': 0, 'minValue': 0, 'maxValue': 360}]
         
         
     def get_output(self):
         return [Connectivity]
-    
-    
-    def get_required_memory_size(self, **kwargs):
-        """
-        Return the required memory to run this algorithm.
-        """
-        # Don't know how much memory is needed.
-        return -1
-    
-    def get_required_disk_size(self, **kwargs):
-        """
-        Returns the required disk size to be able to run the adapter.
-        """
-        return 0
 
-    def launch(self, uploaded, rotate_x = 0, rotate_y = 0, rotate_z = 0):
+
+    def launch(self, uploaded, rotate_x=0, rotate_y=0, rotate_z=0):
         """
         Execute import operations: unpack ZIP and build Connectivity object as result.
 
@@ -105,7 +89,7 @@ class ZIPConnectivityImporter(ABCSynchronous):
                       different from the expected number of nodes
         """
         if uploaded is None:
-            raise LaunchException ("Please select ZIP file which contains data to import")
+            raise LaunchException("Please select ZIP file which contains data to import")
         
         files = FilesHelper().unpack_zip(uploaded, self.storage_path)
         
@@ -122,9 +106,9 @@ class ZIPConnectivityImporter(ABCSynchronous):
             if file_name.lower().find(self.WEIGHT_TOKEN) >= 0:
                 weights_matrix = read_list_data(file_name)
                 continue
-            if file_name.lower().find(self.POSITION_TOKEN) >= 0:
-                centres = read_list_data(file_name, skiprows=1, usecols=[1, 2, 3])
-                labels_vector = read_list_data(file_name, dtype=numpy.str, skiprows=1, usecols=[0])
+            if file_name.lower().find(self.CENTRES_TOKEN) >= 0:
+                centres = read_list_data(file_name, usecols=[1, 2, 3])
+                labels_vector = read_list_data(file_name, dtype=numpy.str, usecols=[0])
                 continue
             if file_name.lower().find(self.TRACT_TOKEN) >= 0:
                 tract_matrix = read_list_data(file_name)
@@ -153,7 +137,7 @@ class ZIPConnectivityImporter(ABCSynchronous):
             raise Exception("Positions for Connectivity Regions are required! "
                             "We expect a file *position* inside the uploaded ZIP.")
         expected_number_of_nodes = len(centres)
-        if expected_number_of_nodes < 2 :
+        if expected_number_of_nodes < 2:
             raise Exception("A connectivity with at least 2 nodes is expected")
         result.centres = centres
         if labels_vector is not None:
@@ -166,7 +150,7 @@ class ZIPConnectivityImporter(ABCSynchronous):
                                 "Please check your file, and use values >= 0")
             if weights_matrix.shape != (expected_number_of_nodes, expected_number_of_nodes):
                 raise Exception("Unexpected shape for weights matrix! "
-                                "Should be %d x %d "%(expected_number_of_nodes, expected_number_of_nodes))
+                                "Should be %d x %d " % (expected_number_of_nodes, expected_number_of_nodes))
             result.weights = weights_matrix
             
         ### Fill and check tracts    
@@ -176,32 +160,32 @@ class ZIPConnectivityImporter(ABCSynchronous):
                                 "Please check your file, and use values >= 0")
             if tract_matrix.shape != (expected_number_of_nodes, expected_number_of_nodes):
                 raise Exception("Unexpected shape for tracts matrix! "
-                                "Should be %d x %d "%(expected_number_of_nodes, expected_number_of_nodes))
+                                "Should be %d x %d " % (expected_number_of_nodes, expected_number_of_nodes))
             result.tract_lengths = tract_matrix
         
         
         if orientation is not None:
             if len(orientation) != expected_number_of_nodes:
                 raise Exception("Invalid size for vector orientation. "
-                                "Expected the same as region-centers number %d"%expected_number_of_nodes)
+                                "Expected the same as region-centers number %d" % expected_number_of_nodes)
             result.orientations = orientation
             
         if areas is not None:
             if len(areas) != expected_number_of_nodes:
                 raise Exception("Invalid size for vector areas. "
-                                "Expected the same as region-centers number %d"%expected_number_of_nodes)
+                                "Expected the same as region-centers number %d" % expected_number_of_nodes)
             result.areas = areas
             
         if cortical_vector is not None:
             if len(cortical_vector) != expected_number_of_nodes:
                 raise Exception("Invalid size for vector cortical. "
-                                "Expected the same as region-centers number %d"%expected_number_of_nodes)
+                                "Expected the same as region-centers number %d" % expected_number_of_nodes)
             result.cortical = cortical_vector
             
         if hemisphere_vector is not None:
             if len(hemisphere_vector) != expected_number_of_nodes:
                 raise Exception("Invalid size for vector hemispheres. "
-                                "Expected the same as region-centers number %d"%expected_number_of_nodes)
+                                "Expected the same as region-centers number %d" % expected_number_of_nodes)
             result.hemispheres = hemisphere_vector
         return result
 

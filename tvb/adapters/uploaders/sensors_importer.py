@@ -29,20 +29,18 @@
 #
 
 """
-Created on Mar 13, 2012
-
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 """
+
 import numpy
-from tvb.core import utils
-from tvb.datatypes.sensors import Sensors, SensorsEEG, SensorsMEG, SensorsInternal
-from tvb.core.adapters.abcadapter import ABCSynchronous
-from tvb.core.adapters.exceptions import LaunchException
+from tvb.adapters.uploaders.abcuploader import ABCUploader
 from tvb.basic.traits.util import read_list_data
 from tvb.basic.logger.builder import get_logger
+from tvb.core.adapters.exceptions import LaunchException
+from tvb.datatypes.sensors import Sensors, SensorsEEG, SensorsMEG, SensorsInternal
 
 
-class Sensors_Importer(ABCSynchronous):
+class Sensors_Importer(ABCUploader):
     """
     Upload Sensors from a TXT file.
     """ 
@@ -53,43 +51,29 @@ class Sensors_Importer(ABCSynchronous):
     EEG_SENSORS = "EEG Sensors"
     MEG_SENSORS = "MEG sensors"
     INTERNAL_SENSORS = "Internal Sensors"
-         
-    def __init__(self):
-        ABCSynchronous.__init__(self)
-        self.logger = get_logger(self.__class__.__module__)
+    logger = get_logger(__name__)
 
-    def get_input_tree(self):
+
+    def get_upload_input_tree(self):
         """
         Define input parameters for this importer.
         """
-        return [{'name': 'sensors_file', 'type': 'upload', 'required_type':'txt', 
+        return [{'name': 'sensors_file', 'type': 'upload', 'required_type': 'text/plain, .bz2',
                  'label': 'Please upload sensors file (txt or bz2 format)', 'required': True,
-                 'description': 'Expected a text/bz2 file containing sensor measurements.' },
+                 'description': 'Expected a text/bz2 file containing sensor measurements.'},
                 
                 {'name': 'sensors_type', 'type': 'select', 
                  'label': 'Sensors type: ', 'required': True,
-                 'options': [{'name':self.EEG_SENSORS,'value': self.EEG_SENSORS},
-                             {'name':self.MEG_SENSORS,'value': self.MEG_SENSORS},
-                             {'name':self.INTERNAL_SENSORS,'value': self.INTERNAL_SENSORS}]
-                 },
-                ]
-                             
+                 'options': [{'name': self.EEG_SENSORS, 'value': self.EEG_SENSORS},
+                             {'name': self.MEG_SENSORS, 'value': self.MEG_SENSORS},
+                             {'name': self.INTERNAL_SENSORS, 'value': self.INTERNAL_SENSORS}]
+                 }]
+
+
     def get_output(self):
         return [Sensors]
 
-    def get_required_memory_size(self, **kwargs):
-        """
-        Return the required memory to run this algorithm.
-        """
-        # Don't know how much memory is needed.
-        return -1
-    
-    def get_required_disk_size(self, **kwargs):
-        """
-        Returns the required disk size to be able to run the adapter.
-        """
-        return 0
-    
+
     def launch(self, sensors_file, sensors_type):
         """
         Creates required sensors from the uploaded file.
@@ -105,9 +89,8 @@ class Sensors_Importer(ABCSynchronous):
                     * sensors_type is "MEG sensors" and no orientation is specified
         """
         if sensors_file is None:
-            raise LaunchException ("Please select sensors file which contains data to import")
-        sensors_inst = None
-        
+            raise LaunchException("Please select sensors file which contains data to import")
+
         self.logger.debug("Create sensors instance")
         if sensors_type == self.EEG_SENSORS:
             sensors_inst = SensorsEEG()
@@ -120,13 +103,12 @@ class Sensors_Importer(ABCSynchronous):
             raise LaunchException(exception_str)
             
         sensors_inst.storage_path = self.storage_path
-        
-        sensors_inst.locations = read_list_data(sensors_file, usecols=[1,2,3])
+        sensors_inst.locations = read_list_data(sensors_file, usecols=[1, 2, 3])
         sensors_inst.labels = read_list_data(sensors_file, dtype=numpy.str, usecols=[0])
         
         if isinstance(sensors_inst, SensorsMEG):
             try:
-                sensors_inst.orientations = read_list_data(sensors_file, usecols=[4,5,6])
+                sensors_inst.orientations = read_list_data(sensors_file, usecols=[4, 5, 6])
             except IndexError:
                 raise LaunchException("Uploaded file does not contains sensors orientation.")
          

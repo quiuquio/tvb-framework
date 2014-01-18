@@ -27,48 +27,46 @@
 #   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
+
 """
 .. moduleauthor:: Lia Domide <lia.domide@codemart.ro>
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 """
+
 import os
 import sys
 import shutil
 import cStringIO
-from zipfile import ZipFile, ZIP_DEFLATED
 from cfflib import load
 from tempfile import gettempdir
-from tvb.basic.logger.builder import get_logger
-from tvb.core.entities.storage import dao, transactional
-from tvb.core.adapters.abcadapter import ABCSynchronous
+from zipfile import ZipFile, ZIP_DEFLATED
+from tvb.adapters.uploaders.abcuploader import ABCUploader
 from tvb.adapters.uploaders.gifti.gifti import loadImage
 from tvb.adapters.uploaders.handler_connectivity import networkx2connectivity
+from tvb.basic.logger.builder import get_logger
+from tvb.core.adapters.exceptions import LaunchException
+from tvb.core.entities.storage import dao, transactional
 import tvb.adapters.uploaders.handler_surface as handler_surface
 import tvb.adapters.uploaders.constants as ct
-from tvb.core.adapters.exceptions import LaunchException
-
-LOGGER = get_logger(__name__)
 
 
 
-class CFF_Importer(ABCSynchronous):
+
+class CFF_Importer(ABCUploader):
     """
     Upload Connectivity Matrix from a CFF archive.
     """
     _ui_name = "CFF"
     _ui_subsection = "cff_importer"
     _ui_description = "Import from CFF archive one or multiple datatypes."
+    logger = get_logger(__name__)
 
 
-    def __init__(self):
-        ABCSynchronous.__init__(self)
-
-
-    def get_input_tree(self):
+    def get_upload_input_tree(self):
         """
         Define as input parameter, a CFF archive.
         """
-        return [{'name': 'cff', 'type': 'upload', 'required_type': 'cff',
+        return [{'name': 'cff', 'type': 'upload', 'required_type': '.cff',
                  'label': 'CFF archive', 'required': True,
                  'description': 'Connectome File Format archive expected, with GraphML, Timeseries or GIFTI inside.'}]
 
@@ -82,23 +80,8 @@ class CFF_Importer(ABCSynchronous):
         Overwrite method in order to return the correct number of stored dataTypes.
         """
         self.nr_of_datatypes = 0
-        msg, _ = ABCSynchronous._prelaunch(self, operation, uid=None, **kwargs)
+        msg, _ = ABCUploader._prelaunch(self, operation, uid=None, **kwargs)
         return msg, self.nr_of_datatypes
-
-
-    def get_required_memory_size(self, **kwargs):
-        """
-        Return the required memory to run this algorithm.
-        """
-        # Don't know how much memory is needed.
-        return -1
-
-
-    def get_required_disk_size(self, **kwargs):
-        """
-        Returns the required disk size to be able to run the adapter. (in kB)
-        """
-        return 0
 
 
     @transactional
@@ -164,7 +147,7 @@ class CFF_Importer(ABCSynchronous):
             sys.stdout = default_stdout
             custom_stdout.close()
             # Now log everything that cfflib2 outputes with `print` statements using TVB logging
-            LOGGER.info("Output from cfflib2 library: %s" % (print_output,))
+            self.logger.info("Output from cfflib2 library: %s" % (print_output,))
 
 
     def __parse_connectome_network(self, connectome_network):
@@ -179,7 +162,7 @@ class CFF_Importer(ABCSynchronous):
         except Exception, excep:
             self.log.warning(excep)
             self.log.exception(excep)
-            return "Problem when importing Connectivity!! \n"
+            return "Problem when importing a Connectivity!! \n"
 
 
     def __parse_connectome_surface(self, connectome_surface, connectome_data):

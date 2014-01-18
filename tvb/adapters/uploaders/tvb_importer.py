@@ -33,18 +33,18 @@
 """
 
 import os
-import zipfile
 import shutil
-from tvb.core.adapters.abcadapter import ABCSynchronous
+import zipfile
+from tvb.adapters.uploaders.abcuploader import ABCUploader
 from tvb.core.adapters.exceptions import LaunchException
-from tvb.core.services.importservice import ImportService
+from tvb.core.services.import_service import ImportService
 from tvb.core.entities.storage import dao
-from tvb.core.entities.file.hdf5storage import HDF5StorageManager
-from tvb.core.entities.file.fileshelper import FilesHelper
-from tvb.core.entities.file.filesupdatemanager import FilesUpdateManager
+from tvb.core.entities.file.hdf5_storage_manager import HDF5StorageManager
+from tvb.core.entities.file.files_helper import FilesHelper
+from tvb.core.entities.file.files_update_manager import FilesUpdateManager
 
 
-class TVBImporter(ABCSynchronous):
+class TVBImporter(ABCUploader):
     """
     This importer is responsible for loading of data types exported from other systems
     in TVB format (simple H5 file or ZIP file containing multiple H5 files)
@@ -54,11 +54,11 @@ class TVBImporter(ABCSynchronous):
     _ui_description = "Upload H5 file with TVB generic entity"
     
     
-    def get_input_tree(self):
+    def get_upload_input_tree(self):
         """
             Take as input a ZIP archive or H5 file.
         """
-        return [{'name': 'data_file', 'type': 'upload', 'required_type': '',
+        return [{'name': 'data_file', 'type': 'upload', 'required_type': 'application/zip, .h5',
                  'label': 'Please select file to import (h5 or zip)', 'required': True}]
         
         
@@ -66,27 +66,12 @@ class TVBImporter(ABCSynchronous):
         return []
 
 
-    def get_required_memory_size(self, **kwargs):
-        """
-        Return the required memory to run this algorithm.
-        """
-        #We can not estimate how much memory is needed.
-        return -1
-
-    
-    def get_required_disk_size(self, **kwargs):
-        """
-        Returns the required disk size to be able to run the adapter.
-        """
-        return 0
-
-
     def _prelaunch(self, operation, uid=None, available_disk_space=0, **kwargs):
         """
         Overwrite method in order to return the correct number of stored datatypes.
         """
         self.nr_of_datatypes = 0
-        msg, _ = ABCSynchronous._prelaunch(self, operation, uid=None, **kwargs)
+        msg, _ = ABCUploader._prelaunch(self, operation, uid=None, **kwargs)
         return msg, self.nr_of_datatypes
     
 
@@ -98,10 +83,9 @@ class TVBImporter(ABCSynchronous):
 
         :raises LaunchException: when data_file is None, nonexistent, or invalid \
                     (e.g. incomplete meta-data, not in ZIP / HDF5 format etc. )
-
         """
         if data_file is None:
-            raise LaunchException ("Please select file which contains data to import")
+            raise LaunchException("Please select file which contains data to import")
 
         if os.path.exists(data_file):
             if zipfile.is_zipfile(data_file):
@@ -137,9 +121,9 @@ class TVBImporter(ABCSynchronous):
                         raise LaunchException("Invalid file received as input. Most probably incomplete "
                                               "meta-data ...  " + str(excep))
                 else:
-                    raise LaunchException("Uploaded file: %s is neither in ZIP or HDF5 format"%data_file)
+                    raise LaunchException("Uploaded file: %s is neither in ZIP or HDF5 format" % data_file)
                 
         else:
-            raise LaunchException("File: %s to import does not exists."%data_file)
+            raise LaunchException("File: %s to import does not exists." % data_file)
         
         

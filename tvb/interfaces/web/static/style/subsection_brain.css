@@ -57,7 +57,7 @@ position: relative;
 }
 
 #s-brain .monitor.master {
-background: -webkit-gradient(radial, center 30%, 0, center 30%, 600, from(rgba(60, 60, 60, 1)), to(rgba(0, 0, 0, 1)));
+/*background: -webkit-gradient(radial, center 30%, 0, center 30%, 600, from(rgba(60, 60, 60, 1)), to(rgba(0, 0, 0, 1)));*/
 background-image: -moz-radial-gradient(center 30%, circle farthest-corner, rgba(60, 60, 60, 1) 0%, rgba(0, 0, 0, 1) 100%);
 float: left;
 height: 80%;
@@ -232,8 +232,17 @@ width: 200px;
 
 .brainLegendContent {
     height: 100%;
-    color: #ffffff;
+    color: #909090;
+    text-shadow: 0 0 10px #000;
     text-align: center;
+}
+
+.brainLegendContent tr{
+    vertical-align:bottom;
+}
+
+.brainLegendContent tr:first-child{
+    height: 20px;
 }
 
 #brainComponentContainer .brainComponentCanvas {

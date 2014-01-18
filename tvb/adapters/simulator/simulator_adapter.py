@@ -45,7 +45,6 @@ from tvb.simulator.models import Model
 from tvb.simulator.monitors import Monitor
 from tvb.simulator.integrators import Integrator
 from tvb.simulator.coupling import Coupling
-from tvb.simulator.noise import Noise
 from tvb.core.adapters.abcadapter import ABCAsynchronous
 from tvb.core.adapters.exceptions import LaunchException
 from tvb.basic.traits.parameters_factory import get_traited_subclasses
@@ -69,7 +68,6 @@ class SimulatorAdapter(ABCAsynchronous):
     available_monitors = get_traited_subclasses(Monitor)
     available_integrators = get_traited_subclasses(Integrator)
     available_couplings = get_traited_subclasses(Coupling)
-    available_noise = get_traited_subclasses(Noise)
 
 
 ### Info: This are the possible results returned with this adapter from different Monitors.
@@ -116,7 +114,8 @@ class SimulatorAdapter(ABCAsynchronous):
         sim.trait.bound = self.INTERFACE_ATTRIBUTES_ONLY
         result = sim.interface[self.INTERFACE_ATTRIBUTES]
         # We should add as hidden the Simulator State attribute.
-        result.append({'name': 'simulation_state', 'type': SimulationState, 'required': False, 'ui_hidden': True})
+        result.append({self.KEY_NAME: 'simulation_state', self.KEY_TYPE: SimulationState,
+                       self.KEY_LABEL: "Continuation of", self.KEY_REQUIRED: False, self.KEY_UI_HIDE: True})
         return result
 
 
@@ -165,7 +164,7 @@ class SimulatorAdapter(ABCAsynchronous):
         coupling_inst = self.available_couplings[str(coupling)](**coupling_parameters)
 
         self.log.debug("Initializing Cortex...")
-        if surface is not None and surface_parameters is not None:
+        if self._is_surface_simulation(surface, surface_parameters):
             cortex_entity = Cortex(use_storage=False).populate_cortex(surface, surface_parameters)
             if cortex_entity.region_mapping_data.connectivity.number_of_regions != connectivity.number_of_regions:
                 raise LaunchException("Incompatible RegionMapping -- Connectivity !!")
@@ -273,7 +272,7 @@ class SimulatorAdapter(ABCAsynchronous):
                                                                   sample_period=sample_period,
                                                                   title=' ' + m_name, start_time=start_time)
 
-            elif surface is None:
+            elif not self._is_surface_simulation(surface, surface_parameters):
                 ## We do not have a surface selected from UI, or regions only result.
                 result_datatypes[m_name] = time_series.TimeSeriesRegion(storage_path=self.storage_path,
                                                                         connectivity=connectivity,
@@ -330,15 +329,16 @@ class SimulatorAdapter(ABCAsynchronous):
         for param in ui_configurable_params:
             param_value = eval('model_instance.' + param)
             if isinstance(param_value, numpy.ndarray):
-                if len(param_value) == 1:
+                if len(param_value) == 1 or connectivity is None:
                     continue
-                if ((surface is not None and len(param_value) != surface.number_of_vertices)
-                        and (connectivity is not None and len(param_value) != connectivity.number_of_regions)):
-                    msg = str(surface.number_of_vertices) + ' or ' + str(connectivity.number_of_regions)
-                    msg = self._get_exception_message(param, msg, len(param_value))
-                    self.log.error(msg)
-                    raise LaunchException(msg)
-                elif connectivity is not None and len(param_value) != connectivity.number_of_regions:
+                if surface is not None:
+                    if (len(param_value) != surface.number_of_vertices
+                            and len(param_value) != connectivity.number_of_regions):
+                        msg = str(surface.number_of_vertices) + ' or ' + str(connectivity.number_of_regions)
+                        msg = self._get_exception_message(param, msg, len(param_value))
+                        self.log.error(msg)
+                        raise LaunchException(msg)
+                elif len(param_value) != connectivity.number_of_regions:
                     msg = self._get_exception_message(param, connectivity.number_of_regions, len(param_value))
                     self.log.error(msg)
                     raise LaunchException(msg)
@@ -354,4 +354,10 @@ class SimulatorAdapter(ABCAsynchronous):
         msg += " It is an array of length " + str(actual_size) + "."
         return msg
 
+    @staticmethod
+    def _is_surface_simulation(surface, surface_parameters):
+        """
+        Is this a surface simulation?
+        """
+        return surface is not None and surface_parameters is not None
 

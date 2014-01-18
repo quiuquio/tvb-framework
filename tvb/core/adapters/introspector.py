@@ -27,10 +27,12 @@
 #   Frontiers in Neuroinformatics (7:10. doi: 10.3389/fninf.2013.00010)
 #
 #
+
 """
 .. moduleauthor:: Lia Domide <lia.domide@codemart.ro>
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 """
+
 import os
 import inspect
 import datetime
@@ -41,7 +43,7 @@ from tvb.basic.logger.builder import get_logger
 from tvb.basic.traits.types_mapped import MappedType
 from tvb.core.entities import model
 from tvb.core.entities.storage import dao, SA_SESSIONMAKER
-from tvb.core.portlets.portlet_XML_reader import XMLPortletReader, ATT_OVERWRITE
+from tvb.core.portlets.xml_reader import XMLPortletReader, ATT_OVERWRITE
 from tvb.core.adapters.abcremover import ABCRemover
 from tvb.core.adapters.abcadapter import ABCAdapter, ABCGroupAdapter
 from tvb.core.adapters.xml_reader import ATT_TYPE, ATT_NAME, INPUTS_KEY

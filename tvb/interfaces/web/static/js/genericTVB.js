@@ -47,10 +47,10 @@ function displayMessage(msg, className) {
 
 function checkForIE() {
 	var browserName=navigator.appName;
-	var msg;
+
 	if (browserName=="Microsoft Internet Explorer") {
-	  	msg = "Internet Explorer is not supported. Please use Google Chrome, Mozilla Firefox or Apple Safari.";
-	 	displayMessage("Internet Explorer is not supported. Please use Google Chrome, Mozilla Firefox or Apple Safari.", 'errorMessage')
+	  	var msg = "Internet Explorer is not supported. Please use Google Chrome, Mozilla Firefox or Apple Safari.";
+	 	displayMessage(msg, 'errorMessage')
 	 }	
 }
 
@@ -81,14 +81,18 @@ function get_URL_param(param) {
    return comparisonResult;
 }
 
-// Functions for pagination
+/**
+ * Function for pagination: Change hidden current_page and submit.
+ * @param page Page number to get to
+ * @param formId Form to submit
+ */
 function changeDisplayPage(page, formId) {
-    // Change hidden current_page and submit
     document.getElementById("currentPage").value = page;
     document.getElementById(formId).submit();
 }
 
-// Functions for TAB accessibility.
+
+//              TAB Accessibility FUNCTIONS
 // This was a work-around for FF compatibility.
 var pressedKey = 0;
 
@@ -118,8 +122,8 @@ function fireOnClick(redirectElem) {
 	}
 }
 
-// ---------- Function on the top left call-out
 
+// ---------- Function on the top left call-out
 function updateCallOutProject() {
 	$.ajax({ async : false,
              type: 'GET',
@@ -130,13 +134,11 @@ function updateCallOutProject() {
 }
 
 
-
 // ---------- Function on right call-out
-
 function includeAdapterInterface(divId, projectId, algorithmId, back_page) {
     // Populate in divId, the interface of the adapter, specified by algorihmId.
     // The interface will be automatically populated with dataTypes from projectId     
-    get_url = "/flow/getadapterinterface/"+ projectId+ "/" + algorithmId + '/' +back_page;
+    var get_url = "/flow/getadapterinterface/"+ projectId+ "/" + algorithmId + '/' +back_page;
     $.ajax({ async : false,
              type: 'GET',
              url: get_url,
@@ -153,9 +155,9 @@ function includeAdapterInterface(divId, projectId, algorithmId, back_page) {
 function getSubmitableData(inputDivId, allowDisabled) {
 	
 	var inputs = $("#" + inputDivId + " input");
-	var submitableData = {}
-	for (var i = 0; i < inputs.length; i++) {
-		var thisInput = inputs[i];
+	var submitableData = {};
+	for (var ii = 0; ii < inputs.length; ii++) {
+		var thisInput = inputs[ii];
 		if (!allowDisabled && thisInput.disabled) {
 			continue
 		} 
@@ -178,7 +180,7 @@ function getSubmitableData(inputDivId, allowDisabled) {
 			continue
 		}
 		if (thisSelect.multiple == true) {
-			var selectedOptions = []
+			var selectedOptions = [];
 			for (var j=0; j < thisSelect.options.length; j++) {
 				if (thisSelect.options[j].selected == true) {
 					selectedOptions.push(thisSelect.options[j].value);
@@ -194,14 +196,14 @@ function getSubmitableData(inputDivId, allowDisabled) {
 
 
 /**
- * Generic function to maximize /minimize a column in Michael's columized framework.
+ * Generic function to maximize /minimize a column in Michael's columnize framework.
  */
 function toggleMaximizeColumn(link, maximizeColumnId) {
-	
+	var mainDiv = $("div[id='main']");
 	if (link.text == "Maximize") {
-		if (!$("div[id='main']").hasClass('is-maximized')) {
-			$("div[id='main']")[0].className = $("div[id='main']")[0].className + " is-maximized";
-			var maximizeColumn = $("#" + maximizeColumnId)[0]
+		if (!mainDiv.hasClass('is-maximized')) {
+			mainDiv[0].className = mainDiv[0].className + " is-maximized";
+			var maximizeColumn = $("#" + maximizeColumnId)[0];
 			maximizeColumn.className = maximizeColumn.className + ' shows-maximized';
 		}
 		link.innerHTML = "Minimize";
@@ -224,9 +226,8 @@ function minimizeColumn(link, maximizeColumnId) {
 	link.className = link.className.replace('action-zoom-out', 'action-zoom-in');
 }
 
-
-
 // ---------------END GENERIC ------------------------
+
 
 // ---------------------------------------------------------
 //              USER SECTION RELATED FUNCTIONS
@@ -236,11 +237,12 @@ function minimizeColumn(link, maximizeColumnId) {
 function changeMembersPage(projectId, pageNo, divId, editEnabled) {
     $(".projectmembers-pagetab-selected").attr("class", "projectmembers-pagetab");
     $("#tab-" + pageNo).attr("class", "projectmembers-pagetab projectmembers-pagetab-selected");
-    if ($('span[class="user_on_page_'+ pageNo+'"]').length > 0) {
+    var membersElem = $('span[class="user_on_page_'+ pageNo+'"]');
+    if (membersElem.length > 0) {
         $('span[class^="user_on_page_"]').hide(); 
-        $('span[class="user_on_page_'+ pageNo+'"]').show(); 
+        membersElem.show();
     } else {
-        my_url = '/project/getmemberspage/' + pageNo;
+        var my_url = '/project/getmemberspage/' + pageNo;
         if (projectId) {
             my_url = my_url + "/"+ projectId;
         }
@@ -259,13 +261,13 @@ function changeMembersPage(projectId, pageNo, divId, editEnabled) {
 
 
 function show_hide(show_class, hide_class) {
-	elems = $(show_class);
+	var elems = $(show_class);
 	for (var i=0; i< elems.length; i++) {
 		elems[i].style.display = 'inline';
 	}
 	elems = $(hide_class);
-	for (var i=0; i< elems.length; i++) {
-		elems[i].style.display = 'none';
+	for (var ii=0; ii< elems.length; ii++) {
+		elems[ii].style.display = 'none';
 	}
 }
 
@@ -273,12 +275,12 @@ function show_hide(show_class, hide_class) {
  * Function on the Settings page.
  */
 function validateDb(db_url, tvb_storage){
-	var db_url = document.getElementById(db_url).value;
+	var db_url_value = document.getElementById(db_url).value;
 	var storage = document.getElementById(tvb_storage).value;
 	$.ajax({ async : false,
         type: 'POST',
         url: "/settings/check_db_url",
-        data: { URL_VALUE: db_url , TVB_STORAGE : storage},
+        data: { URL_VALUE: db_url_value , TVB_STORAGE : storage},
         success: function(r) {  
         						r = $.parseJSON(r);
         						if (r['status'] == 'ok') {				
@@ -287,18 +289,18 @@ function validateDb(db_url, tvb_storage){
         							displayMessage(r['message'], "errorMessage");
         						}		
         					  },
-		error: function(r) { 
-			displayMessage("Some error occured during method call.",'errorMessage'); 
+		error: function() {
+			displayMessage("Some error occurred during method call.",'errorMessage');
 			}
       });
 }
 
 function validateMatlabPath(matlab_path){
-	var matlab_path = document.getElementById(matlab_path).value;
+	var matlab_path_value = document.getElementById(matlab_path).value;
 	$.ajax({ async : false,
         type: 'GET',
         url: "/settings/validate_matlab_path",
-        data: { MATLAB_EXECUTABLE: matlab_path},
+        data: { MATLAB_EXECUTABLE: matlab_path_value},
         success: function(r) {  
         						r = $.parseJSON(r);
         						if (r['status'] == 'ok') {				
@@ -307,8 +309,8 @@ function validateMatlabPath(matlab_path){
         							displayMessage(r['message'], "errorMessage");
         						}		
         					  },
-		error: function(r) { 
-			displayMessage("Some error occured during method call.",'errorMessage'); 
+		error: function() {
+			displayMessage("Some error occurred during method call.",'errorMessage');
 			}
       });
 }
@@ -316,8 +318,8 @@ function validateMatlabPath(matlab_path){
 function changeDBValue(selectComponent) {
 	var component = eval(selectComponent);
 	var selectedValue = $(component).val();
-    correspondingValue = component.options[component.selectedIndex].attributes.correspondingVal.nodeValue;
-    correspondingTextField = document.getElementById('URL_VALUE');
+    var correspondingValue = component.options[component.selectedIndex].attributes.correspondingVal.nodeValue;
+    var correspondingTextField = document.getElementById('URL_VALUE');
     correspondingTextField.value = correspondingValue;
     if (selectedValue == 'sqlite') {
     	correspondingTextField.setAttribute('readonly', 'readonly');	
@@ -367,13 +369,14 @@ var TVB_NODE_DATATYPE_TYPE = "datatype";
  * @param entity_gid an operation or dataType GID
  * @param entityType the type of the entity: operation or dataType
  * @param backPage is a string, saying where the visualizers that can be launched from the overlay should point their BACK button.
+ * @param excludeTabs Tabs to be displayed as not-accessible
  */
 function displayNodeDetails(entity_gid, entityType, backPage, excludeTabs) {
 	closeOverlay(); // If there was overlay opened, just close it
     if (entity_gid == undefined || entity_gid == "firstOperation" || entity_gid == "fakeRootNode" || TVB_skipDisplayOverlay) {
         return;
     }
-    var url = '';
+    var url;
 	if (entityType == TVB_NODE_OPERATION_TYPE) {
 		url = '/project/get_operation_details/' + entity_gid + "/0";
 	} else if (entityType == TVB_NODE_OPERATION_GROUP_TYPE) {
@@ -382,7 +385,7 @@ function displayNodeDetails(entity_gid, entityType, backPage, excludeTabs) {
 		url = '/project/get_datatype_details/' + entity_gid;
 	}
 
-    if (backPage == undefined || backPage == '') {
+    if (!backPage) {
         backPage = get_URL_param('back_page');
     }
 	if (backPage) {
@@ -396,7 +399,7 @@ function displayNodeDetails(entity_gid, entityType, backPage, excludeTabs) {
 
 
 /**
- * Close overlay and refrech backPage.
+ * Close overlay and refresh backPage.
  */	
 function closeAndRefreshNodeDetailsOverlay(returnCode, backPage) {
 	
@@ -408,7 +411,7 @@ function closeAndRefreshNodeDetailsOverlay(returnCode, backPage) {
 			
 		} else if (backPage == 'data') {
 			if ($("#lastVisibleTab").val() == GRAPH_TAB) {
-		    	update_workflow_graph('workflowCanvasDiv', lastSelectedNode, lastSelectedNodeType);
+		    	update_workflow_graph('workflowCanvasDiv', TREE_lastSelectedNode, TREE_lastSelectedNodeType);
 		  	} else {
 		    	updateTree();
 		   }
@@ -423,7 +426,7 @@ function closeAndRefreshNodeDetailsOverlay(returnCode, backPage) {
 /**
  * Used from DataType(Group) overlay to store changes in meta-data.
  */
-function overlaySubmitMetadata(datatypeGID, formToSubmitId, backPage) {
+function overlaySubmitMetadata(formToSubmitId, backPage) {
 	
 	var submitableData = getSubmitableData(formToSubmitId, false);
 	$.ajax({ async : false,
@@ -434,7 +437,7 @@ function overlaySubmitMetadata(datatypeGID, formToSubmitId, backPage) {
 			                if (r) {
 			                    displayMessage(r, 'errorMessage');
 			                } else {
-			                    displayMessage("Data succesfully stored!");
+			                    displayMessage("Data successfully stored!");
 			                    closeAndRefreshNodeDetailsOverlay(0, backPage);
 			                }
              },
@@ -457,8 +460,8 @@ function overlayRemoveEntity(projectId, dataGid, backPage) {
 			                    displayMessage(r, 'errorMessage');
 			                } else {
 			                    displayMessage("Node succesfully removed!");
-			                    lastSelectedNode = undefined;
-    							lastSelectedNodeType = undefined;
+			                    TREE_lastSelectedNode = undefined;
+    							TREE_lastSelectedNodeType = undefined;
 			                    closeAndRefreshNodeDetailsOverlay(0, backPage);
 			                }
              },
@@ -506,10 +509,10 @@ function _markEntityVisibility(entityGID, entityType, toBeVisible) {
 	$.ajax({ async: false, 
 			 type: 'POST',
 			 url: "/project/set_visibility/" + entityType+"/"+ entityGID+"/"+ toBeVisible,
-			 success: function(r) {
+			 success: function() {
 			 	displayMessage("Visibility was changed.");
 			 },
-			 error: function(r) {
+			 error: function() {
 			 	displayMessage("Error when trying to change visibility! Check logs...", "errorMessage");
 			 	returnCode = 1;
 			 }
@@ -517,12 +520,15 @@ function _markEntityVisibility(entityGID, entityType, toBeVisible) {
 	return returnCode;
 }
 
-
 // ---------------END OVERLAY DATATYPE/OPERATIONS ------------------------
 
 // ---------------------------------------------------------
 //              OPERATIONS FUNCTIONS
 // ---------------------------------------------------------
+
+// a global flag to be set when the page has been submitted and is about to reload
+// Any function that wants to submit the page should do so only if this flag is not set
+var TVB_pageSubmitted = false;
 
 /**
  * Sets the visibility for an operation, from specifically the View Operation page. 
@@ -531,12 +537,15 @@ function _markEntityVisibility(entityGID, entityType, toBeVisible) {
  * @param operationGID an operation/operationGroup GID
  * @param isGroup True if OperationGroup entity
  * @param toBeRelevant <code>True</code> if the operation is to be set relevant, otherwise <code>False</code>.
+ * @param submitFormId ID for the form to parent form, to submit operation through it.
  */
 function setOperationRelevant(operationGID, isGroup, toBeRelevant, submitFormId) {
-	entityType = "operation";
+	var entityType;
 	if (isGroup) {
 		entityType = "operationGroup"
-	}
+	}else{
+        entityType = "operation";
+    }
 	var returnCode = _markEntityVisibility(operationGID, entityType, toBeRelevant);
 	if (returnCode == 0){
 		document.getElementById(submitFormId).submit();
@@ -544,67 +553,50 @@ function setOperationRelevant(operationGID, isGroup, toBeRelevant, submitFormId)
 }
 
 
-function stopOperation(operationId, isGroup) {
-    // Take an operation Identifier and reload previously selected input parameters for it.
-    $.ajax({ async : false,
-        type: 'POST',
-        url: "/flow/stop_operation/" + operationId + '/' + isGroup,
-        success: function(r) {  if (r == 'true') {				
-        							displayMessage("The operation was succesfully stopped.", "infoMessage")
-        						} else {
-        							displayMessage("The operation was already finished.",'warningMessage');
-        						}		
-        					  },
-		error: function(r) {
-								 displayMessage("Some error occured during operation stop.",'errorMessage'); 
-							}
-      });
+function _stopOperationsOrBurst(operationId, isGroup, isBurst, removeAfter) {
+
+    var urlBase = "/flow/stop_operation/";
+    if (isBurst) {
+        urlBase = "/flow/stop_burst_operation/";
+    }
+    urlBase += operationId + '/' + isGroup ;
+    if (removeAfter) {
+        urlBase += '/True';
+    }
+
+    $.ajax({async: false,
+            type: 'POST',
+            url: urlBase,
+            success: function(r) {  if (r.toLowerCase() == 'true') {
+                                        displayMessage("The operation was successfully removed.", "infoMessage")
+                                    } else {
+                                        displayMessage("Could not remove operation.",'warningMessage');
+                                    }},
+            error: function() { displayMessage("Some error occurred while removing operation.",'errorMessage'); }
+    });
 }
 
 
+function stopOperation(operationId, isGroup) {
+    // Take an operation Identifier and reload previously selected input parameters for it.
+    _stopOperationsOrBurst(operationId, isGroup, false, false);
+}
+
 function stopBurstOperation(operationId, isGroup) {
     // Take an operation Identifier and reload previously selected input parameters for it.
-    $.ajax({ async : false,
-        type: 'POST',
-        url: "/flow/stop_burst_operation/" + operationId + '/' + isGroup,
-        success: function(r) {  if (r == 'true') {				
-        							displayMessage("The burst was succesfully stopped.", "infoMessage")
-        						} else {
-        							displayMessage("The burst was already finished.",'warningMessage');
-        						}		
-        					  },
-		error: function(r) {
-								 displayMessage("Some error occured during burst stop.",'errorMessage'); 
-							}
-      });
+    _stopOperationsOrBurst(operationId, isGroup, true, false);
 }
 
 
 function deleteOperation(operationId, isGroup) {
-	// Delete a operation that was not part of a group
-	$.ajax({ async : false,
-        type: 'POST',
-        url: "/flow/stop_operation/" + operationId + '/' + isGroup + '/True',
-        success: function(r) {  if (r == 'true') {				
-        							displayMessage("The operation was succesfully removed.", "infoMessage")
-        						} else {
-        							displayMessage("Could not remove operation.",'warningMessage');
-        						}},
-		error: function(r) { displayMessage("Some error occured while removing operation.",'errorMessage'); }});
+	// Delete a operation that was not part of a Burst
+	_stopOperationsOrBurst(operationId, isGroup, false, true);
 }
 
 
 function deleteBurstOperation(operationId, isGroup) {
 	// Delete a operation that was part of a burst launch
-	$.ajax({ async : false,
-        type: 'POST',
-        url: "/flow/stop_burst_operation/" + operationId + '/' + isGroup + '/True',
-        success: function(r) {  if (r == 'true') {				
-        							displayMessage("The burst was succesfully removed.", "infoMessage")
-        						} else {
-        							displayMessage("Could not remove burst.",'warningMessage');
-        						}},
-		error: function(r) { displayMessage("Some error occured while removing burst.",'errorMessage'); }});
+    _stopOperationsOrBurst(operationId, isGroup, true, true);
 }
 
 
@@ -614,7 +606,7 @@ function resetOperationFilters(submitFormId) {
 	input.type = "hidden";
 	input.name = "reset_filters";
 	input.value = "true";
-	form = document.getElementById(submitFormId);
+	var form = document.getElementById(submitFormId);
 	form.appendChild(input);
 	form.submit()
 }
@@ -630,43 +622,36 @@ function applyOperationFilter(filterName, submitFormId) {
  * Refresh the operation page is no overlay is currently displayed.
  */
 function refreshOperations() {
+    // do not cancel another request
+    if(TVB_pageSubmitted){
+       return;
+    }
 
 	if (document.getElementById("overlay") == null) {
+        // let other requests cancel the refresh . Do not set the flag
+        // TVB_pageSubmitted = true
 		document.getElementById('operationsForm').submit();
 	} else {
 		setTimeout(refreshOperations, 30000);
 	}
 }
 
-
 // ----------------END OPERATIONS----------------------------
-
-// ---------------------------------------------------------
-//              PIPELINE RELATED FUNCTIONS
-// ---------------------------------------------------------
-
-function importerSelectRadio(prefixRadio, selectedType) {
-	$(".labelSelected").each(function () {
-		var new_class = this.className.replace('labelSelected', '').trim();
-		if (new_class.indexOf(prefixRadio) >=0) {
-			this.className = new_class;
-		}
-	});
-	$(".img" + selectedType).attr("class", $(".img" + selectedType).attr("class") + ' labelSelected');
-	$("#"+ prefixRadio + selectedType).attr("checked", 'true');
-}
-// ------------------END PIPELINE-----------------------------
-
 
 // ---------------------------------------------------------
 //              OVERLAY RELATED FUNCTIONS
 // ---------------------------------------------------------
+
+
+var _keyUpEvent = "keyup";
+
 /**
  * Opens the overlay dialog and fill in
  *
  * @param url URL to be called in order to get overlay code
+ * @param message_data OPTIONAL Submit data
+ * @param allowClose TRUE when ECS is allowed to close current overlay.
  */
-KEY_UP_EVENT = "keyup"
 function showOverlay(url, allowClose, message_data) {
 
     $.ajax({
@@ -680,10 +665,12 @@ function showOverlay(url, allowClose, message_data) {
             var bodyElem = $('body');
             bodyElem.addClass("overlay");
             if (allowClose == true) {
-            	bodyElem.bind(KEY_UP_EVENT, closeOverlayOnEsc);            	
+            	bodyElem.bind(_keyUpEvent, closeOverlayOnEsc);
             }
             var parentDiv = $("#main");
-            if (parentDiv.length == 0) { parentDiv = $('body') }
+            if (parentDiv.length == 0) {
+                parentDiv = bodyElem
+            }
             parentDiv.prepend(htmlResult);
             MathJax.Hub.Queue(["Typeset", MathJax.Hub, "overlay"]);
         },
@@ -702,7 +689,7 @@ function showOverlay(url, allowClose, message_data) {
 function closeOverlay() {
 	var bodyElem = $('body');
     bodyElem.removeClass("overlay");
-    bodyElem.unbind(KEY_UP_EVENT, closeOverlayOnEsc);
+    bodyElem.unbind(_keyUpEvent, closeOverlayOnEsc);
    	$("#overlay").remove();
 }
 
@@ -711,14 +698,14 @@ function closeOverlay() {
  * @param evt keyboard event
  */
 function closeOverlayOnEsc(evt) {
-    var evt = (evt) ? evt : ((event) ? event : null);
+    var evt_value = (evt) ? evt : ((event) ? event : null);
 	
 	// handle ESC key code
-	if (evt.keyCode == 27) {
+	if (evt_value.keyCode == 27) {
 		closeOverlay();
 		// Force page reload, otherwise the div#main with position absolute will be wrongly displayed
 		// The wrong display happens only when iFrame with anchors are present in the Help Inline Doc.
-		window.location.href=window.location.href
+		window.location.href = window.location.href;
 	}
 }
 
@@ -751,7 +738,7 @@ function showOverlayProgress() {
 	if (overlayElem != null) {
 		overlayElem.addClass("overlay-blocker");
 		var bodyElem = $('body');
-		bodyElem.unbind(KEY_UP_EVENT, closeOverlayOnEsc);
+		bodyElem.unbind(_keyUpEvent, closeOverlayOnEsc);
 	}
 	
 	return false;	
@@ -764,18 +751,19 @@ function showOverlayProgress() {
 // We use this counter to allow multiple Ajax calls in the 
 // same time. This way we ensure only the first one opens 
 // overlay and last one closes it.
-BLOCKER_OVERLAY_COUNTER = 0;
-BLOCKER_OVERLAY_TIMEOUT = null;
+var _blockerOverlayCounter = 0;
+var _blockerOverlayTimeout = null;
 
 function showBlockerOverlay(timeout, overlay_data) {
 	timeout = checkArg(timeout, 60 * 1000);
-	overlay_data = checkArg(overlay_data, {"message_data" : "Your request is being processed right now. Please wait a moment..."})
-	BLOCKER_OVERLAY_COUNTER++;
-	if (BLOCKER_OVERLAY_COUNTER == 1) {
+	overlay_data = checkArg(overlay_data,
+        {"message_data": "Your request is being processed right now. Please wait a moment..."});
+	_blockerOverlayCounter++;
+	if (_blockerOverlayCounter == 1) {
 		showOverlay("/showBlockerOverlay", false, overlay_data);
 		
 		// Ensure that overlay will close in 1 min 
-		BLOCKER_OVERLAY_TIMEOUT = setTimeout(forceCloseBlockerOverlay, timeout);
+		_blockerOverlayTimeout = setTimeout(forceCloseBlockerOverlay, timeout);
 	}
 }
 
@@ -792,7 +780,7 @@ function showQuestionOverlay(question, yesCallback, noCallback) {
 		noCallback = 'closeOverlay()';
 	}
 	var url = "/project/show_confirmation_overlay";
-	var data = {'yes_action' : yesCallback, 'no_action' : noCallback}
+	var data = {'yes_action': yesCallback, 'no_action': noCallback};
 	if (question != undefined) {
 		data['question'] = question;
 	}
@@ -805,15 +793,15 @@ function forceCloseBlockerOverlay() {
 }
 
 function closeBlockerOverlay() {
-	BLOCKER_OVERLAY_COUNTER--;
-	if (BLOCKER_OVERLAY_COUNTER <= 0) {
-		if (BLOCKER_OVERLAY_TIMEOUT != null) {
-			clearTimeout(BLOCKER_OVERLAY_TIMEOUT);
-			BLOCKER_OVERLAY_TIMEOUT = null;
+	_blockerOverlayCounter--;
+	if (_blockerOverlayCounter <= 0) {
+		if (_blockerOverlayTimeout != null) {
+			clearTimeout(_blockerOverlayTimeout);
+			_blockerOverlayTimeout = null;
 		}
 		closeOverlay();
 		
-		BLOCKER_OVERLAY_COUNTER = 0;	
+		_blockerOverlayCounter = 0;
 	}
 }
 
@@ -824,7 +812,7 @@ function closeBlockerOverlay() {
  * @param {Object} subsection
  */
 function showHelpOverlay(section, subsection) {
-	var url = "/help/showOnlineHelp"
+	var url = "/help/showOnlineHelp";
 	if (section != null) {
 		url += "/" + section
 	}
@@ -858,9 +846,9 @@ function upgradeFileStorage() {
  	                	}
             			closeBlockerOverlay();
 	               },
-	               error:function (r) {
+	               error:function () {
             			closeBlockerOverlay();
-            			displayMessage("An unexpected error occured during update.", 'errorMessage');
+            			displayMessage("An unexpected error occurred during update.", 'errorMessage');
 	        		}
 	            });
 }
@@ -878,8 +866,6 @@ function showDataUploadOverlay(projectId) {
 
 /**
  * Displays the dialog which allows the user to upload a project.
- *
- * @param projectId the selected project
  */
 function showProjectUploadOverlay() {
 	showOverlay("/project/get_project_uploader_overlay", true);
@@ -941,7 +927,7 @@ function doAjaxCall(params) {
 		showBlockerOverlay(params.overlay_timeout, params.overlay_data);
 	}
 
-	successFunc = function(result) {
+	var successFunc = function(result) {
 		if( typeof params.success != 'undefined') {
 			params.success(result);
 		}
@@ -950,7 +936,7 @@ function doAjaxCall(params) {
 		}
 	};
 
-	errorFunc = function(result) {
+	var errorFunc = function(result) {
 		if(showBlockerOverlay) {
 			closeBlockerOverlay();
 		}

@@ -96,7 +96,10 @@ class PhasePlaneInteractive(object):
         self.log.info(msg % model_name)
 
         self.svx = self.model.state_variables[0]  # x-axis: 1st state variable
-        self.svy = self.model.state_variables[1]  # y-axis: 2nd state variable
+        if self.model.nvar > 1:
+            self.svy = self.model.state_variables[1]  # y-axis: 2nd state variable
+        else:
+            self.svy = self.model.state_variables[0]
         self.mode = 0
 
         self._set_state_vector()
@@ -252,7 +255,10 @@ class PhasePlaneInteractive(object):
         pos_shp = [0.04, 0.365, 0.125, 0.025]
         sax = self.ipp_fig.add_axes(pos_shp, axisbg=AXCOLOUR)
 
-        self.noise_slider = Slider(sax, "Noise", 0.0, 1.0, valinit=self.integrator.noise.nsig)
+        ## Only get the first value in the array of noise nsig,
+        ## because otherwise the slider does not know what to do with more
+        init_point = self.integrator.noise.nsig.flatten()[0]
+        self.noise_slider = Slider(sax, "Noise", 0.0, 1.0, valinit=init_point)
         self.noise_slider.on_changed(self._update_noise)
 
 

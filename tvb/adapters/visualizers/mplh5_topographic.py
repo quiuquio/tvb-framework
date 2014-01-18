@@ -50,8 +50,6 @@ class BaseTopography():
     plotsensors = False
     plothead = True
     masked = True
-    # this field may be modified from the GUI
-    plot_contours = False
 
     # dictionaries that contains processed data
     head_contour = None
@@ -79,8 +77,9 @@ class BaseTopography():
     def draw_head_topo(self, figure, topography, color_bar_min=0, color_bar_max=0):
         """
         Draw Head top view.
+        :returns TRUE, when all elements are zero, and we need to append some warning to the topology title
         """
-        self._fit_topology(figure, topography, self.topography_data, color_bar_min, color_bar_max)
+        all_zeros = self._fit_topology(figure, topography, self.topography_data, color_bar_min, color_bar_max)
         if self.plothead:
             # draw head contour
             figure.gca().plot(self.head_contour["x_arr"], self.head_contour["y_arr"],
@@ -89,6 +88,7 @@ class BaseTopography():
             # Draw Sensors
             figure.gca().plot(self.sensor_locations["x_arr"], self.sensor_locations["y_arr"],
                               self.sensor_locations["marker"])
+        return all_zeros
 
 
     def _fit_topology(self, figure, topography, topography_data, color_bar_min, color_bar_max):
@@ -103,7 +103,10 @@ class BaseTopography():
 
         topo = griddata(topography_data["sproj"][:, 0], topography_data["sproj"][:, 1],
                         numpy.ravel(numpy.array(topography)), x_arr, y_arr)
-        if self.plot_contours:
+
+        non_empty_topo = topo.any()
+
+        if non_empty_topo:
             #draw the contours
             figure.gca().contour(x_arr, y_arr, topo, 10, colors='k', origin="lower", hold='on')
 
@@ -118,9 +121,12 @@ class BaseTopography():
         if not (color_bar_min == 0 and color_bar_max == 0):
             norm = colors.Normalize(vmin=color_bar_min, vmax=color_bar_max)
             map_surf.set_norm(norm)
-        figure.colorbar(map_surf)
+
+        if non_empty_topo:
+            figure.colorbar(map_surf)
+
         figure.gca().set_axis_off()
-        return map_surf
+        return not non_empty_topo
 
 
     @staticmethod
@@ -220,7 +226,7 @@ class BaseTopography():
 
 
 
-class TopographicViewer(ABCMPLH5Displayer, BaseTopography):
+class TopographicViewer(BaseTopography, ABCMPLH5Displayer):
     """
     Interface between TVB Framework and web display of a topography viewer.
     """
@@ -243,17 +249,15 @@ class TopographicViewer(ABCMPLH5Displayer, BaseTopography):
                 {'name': 'data_2', 'label': 'Connectivity Measures 3', 'type': ConnectivityMeasure,
                  'conditions': FilterChain(fields=[FilterChain.datatype + '._nr_dimensions'],
                                            operations=["=="], values=[1]),
-                 'description': 'Comparative values'},
-                {'name': 'display_contours', 'label': 'Display Contours', 'type': 'bool'}]
+                 'description': 'Comparative values'}]
 
 
-    def plot(self, figure, data_0, data_1=None, data_2=None, display_contours=True):
+    def plot(self, figure, data_0, data_1=None, data_2=None):
         """
         Actual drawing method.
         """
         connectivity = data_0.connectivity
         sensor_locations = BaseTopography._normalize(connectivity.centres)
-        self.plot_contours = display_contours
         sensor_number = len(sensor_locations)
 
         arrays = []
@@ -269,8 +273,8 @@ class TopographicViewer(ABCMPLH5Displayer, BaseTopography):
 
         for i, array_data in enumerate(arrays):
             figure.add_subplot(1, len(arrays), i + 1)
-            self.draw_head_topo(figure, array_data)
-            figure.gca().set_title(titles[i])
+            all_zeros = self.draw_head_topo(figure, array_data)
+            figure.gca().set_title(titles[i] + ("\n - Topography is all zeroes -" if all_zeros else ""))
 
 
 

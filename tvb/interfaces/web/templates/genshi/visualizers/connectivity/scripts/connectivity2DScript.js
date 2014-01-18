@@ -36,6 +36,8 @@ var C2D_canvasDiv = 'hemispheresDisplay';
 var rgraph;         // keep the rgraph global so that it can be accessed when exporting images from canvas
 var exportScale;    // used for resizing the plot on exporting from canvas
 
+var C2D_hemispheresJSON;
+
 /**
  * Used for drawing a chart from the given json
  *
@@ -71,7 +73,7 @@ function drawConnectivity(json, shouldRefreshNodes) {
             },
             //This method is called when rendering/moving a label.
             //This is method is useful to make some last minute changes to node labels like adding some position offset.
-            onPlaceLabel: function(domElement, node) {
+            onPlaceLabel: function(domElement) {
                 var style = domElement.style;
                 var left = parseInt(style.left);
                 var w = domElement.offsetWidth;
@@ -99,21 +101,26 @@ function drawConnectivity(json, shouldRefreshNodes) {
     	selection_empty = false;
     	rootNode = first_json_node;
     }
-    //load graph.
-    if (shouldRefreshNodes) {
-        rgraph.loadJSON(json, rootNode);
+
+    if (selection_empty) {
+        rgraph.loadJSON([{id:'root', name:'SELECT AT LEAST ONE NODE FROM THIS REGION TO REVEAL CONNECTIONS...',
+                          data: {radius: 0, angle: 0} }]);
+
     } else {
-        rgraph.loadJSON(json, 1);
+        //load graph.
+        if (shouldRefreshNodes) {
+            rgraph.loadJSON(json, rootNode);
+        } else {
+            rgraph.loadJSON(json, 1);
+        }
+        // remove all the nodes that were not selected by the user
+        rgraph.graph.eachNode(function(node) {
+            if (shouldRefreshNodes && selectedPoints.length > 0 && !isNodeSelected(node.id)) {
+                rgraph.graph.removeNode(node.id);
+            }
+        });
     }
 
-    // remove all the nodes that were not selected by the user
-    if (selection_empty == false) {
-	    rgraph.graph.eachNode(function(node) {
-	        if (shouldRefreshNodes && selectedPoints.length > 0 && !isNodeSelected(node.id)) {
-	            rgraph.graph.removeNode(node.id);
-	        }
-	    });    	
-    }
     //compute positions and plot
     rgraph.refresh();
     rgraph.plot();
@@ -125,18 +132,15 @@ function drawConnectivity(json, shouldRefreshNodes) {
  * Draws the slider which allows the user to change the weight af an edge.
  */
 function drawSliderForWeightsScale() {
-    $("#weightsScaleFactor").slider({
-        value: 1,
-        min: 1,
-        max: 10
-    });
 
-    $("#weightsScaleFactor").slider({
-        change: function(event, ui) {
-            scaleFactor = $('#weightsScaleFactor').slider("option", "value");
-            $("#display-weights-scale").html(" " + scaleFactor);
-        	drawConnectivity(GVAR_hemisphere_jsons[C2D_selectedView], C2D_shouldRefreshNodes);
-        }
+    var weightsFactorObj = $("#weightsScaleFactor");
+    weightsFactorObj.slider({ value: 1, min: 1, max: 10 });
+    weightsFactorObj.slider({
+                            change: function() {
+                                scaleFactor = $('#weightsScaleFactor').slider("option", "value");
+                                $("#display-weights-scale").html(" " + scaleFactor);
+                                drawConnectivity(C2D_hemispheresJSON[C2D_selectedView], C2D_shouldRefreshNodes);
+                            }
     });
 }
 
@@ -183,14 +187,13 @@ function change2DView() {
  * Each time when the user check/uncheck a check box this method will be called to redraw the main view.
  */
 function C2D_displaySelectedPoints() {
-    var setRoot = true;
     selectedPoints = [];
     rootNode = parseInt(GVAR_interestAreaNodeIndexes[0]);
 	for (var i = 0; i < GVAR_interestAreaNodeIndexes.length; i++) {
 		selectedPoints.push(GVAR_pointsLabels[GVAR_interestAreaNodeIndexes[i]]);
 	}
 	
-    drawConnectivity(GVAR_hemisphere_jsons[C2D_selectedView], C2D_shouldRefreshNodes);
+    drawConnectivity(C2D_hemispheresJSON[C2D_selectedView], C2D_shouldRefreshNodes);
 }
 
 /**
@@ -238,8 +241,27 @@ function isNodeSelected(nodeId) {
 }
 
 function prepareConnectivity2D(left_json, full_json, right_json) {
-    GVAR_hemisphere_jsons = {}
-    GVAR_hemisphere_jsons['left'] = left_json;
-    GVAR_hemisphere_jsons['both'] = full_json;
-    GVAR_hemisphere_jsons['right'] = right_json;	
+    C2D_hemispheresJSON = {
+        left:left_json,
+        both:full_json,
+        right:right_json
+    };
+}
+
+/**
+ * Prepare Connectivity portlet preview, by selecting all nodes.
+ */
+function startPreviewConnectivity() {
+    C2D_selectedView = 'both';
+
+    var currrentJSON = C2D_hemispheresJSON[C2D_selectedView];
+    NO_POSITIONS = currrentJSON.length;
+    GVAR_interestAreaNodeIndexes = [];
+    GVAR_pointsLabels = [];
+
+    for (var i = 0; i < NO_POSITIONS; i++) {
+        GVAR_pointsLabels.push(currrentJSON[i].id);
+        GVAR_interestAreaNodeIndexes.push(i);
+    }
+    C2D_displaySelectedPoints();
 }

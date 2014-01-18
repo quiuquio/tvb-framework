@@ -47,7 +47,7 @@ from tvb.basic.logger.builder import get_logger
 from tvb.core.utils import parse_json_parameters
 from tvb.core.entities import model
 from tvb.core.entities.storage import dao
-from tvb.core.services.workflowservice import WorkflowService
+from tvb.core.services.workflow_service import WorkflowService
 
 
 LOGGER = get_logger(__name__)
@@ -180,8 +180,9 @@ class StandAloneClient(object):
         """
         operation = dao.get_operation_by_id(operation_id)
         if not operation or operation.status != model.STATUS_STARTED:
-            LOGGER.warn("Operation %d was not found or has not the correct status, to be stopped." % operation_id)
-            return False
+            LOGGER.warning("Operation already stopped or not found is given to stop job: %s" % operation_id)
+            return True
+
         LOGGER.debug("Stopping operation: %s" % str(operation_id))
 
         ## Set the thread stop flag to true
@@ -232,8 +233,6 @@ class ClusterSchedulerClient(object):
         # Anything lower than 2 hours just use default walltime
         if hours < 2:
             walltime = "02:00:00"
-        elif hours > 23:
-            walltime = "23:59:59"
         else:
             walltime = datetime.time(hours, minutes, seconds)
             walltime = walltime.strftime("%H:%M:%S")
@@ -264,21 +263,24 @@ class ClusterSchedulerClient(object):
         """
         operation = dao.get_operation_by_id(operation_id)
         if not operation or operation.status != model.STATUS_STARTED:
-            return False
+            LOGGER.warning("Operation already stopped or not found is given to stop job: %s" % operation_id)
+            return True
 
         operation_process = dao.get_operation_process_for_operation(operation_id)
         result = 0
         ## Try to kill only if operation job process is not None
         if operation_process is not None:
-            LOGGER.debug("Stopping cluster operation: %s, with job id: %s" % (operation_id, operation_process.job_id))
-            result = os.system(config.CLUSTER_STOP_COMMAND % operation_process.job_id)
+            stop_command = config.CLUSTER_STOP_COMMAND % operation_process.job_id
+            LOGGER.info("Stopping cluster operation: %s" % stop_command)
+            result = os.system(stop_command)
+            if result != 0:
+                LOGGER.error("Stopping cluster operation was unsuccessful. "
+                             "Try following with 'oarstat' for job ID: %s" % operation_process.job_id)
 
-        ## Set operation as canceled, if kill command succeed, otherwise no operation process was found...
-        if result == 0:
-            operation.mark_cancelled()
-            dao.store_entity(operation)
-            return True
-        return False
+        operation.mark_cancelled()
+        dao.store_entity(operation)
+
+        return result == 0
 
 
 
