@@ -41,29 +41,30 @@ import formencode
 from formencode import validators
 from tvb.config import SIMULATOR_MODULE, SIMULATOR_CLASS, MEASURE_METRICS_MODULE, MEASURE_METRICS_CLASS
 from tvb.basic.config.settings import TVBSettings as cfg
-from tvb.core.utils import generate_guid
+from tvb.core.utils import generate_guid, string2bool
 from tvb.core.adapters.abcadapter import ABCAdapter
 from tvb.core.services.burst_service import BurstService, KEY_PARAMETER_CHECKED
 from tvb.core.services.workflow_service import WorkflowService
 from tvb.core.services.operation_service import RANGE_PARAMETER_1, RANGE_PARAMETER_2
-import tvb.interfaces.web.controllers.base_controller as base
-from tvb.interfaces.web.controllers.users_controller import logged
-from tvb.interfaces.web.controllers.base_controller import using_template, ajax_call
-from tvb.interfaces.web.controllers.flow_controller import context_selected, KEY_CONTROLLS, SelectedAdapterContext
+from tvb.interfaces.web.controllers import common
+from tvb.interfaces.web.controllers.decorators import context_selected, check_user, settings, handle_error
+from tvb.interfaces.web.controllers.decorators import expose_page, expose_fragment, expose_json
+from tvb.interfaces.web.controllers.base_controller import BaseController
+from tvb.interfaces.web.controllers.flow_controller import KEY_CONTROLLS, SelectedAdapterContext
 
 PORTLET_STEP_SEPARATOR = "____"
 BURST_NAME = 'burstName'
 
 
 
-class BurstController(base.BaseController):
+class BurstController(BaseController):
     """
     Controller class for Burst-Pages.
     """
 
 
     def __init__(self):
-        base.BaseController.__init__(self)
+        BaseController.__init__(self)
         self.burst_service = BurstService()
         self.workflow_service = WorkflowService()
         self.context = SelectedAdapterContext()
@@ -75,36 +76,34 @@ class BurstController(base.BaseController):
 
 
     @property
-    @context_selected()
+    @context_selected
     def cached_simulator_input_tree(self):
         """
         Cache Simulator's input tree, for performance issues.
         Anyway, without restart, the introspected tree will not be different on multiple executions.
         :returns: Simulator's Input Tree (copy from cache or just loaded)
         """
-        cached_simulator_tree = base.get_from_session(base.KEY_CACHED_SIMULATOR_TREE)
+        cached_simulator_tree = common.get_from_session(common.KEY_CACHED_SIMULATOR_TREE)
         if cached_simulator_tree is None:
-            cached_simulator_tree = self.flow_service.prepare_adapter(base.get_current_project().id,
+            cached_simulator_tree = self.flow_service.prepare_adapter(common.get_current_project().id,
                                                                       self.cached_simulator_algo_group)[1]
-            base.add2session(base.KEY_CACHED_SIMULATOR_TREE, cached_simulator_tree)
+            common.add2session(common.KEY_CACHED_SIMULATOR_TREE, cached_simulator_tree)
         return copy.deepcopy(cached_simulator_tree)
 
 
-    @cherrypy.expose
-    @using_template('base_template')
-    @base.settings()
-    @logged()
-    @context_selected()
+    @expose_page
+    @settings
+    @context_selected
     def index(self):
         """Get on burst main page"""
         template_specification = dict(mainContent="burst/main_burst", title="Simulation Cockpit",
                                       baseUrl=cfg.BASE_URL, includedResources='project/included_resources')
         portlets_list = self.burst_service.get_available_portlets()
-        session_stored_burst = base.get_from_session(base.KEY_BURST_CONFIG)
+        session_stored_burst = common.get_from_session(common.KEY_BURST_CONFIG)
         if session_stored_burst is None or session_stored_burst.id is None:
             if session_stored_burst is None:
-                session_stored_burst = self.burst_service.new_burst_configuration(base.get_current_project().id)
-                base.add2session(base.KEY_BURST_CONFIG, session_stored_burst)
+                session_stored_burst = self.burst_service.new_burst_configuration(common.get_current_project().id)
+                common.add2session(common.KEY_BURST_CONFIG, session_stored_burst)
 
             adapter_interface = self.cached_simulator_input_tree
             if session_stored_burst is not None:
@@ -115,8 +114,7 @@ class BurstController(base.BaseController):
             template_specification['inputList'] = adapter_interface
 
         selected_portlets = session_stored_burst.update_selected_portlets()
-
-        template_specification['burst_list'] = self.burst_service.get_available_bursts(base.get_current_project().id)
+        template_specification['burst_list'] = self.burst_service.get_available_bursts(common.get_current_project().id)
         template_specification['portletList'] = portlets_list
         template_specification['selectedPortlets'] = json.dumps(selected_portlets)
         template_specification['draw_hidden_ranges'] = True
@@ -134,49 +132,47 @@ class BurstController(base.BaseController):
         else:
             template_specification['available_metrics'] = []
 
-        template_specification[base.KEY_PARAMETERS_CONFIG] = False
-        template_specification[base.KEY_SECTION] = 'burst'
+        template_specification[common.KEY_PARAMETERS_CONFIG] = False
+        template_specification[common.KEY_SECTION] = 'burst'
         return self.fill_default_attributes(template_specification)
 
 
-    @cherrypy.expose
-    @using_template('burst/burst_history')
+    @expose_fragment('burst/burst_history')
     def load_burst_history(self):
         """
         Load the available burst that are stored in the database at this time.
         This is one alternative to 'chrome-back problem'.
         """
-        session_burst = base.get_from_session(base.KEY_BURST_CONFIG)
-        return {'burst_list': self.burst_service.get_available_bursts(base.get_current_project().id),
+        session_burst = common.get_from_session(common.KEY_BURST_CONFIG)
+        return {'burst_list': self.burst_service.get_available_bursts(common.get_current_project().id),
                 'selectedBurst': session_burst.id}
 
 
     @cherrypy.expose
-    @ajax_call(False)
+    @handle_error(redirect=False)
     def get_selected_burst(self):
         """
         Return the burst that is currently stored in session.
         This is one alternative to 'chrome-back problem'.
         """
-        session_burst = base.get_from_session(base.KEY_BURST_CONFIG)
+        session_burst = common.get_from_session(common.KEY_BURST_CONFIG)
         if session_burst.id:
             return str(session_burst.id)
         else:
             return 'None'
 
 
-    @cherrypy.expose
-    @using_template('burst/portlet_configure_parameters')
+    @expose_fragment('burst/portlet_configure_parameters')
     def get_portlet_configurable_interface(self, index_in_tab):
         """
         From the position given by the tab index and the index from that tab, 
         get the portlet configuration and build the configurable interface
         for that portlet.
         """
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         tab_index = burst_config.selected_tab
         portlet_config = burst_config.tabs[tab_index].portlets[int(index_in_tab)]
-        portlet_interface = self.burst_service.build_portlet_interface(portlet_config, base.get_current_project().id)
+        portlet_interface = self.burst_service.build_portlet_interface(portlet_config, common.get_current_project().id)
 
         full_portlet_input_tree = []
         for entry in portlet_interface:
@@ -184,13 +180,12 @@ class BurstController(base.BaseController):
         self.context.add_portlet_to_session(full_portlet_input_tree)
 
         portlet_interface = {"adapters_list": portlet_interface,
-                             base.KEY_PARAMETERS_CONFIG: False,
-                             base.KEY_SESSION_TREE: self.context.KEY_PORTLET_CONFIGURATION}
+                             common.KEY_PARAMETERS_CONFIG: False,
+                             common.KEY_SESSION_TREE: self.context.KEY_PORTLET_CONFIGURATION}
         return self.fill_default_attributes(portlet_interface)
 
 
-    @cherrypy.expose
-    @using_template('burst/portlets_preview')
+    @expose_fragment('burst/portlets_preview')
     def portlet_tab_display(self, **data):
         """
         When saving a new configuration of tabs, check if any of the old 
@@ -201,7 +196,7 @@ class BurstController(base.BaseController):
         Also remove old portlets that are no longer saved.
         """
         tab_portlets_list = json.loads(data['tab_portlets_list'])
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         selected_tab_idx = burst_config.selected_tab
         for tab_idx in xrange(len(tab_portlets_list)):
             current_tab = burst_config.tabs[tab_idx]
@@ -234,14 +229,13 @@ class BurstController(base.BaseController):
         return {'portlet_tab_list': selected_tab_portlets}
 
 
-    @cherrypy.expose
-    @using_template('burst/portlets_preview')
+    @expose_fragment('burst/portlets_preview')
     def get_configured_portlets(self):
         """
         Return the portlets for one given tab. This is used when changing
         from tab to tab and selecting which portlets will be displayed.
         """
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         if burst_config is None:
             return {'portlet_tab_list': []}
 
@@ -255,44 +249,44 @@ class BurstController(base.BaseController):
         return {'portlet_tab_list': tab_portlet_list}
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def change_selected_tab(self, tab_nr):
         """
         Set :param tab_nr: as the currently selected tab in the stored burst
         configuration. 
         """
-        base.get_from_session(base.KEY_BURST_CONFIG).selected_tab = int(tab_nr)
+        common.get_from_session(common.KEY_BURST_CONFIG).selected_tab = int(tab_nr)
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def get_portlet_session_configuration(self):
         """
         Get the current configuration of portlets stored in session for this burst,
         as a json.
         """
-        burst_entity = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_entity = common.get_from_session(common.KEY_BURST_CONFIG)
         returned_configuration = burst_entity.update_selected_portlets()
         return returned_configuration
 
 
     @cherrypy.expose
-    @ajax_call(False)
+    @handle_error(redirect=False)
     def save_parameters(self, index_in_tab, **data):
         """
         Save parameters
         
         :param tab_nr: the index of the selected tab
         :param index_in_tab: the index of the configured portlet in the selected tab
-        :param data: the {name:value} dictionary configuration of the current portlet
+        :param data: the {"portlet_parameters": json_string} Where json_string is a Jsonified dictionary
+            {"name": value}, representing the configuration of the current portlet
         
-        Having these inputs, update the configuration of the portletin the 
-        corresponding tab position form the burst configuration .
+        Having these inputs, current method updated the configuration of the portlet in the
+        corresponding tab position form the burst configuration in session.
         """
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         tab_nr = burst_config.selected_tab
         old_portlet_config = burst_config.tabs[int(tab_nr)].portlets[int(index_in_tab)]
+        data = json.loads(data['portlet_parameters'])
 
         # Replace all void entries with 'None'
         for entry in data:
@@ -302,15 +296,14 @@ class BurstController(base.BaseController):
         need_relaunch = self.burst_service.update_portlet_configuration(old_portlet_config, data)
         if need_relaunch:
             #### Reset Burst Configuration into an entity not persisted (id = None for all)
-            base.add2session(base.KEY_BURST_CONFIG, burst_config.clone())
+            common.add2session(common.KEY_BURST_CONFIG, burst_config.clone())
             return "relaunchView"
         else:
             self.workflow_service.store_workflow_step(old_portlet_config.visualizer)
             return "noRelaunch"
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def rename_burst(self, burst_id, burst_name):
         """
         Rename the burst given by burst_id, setting it's new name to
@@ -319,8 +312,13 @@ class BurstController(base.BaseController):
         self._validate_burst_name(burst_name)
         self.burst_service.rename_burst(burst_id, burst_name)
 
+<<<<<<< HEAD
     @cherrypy.expose
     @ajax_call()
+=======
+
+    @expose_json
+>>>>>>> a2e4e98fa3c11a702b1f4143ace78997ef960e05
     def launch_burst(self, launch_mode, burst_name, **data):
         """
         Do the actual burst launch, using the configuration saved in current session.
@@ -328,7 +326,8 @@ class BurstController(base.BaseController):
         :param burst_name: user-given burst name. It can be empty (case in which we will fill with simulation_x)
         :param data: kwargs for simulation input parameters.
         """
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        data = json.loads(data['simulator_parameters'])
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
 
         ## Validate new burst-name
         if burst_name != 'none_undefined':
@@ -336,10 +335,10 @@ class BurstController(base.BaseController):
             burst_config.name = burst_name
 
         ## Fill all parameters 
-        user_id = base.get_logged_user().id
-        data[base.KEY_ADAPTER] = self.cached_simulator_algorithm_id
+        user_id = common.get_logged_user().id
+        data[common.KEY_ADAPTER] = self.cached_simulator_algorithm_id
         burst_config.update_simulator_configuration(data)
-        burst_config.fk_project = base.get_current_project().id
+        burst_config.fk_project = common.get_current_project().id
 
         ## Do the asynchronous launch
         burst_id, burst_name = self.burst_service.launch_burst(burst_config, 0, self.cached_simulator_algorithm_id,
@@ -347,8 +346,7 @@ class BurstController(base.BaseController):
         return [burst_id, burst_name]
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def load_burst(self, burst_id):
         """
         Given a clicked burst from the history and the selected tab, load all 
@@ -356,21 +354,20 @@ class BurstController(base.BaseController):
         of a range launch (OperationGroup) or not.
         """
         try:
-            old_burst = base.get_from_session(base.KEY_BURST_CONFIG)
+            old_burst = common.get_from_session(common.KEY_BURST_CONFIG)
             burst, group_gid = self.burst_service.load_burst(burst_id)
             burst.selected_tab = old_burst.selected_tab
-            base.add2session(base.KEY_BURST_CONFIG, burst)
+            common.add2session(common.KEY_BURST_CONFIG, burst)
             return {'status': burst.status, 'group_gid': group_gid, 'selected_tab': burst.selected_tab}
-        except Exception, excep:
+        except Exception:
             ### Most probably Burst was removed. Delete it from session, so that client 
             ### has a good chance to get a good response on refresh
-            self.logger.error(excep)
-            base.remove_from_session(base.KEY_BURST_CONFIG)
-            raise excep
+            self.logger.exception("Error loading burst")
+            common.remove_from_session(common.KEY_BURST_CONFIG)
+            raise
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def get_history_status(self, **data):
         """
         For each burst id received, get the status and return it.
@@ -379,7 +376,8 @@ class BurstController(base.BaseController):
 
 
     @cherrypy.expose
-    @ajax_call(False)
+    @handle_error(redirect=False)
+    @check_user
     def cancel_or_remove_burst(self, burst_id):
         """
         Cancel or Remove the burst entity given by burst_id.
@@ -388,7 +386,7 @@ class BurstController(base.BaseController):
         :returns 'done': When no action is required on the client.
         """
         burst_id = int(burst_id)
-        session_burst = base.get_from_session(base.KEY_BURST_CONFIG)
+        session_burst = common.get_from_session(common.KEY_BURST_CONFIG)
         removed = self.burst_service.cancel_or_remove_burst(burst_id)
         if removed:
             if session_burst.id == burst_id:
@@ -399,18 +397,17 @@ class BurstController(base.BaseController):
             return 'canceled'
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def get_selected_portlets(self):
         """
         Get the selected portlets for the loaded burst.
         """
-        burst = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst = common.get_from_session(common.KEY_BURST_CONFIG)
         return burst.update_selected_portlets()
 
 
     @cherrypy.expose
-    @ajax_call(False)
+    @handle_error(redirect=False)
     def get_visualizers_for_operation_id(self, op_id, width, height):
         """
         Method called from parameters exploration page in case a burst with a range of parameters
@@ -423,21 +420,20 @@ class BurstController(base.BaseController):
         from that workflow as the current burst configuration. Width and height are used to get the
         proper sizes for the visualization iFrames. 
         """
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         burst_config = self.burst_service.load_tab_configuration(burst_config, op_id)
-        base.add2session(base.KEY_BURST_CONFIG, burst_config)
+        common.add2session(common.KEY_BURST_CONFIG, burst_config)
         return self.load_configured_visualizers(width, height)
 
 
-    @cherrypy.expose
-    @using_template("burst/portlets_view")
+    @expose_fragment("burst/portlets_view")
     def load_configured_visualizers(self, width='800', height='600'):
         """
         Load all the visualization steps for this tab. Width and height represent
         the dimensions of the right side Div, so that we can compute for each iFrame
         the maximum size it's visualizer can take.
         """
-        burst = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst = common.get_from_session(common.KEY_BURST_CONFIG)
         selected_tab = burst.selected_tab
         tab_portlet_list = []
         for portlet_cfg in burst.tabs[int(selected_tab)].portlets:
@@ -447,48 +443,45 @@ class BurstController(base.BaseController):
                 'max_width': int(width), 'max_height': int(height)}
 
 
-    @cherrypy.expose
-    @using_template("burst/portlet_visualization_template")
+    @expose_fragment("burst/portlet_visualization_template")
     def check_status_for_visualizer(self, selected_tab, index_in_tab, width='800', height='600'):
         """
         This call is used to check on a regular basis if the data for a certain portlet is 
         available for visualization. Should return the status and the HTML to be displayed.
         """
-        burst = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst = common.get_from_session(common.KEY_BURST_CONFIG)
         target_portlet = burst.tabs[int(selected_tab)].portlets[int(index_in_tab)]
         target_portlet = self.__portlet_config2portlet_entity(target_portlet)
         template_dict = {'portlet_entity': target_portlet, 'width': int(width), 'height': int(height)}
         return template_dict
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def reset_burst(self):
         """
         Called when click on "New Burst" entry happens from UI.
         This will generate an empty new Burst Configuration.
         """
-        base.remove_from_session(base.KEY_CACHED_SIMULATOR_TREE)
-        new_burst = self.burst_service.new_burst_configuration(base.get_current_project().id)
-        base.add2session(base.KEY_BURST_CONFIG, new_burst)
+        common.remove_from_session(common.KEY_CACHED_SIMULATOR_TREE)
+        new_burst = self.burst_service.new_burst_configuration(common.get_current_project().id)
+        common.add2session(common.KEY_BURST_CONFIG, new_burst)
 
 
     @cherrypy.expose
-    @ajax_call(False)
+    @handle_error(redirect=False)
     def copy_burst(self, burst_id):
         """
         When currently selected entry is a valid Burst, create a clone of that Burst.
         """
-        base.remove_from_session(base.KEY_CACHED_SIMULATOR_TREE)
+        common.remove_from_session(common.KEY_CACHED_SIMULATOR_TREE)
         base_burst = self.burst_service.load_burst(burst_id)[0]
         if (base_burst is None) or (base_burst.id is None):
             return self.reset_burst()
-        base.add2session(base.KEY_BURST_CONFIG, base_burst.clone())
+        common.add2session(common.KEY_BURST_CONFIG, base_burst.clone())
         return base_burst.name
 
 
-    @cherrypy.expose
-    @using_template("burst/base_portlets_iframe")
+    @expose_fragment("burst/base_portlets_iframe")
     def launch_visualization(self, index_in_tab, frame_width, frame_height, method_name="generate_preview"):
         """
         Launch the visualization for this tab and index in tab. The width and height represent the maximum of the inner 
@@ -496,7 +489,7 @@ class BurstController(base.BaseController):
         """
         result = {}
         try:
-            burst = base.get_from_session(base.KEY_BURST_CONFIG)
+            burst = common.get_from_session(common.KEY_BURST_CONFIG)
             visualizer = burst.tabs[burst.selected_tab].portlets[int(index_in_tab)].visualizer
             result = self.burst_service.launch_visualization(visualizer, float(frame_width),
                                                              float(frame_height), method_name)[0]
@@ -507,8 +500,7 @@ class BurstController(base.BaseController):
         return result
 
 
-    @cherrypy.expose
-    @using_template("flow/genericAdapterFormFields")
+    @expose_fragment("flow/genericAdapterFormFields")
     def configure_simulator_parameters(self):
         """
         Return the required input tree to generate the simulator interface for
@@ -516,7 +508,7 @@ class BurstController(base.BaseController):
         each input that are checked or not depending on if the user selected 
         them so, and with the user filled defaults.
         """
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         default_values, any_checked = burst_config.get_all_simulator_values()
         simulator_input_tree = self.cached_simulator_input_tree
         simulator_input_tree = ABCAdapter.fill_defaults(simulator_input_tree, default_values)
@@ -524,21 +516,20 @@ class BurstController(base.BaseController):
         self.context.add_adapter_to_session(self.cached_simulator_algo_group, simulator_input_tree, default_values)
 
         template_specification = {"inputList": simulator_input_tree,
-                                  base.KEY_PARAMETERS_CONFIG: True,
+                                  common.KEY_PARAMETERS_CONFIG: True,
                                   'none_checked': not any_checked,
                                   'selectedParametersDictionary': burst_config.simulator_configuration}
         ## Setting this to true means check-boxes are displayed next to all inputs ##
         return self.fill_default_attributes(template_specification)
 
 
-    @cherrypy.expose
-    @using_template("flow/genericAdapterFormFields")
+    @expose_fragment("flow/genericAdapterFormFields")
     def get_reduced_simulator_interface(self):
         """
         Get a simulator interface that only contains the inputs that are marked
         as KEY_PARAMETER_CHECKED in the current session.
         """
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         simulator_config = burst_config.simulator_configuration
         ## Fill with stored defaults, and see if any parameter was checked by user ##
         default_values, any_checked = burst_config.get_all_simulator_values()
@@ -552,18 +543,17 @@ class BurstController(base.BaseController):
         self.context.add_adapter_to_session(self.cached_simulator_algo_group, simulator_input_tree, default_values)
 
         template_specification = {"inputList": simulator_input_tree,
-                                  base.KEY_PARAMETERS_CONFIG: False,
+                                  common.KEY_PARAMETERS_CONFIG: False,
                                   'draw_hidden_ranges': True}
         return self.fill_default_attributes(template_specification)
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def get_previous_selected_rangers(self):
         """
         Retrieve Rangers, if any previously selected in Burst.
         """
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         first_range, second_range = '0', '0'
         if burst_config is not None:
             first_range = burst_config.get_simulation_parameter_value(RANGE_PARAMETER_1) or '0'
@@ -571,8 +561,7 @@ class BurstController(base.BaseController):
         return [first_range, second_range]
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def save_simulator_configuration(self, exclude_ranges, **data):
         """
         :param exclude_ranges: should be a boolean value. If it is True than the
@@ -587,9 +576,8 @@ class BurstController(base.BaseController):
         rebuild either only the selected entries, or all of the simulator tree
         with the given default values.
         """
-        #if the method is called from js then the parameter will be set as string
-        exclude_ranges = eval(str(exclude_ranges))
-        burst_config = base.get_from_session(base.KEY_BURST_CONFIG)
+        exclude_ranges = string2bool(str(exclude_ranges))
+        burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
         if BURST_NAME in data:
             burst_config.name = data[BURST_NAME]
         data = json.loads(data['simulator_parameters'])
@@ -603,38 +591,37 @@ class BurstController(base.BaseController):
                 burst_config.update_simulation_parameter(entry, data[checkbox_for_entry], KEY_PARAMETER_CHECKED)
 
 
-    @cherrypy.expose
-    @using_template('base_template')
-    @base.settings()
-    @logged()
-    @context_selected()
+
+    @expose_page
+    @context_selected
+    @settings
     def launch_full_visualizer(self, index_in_tab):
         """
         Launch the full scale visualizer from a small preview from the burst cockpit.
         """
-        burst = base.get_from_session(base.KEY_BURST_CONFIG)
+        burst = common.get_from_session(common.KEY_BURST_CONFIG)
         selected_tab = burst.selected_tab
         visualizer = burst.tabs[selected_tab].portlets[int(index_in_tab)].visualizer
         result, input_data, operation_id = self.burst_service.launch_visualization(visualizer, is_preview=False)
         algorithm = self.flow_service.get_algorithm_by_identifier(visualizer.fk_algorithm)
 
-        result[base.KEY_TITLE] = algorithm.name
-        result[base.KEY_ADAPTER] = algorithm.algo_group.id
-        result[base.KEY_OPERATION_ID] = operation_id
-        result[base.KEY_INCLUDE_RESOURCES] = 'flow/included_resources'
+        result[common.KEY_TITLE] = algorithm.name
+        result[common.KEY_ADAPTER] = algorithm.algo_group.id
+        result[common.KEY_OPERATION_ID] = operation_id
+        result[common.KEY_INCLUDE_RESOURCES] = 'flow/included_resources'
         ## Add required field to input dictionary and return it so that it can be used ##
         ## for top right control.                                                    ####
-        input_data[base.KEY_ADAPTER] = algorithm.algo_group.id
+        input_data[common.KEY_ADAPTER] = algorithm.algo_group.id
 
-        if base.KEY_PARENT_DIV not in result:
-            result[base.KEY_PARENT_DIV] = ''
+        if common.KEY_PARENT_DIV not in result:
+            result[common.KEY_PARENT_DIV] = ''
         self.context.add_adapter_to_session(algorithm.algo_group, None, copy.deepcopy(input_data))
 
         self._populate_section(algorithm.algo_group, result)
-        result[base.KEY_DISPLAY_MENU] = True
-        result[base.KEY_BACK_PAGE] = "/burst"
-        result[base.KEY_SUBMIT_LINK] = self.get_url_adapter(algorithm.algo_group.group_category.id,
-                                                            algorithm.algo_group.id, 'burst')
+        result[common.KEY_DISPLAY_MENU] = True
+        result[common.KEY_BACK_PAGE] = "/burst"
+        result[common.KEY_SUBMIT_LINK] = self.get_url_adapter(algorithm.algo_group.group_category.id,
+                                                              algorithm.algo_group.id, 'burst')
         if KEY_CONTROLLS not in result:
             result[KEY_CONTROLLS] = ''
         return self.fill_default_attributes(result)
@@ -662,10 +649,9 @@ class BurstController(base.BaseController):
         try:
             form = BurstNameForm()
             form.to_python({'burst_name': burst_name})
-        except formencode.Invalid, excep:
-            self.logger.error(excep)
+        except formencode.Invalid:
             self.logger.exception("Invalid Burst name " + str(burst_name))
-            raise excep
+            raise
 
 
 

@@ -43,9 +43,9 @@ from tvb.basic.config.settings import TVBSettings as cfg
 from tvb.core.utils import check_matlab_version
 from tvb.core.services.settings_service import SettingsService
 from tvb.core.services.exceptions import InvalidSettingsException
-from tvb.interfaces.web.controllers.base_controller import using_template, ajax_call
-from tvb.interfaces.web.controllers.users_controller import admin, UserController
-import tvb.interfaces.web.controllers.base_controller as bc
+from tvb.interfaces.web.controllers import common
+from tvb.interfaces.web.controllers.decorators import check_admin, using_template, jsonify, handle_error
+from tvb.interfaces.web.controllers.users_controller import UserController
 
 
 class SettingsController(UserController):
@@ -60,8 +60,9 @@ class SettingsController(UserController):
 
 
     @cherrypy.expose
+    @handle_error(redirect=True)
     @using_template('user/base_user')
-    @admin()
+    @check_admin
     def settings(self, save_settings=False, **data):
         """Main settings page submit and get"""
         template_specification = dict(mainContent="../settings/system_settings", title="System Settings")
@@ -73,19 +74,19 @@ class SettingsController(UserController):
                 if isrestart:
                     thread = threading.Thread(target=self._restart_services, kwargs={'should_reset': isreset})
                     thread.start()
-                    bc.add2session(bc.KEY_IS_RESTART, True)
-                    bc.set_info_message('Please wait until TVB is restarted properly!')
+                    common.add2session(common.KEY_IS_RESTART, True)
+                    common.set_info_message('Please wait until TVB is restarted properly!')
                     raise cherrypy.HTTPRedirect('/tvb')
                 # Here we will leave the same settings page to be displayed.
                 # It will continue reloading when CherryPy restarts.
             except formencode.Invalid, excep:
-                template_specification[bc.KEY_ERRORS] = excep.unpack_errors()
+                template_specification[common.KEY_ERRORS] = excep.unpack_errors()
             except InvalidSettingsException, excep:
                 self.logger.error('Invalid settings!  Exception %s was raised' % (str(excep)))
-                bc.set_error_message(excep.message)
+                common.set_error_message(excep.message)
         template_specification.update({'keys_order': self.settingsservice.KEYS_DISPLAY_ORDER,
                                        'config_data': self.settingsservice.configurable_keys,
-                                       bc.KEY_FIRST_RUN: self.settingsservice.is_first_run()})
+                                       common.KEY_FIRST_RUN: self.settingsservice.is_first_run()})
         return self.fill_default_attributes(template_specification)
 
 
@@ -109,7 +110,8 @@ class SettingsController(UserController):
 
 
     @cherrypy.expose
-    @ajax_call()
+    @handle_error(redirect=False)
+    @jsonify
     def check_db_url(self, **data):
         """
         Action on DB-URL validate button.
@@ -132,7 +134,8 @@ class SettingsController(UserController):
 
 
     @cherrypy.expose
-    @ajax_call()
+    @handle_error(redirect=False)
+    @jsonify
     def validate_matlab_path(self, **data):
         """
         Check if the set path from the ui actually corresponds to a matlab executable.
@@ -161,7 +164,7 @@ class DiskSpaceValidator(formencode.FancyValidator):
         try:
             value = long(value)
             return value
-        except Exception:
+        except ValueError:
             raise formencode.Invalid('Invalid disk space %s. Should be number' % value, value, None)
 
 
@@ -176,7 +179,7 @@ class PortValidator(formencode.FancyValidator):
         """
         try:
             value = int(value)
-        except Exception:
+        except ValueError:
             raise formencode.Invalid('Invalid port %s. Should be number between 0 and 65535.' % value, value, None)
         if 0 < value < 65535:
             return value
@@ -195,7 +198,7 @@ class ThreadNrValidator(formencode.FancyValidator):
         """
         try:
             value = int(value)
-        except Exception:
+        except ValueError:
             raise formencode.Invalid('Invalid number %d. Should be number between 1 and 16.' % value, value, None)
         if 0 < value < 17:
             return value
@@ -222,7 +225,7 @@ class SurfaceVerticesNrValidator(formencode.FancyValidator):
                 return value
             else:
                 raise formencode.Invalid(msg % (value, self.MAX_VALUE), value, None)
-        except Exception:
+        except ValueError:
             raise formencode.Invalid(msg % (value, self.MAX_VALUE), value, None)
 
 
@@ -242,7 +245,7 @@ class MatlabValidator(formencode.FancyValidator):
             if len(version) > 0:
                 return value
             else:
-                formencode.Invalid('No valid matlab installation was found at the path you provided.', '', None)
+                raise formencode.Invalid('No valid matlab installation was found at the path you provided.', '', None)
         except Exception:
             raise formencode.Invalid('No valid matlab installation was found at the path you provided.', '', None)
 

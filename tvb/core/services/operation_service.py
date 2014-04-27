@@ -44,7 +44,7 @@ import tvb.core.utils as utils
 from copy import copy
 from cgi import FieldStorage
 from datetime import datetime
-from tvb.basic.traits.types_basic import MapAsJson
+from tvb.basic.traits.types_basic import MapAsJson, Range
 from tvb.core.utils import parse_json_parameters
 from tvb.core.entities import model
 from tvb.core.entities.storage import dao
@@ -154,7 +154,7 @@ class OperationService:
                 raise LaunchException("Invalid empty Operation!!!")
             return self.initiate_prelaunch(operations[0], adapter_instance, temp_files, **kwargs)
         else:
-            return self._send_to_cluster(operations, adapter_instance)
+            return self._send_to_cluster(operations, adapter_instance, current_user.username)
 
 
     def _prepare_metadata(self, initial_metadata, algo_category, operation_group, submit_data):
@@ -362,13 +362,13 @@ class OperationService:
         return result_msg
 
 
-    def _send_to_cluster(self, operations, adapter_instance):
+    def _send_to_cluster(self, operations, adapter_instance, current_username="unknown"):
         """ Initiate operation on cluster"""
         for operation in operations:
             try:
-                BACKEND_CLIENT.execute(str(operation.id), operation.user.username, adapter_instance)
+                BACKEND_CLIENT.execute(str(operation.id), current_username, adapter_instance)
             except Exception, excep:
-                self._handle_exception(excep, {}, "Could not connect to the back-end cluster!", operation)
+                self._handle_exception(excep, {}, "Could not start operation!", operation)
 
         return operations
 
@@ -387,7 +387,7 @@ class OperationService:
             PARAMS = parse_json_parameters(operation.parameters)
 
             if send_to_cluster:
-                self._send_to_cluster([operation], adapter_instance)
+                self._send_to_cluster([operation], adapter_instance, operation.user.username)
             else:
                 self.initiate_prelaunch(operation, adapter_instance, {}, **PARAMS)
 
@@ -402,7 +402,7 @@ class OperationService:
         self.logger.error(message)
         self.logger.exception(exception)
         if operation is not None:
-            operation.mark_complete(model.STATUS_ERROR, str(exception))
+            operation.mark_complete(model.STATUS_ERROR, unicode(exception))
             dao.store_entity(operation)
             self.workflow_service.update_executed_workflow_state(operation.id)
         self._remove_files(temp_files)
@@ -483,21 +483,18 @@ class OperationService:
             try:
                 range_data = [x.strip() for x in str(kwargs[str(kwargs[ranger_name])]).split(',') if len(x.strip()) > 0]
                 return range_data
-            except Exception, excep:
-                self.logger.warning("Could not launch operation !")
-                self.logger.exception(excep)
+            except Exception:
+                self.logger.exception("Could not launch operation !")
                 raise LaunchException("Could not launch with no data from:" + str(ranger_name))
         if type(range_data) in (list, tuple):
             return range_data
+
         if (xml_reader.ATT_MINVALUE in range_data) and (xml_reader.ATT_MAXVALUE in range_data):
-            min_val = float(range_data[xml_reader.ATT_MINVALUE])
-            max_val = float(range_data[xml_reader.ATT_MAXVALUE])
+            lo_val = float(range_data[xml_reader.ATT_MINVALUE])
+            hi_val = float(range_data[xml_reader.ATT_MAXVALUE])
             step = float(range_data[xml_reader.ATT_STEP])
-            no_of_decimals = max(len(str(step).split('.')[1]), len(str(min_val).split('.')[1]))
-            i = 0
-            while min_val + i * step <= max_val:
-                range_values.append(round(min_val + i * step, no_of_decimals))
-                i += 1
+            range_values = list(Range(lo=lo_val, hi=hi_val, step=step, mode=Range.MODE_INCLUDE_BOTH))
+
         else:
             for possible_value in range_data:
                 if range_data[possible_value]:

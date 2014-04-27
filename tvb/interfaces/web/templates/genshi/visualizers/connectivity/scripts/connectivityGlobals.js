@@ -17,8 +17,8 @@
  *
  **/
 
-/*
- * This file should hold variables and functions that should be shared between all the connectivity views.
+/**
+ * This file is the main connectivity script.
  */
 
 /**
@@ -70,11 +70,13 @@ function _customMouseWheelEvent(delta) {
 // between the nodes i and j an edge is drawn in the corresponding 3D visualier 
 var GVAR_connectivityMatrix = [];
 
-function GFUNC_storeMinMax(minWeights, maxWeights, minTracts, maxTracts) {
-	GVAR_interestAreaVariables[1]['min_val'] = parseFloat(minWeights);
-    GVAR_interestAreaVariables[2]['min_val'] = parseFloat(minTracts);
-    GVAR_interestAreaVariables[1]['max_val'] = parseFloat(maxWeights);
-    GVAR_interestAreaVariables[2]['max_val'] = parseFloat(maxTracts);
+function GFUNC_storeMinMax(minWeights, minNonZeroWeights, maxWeights, minTracts, minNonZeroTracts, maxTracts) {
+    GVAR_interestAreaVariables[1].min_non_zero = parseFloat(minNonZeroWeights);
+    GVAR_interestAreaVariables[2].min_non_zero = parseFloat(minNonZeroTracts);
+	GVAR_interestAreaVariables[1].min_val = parseFloat(minWeights);
+    GVAR_interestAreaVariables[2].min_val = parseFloat(minTracts);
+    GVAR_interestAreaVariables[1].max_val = parseFloat(maxWeights);
+    GVAR_interestAreaVariables[2].max_val = parseFloat(maxTracts);
 }
 
 /**
@@ -94,23 +96,30 @@ function GFUNC_initConnectivityMatrix(lengthOfConnectivityMatrix) {//todo-io: ch
 
 
 function GFUNC_recomputeMinMaxW() {
-	GVAR_interestAreaVariables[GVAR_selectedAreaType]['max_val'] = -1000000;
-	GVAR_interestAreaVariables[GVAR_selectedAreaType]['min_val'] = 1000000;
-	for (var i=0; i<GVAR_interestAreaVariables[GVAR_selectedAreaType]['values'].length;i++) {
-		for (var j=0; j<GVAR_interestAreaVariables[GVAR_selectedAreaType]['values'][i].length; j++) {
-			if (GVAR_interestAreaVariables[GVAR_selectedAreaType]['values'][i][j] < GVAR_interestAreaVariables[GVAR_selectedAreaType]['min_val']) {
-				GVAR_interestAreaVariables[GVAR_selectedAreaType]['min_val'] = GVAR_interestAreaVariables[GVAR_selectedAreaType]['values'][i][j];
+    var matrix = GVAR_interestAreaVariables[GVAR_selectedAreaType];
+	matrix.max_val = -Infinity;
+	matrix.min_val = Infinity;
+    matrix.min_non_zero = Infinity;
+
+	for (var i=0; i<matrix.values.length;i++) {
+		for (var j=0; j<matrix.values[i].length; j++) {
+            var value = matrix.values[i][j];
+			if (value < matrix.min_val) {
+				matrix.min_val = value;
 			}
-			if (GVAR_interestAreaVariables[GVAR_selectedAreaType]['values'][i][j] > GVAR_interestAreaVariables[GVAR_selectedAreaType]['max_val']) {
-				GVAR_interestAreaVariables[GVAR_selectedAreaType]['max_val'] = GVAR_interestAreaVariables[GVAR_selectedAreaType]['values'][i][j];
+			if (value > matrix.max_val) {
+				matrix.max_val = value;
 			}
+            if(value != 0 && value < matrix.min_non_zero){
+                matrix.min_non_zero = value;
+            }
 		}
 	}
 }
 
 function GFUNC_initTractsAndWeights(fileWeights, fileTracts) {
-	GVAR_interestAreaVariables[1]['values'] = HLPR_readJSONfromFile(fileWeights);
-	GVAR_interestAreaVariables[2]['values'] = HLPR_readJSONfromFile(fileTracts);
+	GVAR_interestAreaVariables[1].values = HLPR_readJSONfromFile(fileWeights);
+	GVAR_interestAreaVariables[2].values = HLPR_readJSONfromFile(fileTracts);
 }
 
 
@@ -287,7 +296,7 @@ function GFUNC_doSelectionSave() {
 		names.push(conSelections_select.options[i].text);
 	}
 	if (selectionName.length > 0) {
-		$.ajax({  	type: "POST", 
+		doAjaxCall({  	type: "POST",
 				url: '/flow/store_connectivity_selection/' + selectionName,
                 data: {"selection": GVAR_interestAreaNodeIndexes+'',
                 	   "labels": GVAR_pointsLabels+'',
@@ -424,7 +433,6 @@ function showSelectionTable() {
  */
 var CONNECTIVITY_TAB = 1;
 var CONNECTIVITY_2D_TAB = 2;
-var CONNECTIVITY_3D_TAB = 3;
 var CONNECTIVITY_SPACE_TIME_TAB = 4;
 var SELECTED_TAB = CONNECTIVITY_TAB;
 
@@ -434,9 +442,6 @@ function GFUNC_updateLeftSideVisualization() {
 	 }
 	 if (SELECTED_TAB == CONNECTIVITY_2D_TAB) {
 		 C2D_displaySelectedPoints();
-	 }
-	 if (SELECTED_TAB == CONNECTIVITY_3D_TAB) {
-		 drawScene_3D();
 	 }
 	 if (SELECTED_TAB == CONNECTIVITY_SPACE_TIME_TAB) {
 		 drawSceneSpaceTime();
@@ -465,16 +470,45 @@ function hideLeftSideTabs(selectedHref) {
 	});
 }
 
+/**
+ * Subscribes the gl canvases to resize events
+ */
+function GFUNC_bind_gl_resize_handler(){
+    var timeoutForResizing;
+
+    function resizeHandler(){
+        var activeCanvasId;
+        if(SELECTED_TAB == CONNECTIVITY_TAB){
+            activeCanvasId = CONNECTIVITY_CANVAS_ID;
+        }
+        if(SELECTED_TAB == CONNECTIVITY_SPACE_TIME_TAB){
+            activeCanvasId = CONNECTIVITY_SPACE_TIME_CANVAS_ID;
+        }
+        // Only update size info on the active gl canvas & context.
+        // The inactive ones will do this on init.
+        updateGLCanvasSize(activeCanvasId);
+        // Because the connectivity 3d views redraw only on mouse move we explicitly redraw
+        GFUNC_updateLeftSideVisualization();
+    }
+
+    $(window).resize(function(){
+        // as resize might be called with high frequency we throttle the event
+        // resize events constantly cancel the handler and reschedule
+        clearTimeout(timeoutForResizing);
+        timeoutForResizing = setTimeout(resizeHandler, 250);
+    });
+}
+
 function startConnectivity() {
-	$("#monitor-3Dedges-id").show()
-        			.find('#GLcanvas')[0].redrawFunctionRef = drawScene;         // interface-like function used in HiRes image exporting
+	SELECTED_TAB = CONNECTIVITY_TAB;
+	$("#monitor-3Dedges-id").show();
+    document.getElementById(CONNECTIVITY_CANVAS_ID).redrawFunctionRef = drawScene;         // interface-like function used in HiRes image exporting
 	connectivity_initCanvas();
 	connectivity_startGL(false);
-	SELECTED_TAB = CONNECTIVITY_TAB;
-    $(window).resize(function() {               // resize is called continuously during a resize event
-        clearTimeout(this.timeoutForResizing);  // this will only call the function when resizing is done
-        this.timeoutForResizing = setTimeout(startConnectivity, 250);
-    });
+    GFUNC_bind_gl_resize_handler();
+    // Sync size to parent. While the other tabs had been active the window may have resized.
+    updateGLCanvasSize(CONNECTIVITY_CANVAS_ID);
+    drawScene();
 }
 
 function start2DConnectivity(idx) {
@@ -499,26 +533,19 @@ function start2DConnectivity(idx) {
 	SELECTED_TAB = CONNECTIVITY_2D_TAB;
 }
 
-function start3DConnectivity() {
-	$("#monitor-3D-id").show()
-        .find('#GLcanvas_3D')[0].redrawFunctionRef = drawScene_3D;   // interface-like function used in HiRes image exporting
-	connectivity3D_initCanvas();
-	connectivity3D_startGL();
-	SELECTED_TAB = CONNECTIVITY_3D_TAB;
-    $(window).resize(function() {               // resize is called continuously during a resize event
-        clearTimeout(this.timeoutForResizing);  // this will only call the function when resizing is done
-        this.timeoutForResizing = setTimeout(start3DConnectivity, 250);
-    });
-}
-
 function startMPLH5ConnectivityView() {
 	$("#monitor-mplh5").show();
     initMPLH5CanvasForExportAsImage(mplh5_figureNo)
 }
 
 function startSpaceTimeConnectivity() {
-	$("#monitor-plot-id").show().find('#GLcanvas_SPACETIME')[0].redrawFunctionRef = drawSceneSpaceTime;   // interface-like function used in HiRes image exporting
-	connectivitySpaceTime_startGL();
 	SELECTED_TAB = CONNECTIVITY_SPACE_TIME_TAB;
+	$("#monitor-plot-id").show();
+    document.getElementById(CONNECTIVITY_SPACE_TIME_CANVAS_ID).redrawFunctionRef = drawSceneSpaceTime;   // interface-like function used in HiRes image exporting
+	connectivitySpaceTime_startGL();
+    GFUNC_bind_gl_resize_handler();
+    // Sync size to parent. While the other tabs had been active the window might have resized.
+    updateGLCanvasSize(CONNECTIVITY_SPACE_TIME_CANVAS_ID);
+    drawSceneSpaceTime();
 }
 

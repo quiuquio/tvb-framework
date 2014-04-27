@@ -41,11 +41,11 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy import Boolean, Integer, String, DateTime, Column, ForeignKey, Float
-from tvb.core.utils import generate_guid
+from tvb.core import utils
 from tvb.core.entities.exportable import Exportable
 from tvb.core.entities.model.model_base import Base
-import tvb.core.utils as utils
 from tvb.basic.logger.builder import get_logger
+from tvb.basic.config.settings import TVBSettings
 
 LOG = get_logger(__name__)
 
@@ -94,10 +94,7 @@ class User(Base):
 
     def is_administrator(self):
         """Return a boolean, saying if current user has role Administrator"""
-        if self.role == ROLE_ADMINISTRATOR:
-            return True
-        else:
-            return False
+        return self.role == ROLE_ADMINISTRATOR
 
 
     def is_online_help_active(self):
@@ -120,6 +117,16 @@ class User(Base):
         self.preferences[UserPreferences.ONLINE_HELP_ACTIVE] = new_state
 
 
+    def set_viewers_color_scheme(self, color_scheme):
+        self.preferences[UserPreferences.VIEWERS_COLOR_SCHEME] = color_scheme
+
+
+    def get_viewers_color_scheme(self):
+        if UserPreferences.VIEWERS_COLOR_SCHEME not in self.preferences:
+            self.preferences[UserPreferences.VIEWERS_COLOR_SCHEME] = "linear"
+
+        return self.preferences[UserPreferences.VIEWERS_COLOR_SCHEME]
+
 
 class UserPreferences(Base):
     """
@@ -128,7 +135,7 @@ class UserPreferences(Base):
     __tablename__ = 'USER_PREFERENCES'
 
     ONLINE_HELP_ACTIVE = "online_help_active"
-
+    VIEWERS_COLOR_SCHEME = "viewers_color_scheme"
     fk_user = Column(Integer, ForeignKey('USERS.id'), primary_key=True)
     key = Column(String, primary_key=True)
     value = Column(String)
@@ -154,8 +161,9 @@ class Project(Base, Exportable):
     last_updated = Column(DateTime)
     fk_admin = Column(Integer, ForeignKey('USERS.id'))
     gid = Column(String, unique=True)
+    version = Column(Integer)
 
-    administrator = relationship(User, backref=backref('PROJECTS', order_by=id))
+    administrator = relationship(User)
 
     ### Transient Attributes
     operations_finished = 0
@@ -163,12 +171,12 @@ class Project(Base, Exportable):
     operations_error = 0
     members = []
 
-
     def __init__(self, name, fk_admin, description=''):
         self.name = name
         self.fk_admin = fk_admin
         self.description = description
-        self.gid = generate_guid()
+        self.gid = utils.generate_guid()
+        self.version = TVBSettings.PROJECT_VERSION
 
 
     def refresh_update_date(self):
@@ -197,6 +205,7 @@ class Project(Base, Exportable):
         self.last_updated = datetime.datetime.now()
         self.gid = dictionary['gid']
         self.fk_admin = user_id
+        self.version = int(dictionary['version'])
         return self
 
 

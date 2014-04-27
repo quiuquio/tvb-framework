@@ -39,7 +39,6 @@ import sys
 import signal
 import Queue
 import threading
-import datetime
 from subprocess import Popen, PIPE
 from tvb.basic.profile import TvbProfile as tvb_profile
 from tvb.basic.config.settings import TVBSettings as config
@@ -98,22 +97,23 @@ class OperationExecutor(threading.Thread):
                 # and stop_operation is concurrently asking about OperationProcessIdentity.
                 self.stop_pid(launched_process.pid)
 
-            launched_process.communicate()
+            subprocess_result = launched_process.communicate()
             LOGGER.info("Finished with launch of operation %s" % operation_id)
             returned = launched_process.wait()
 
             if returned != 0 and not self.stopped():
                 # Process did not end as expected. (e.g. Segmentation fault)
                 operation = dao.get_operation_by_id(self.operation_id)
-                LOGGER.error("Operation suffered fatal failure with exit code: %s" % returned)
+                LOGGER.error("Operation suffered fatal failure! Exit code: %s Exit message: %s" % (returned,
+                                                                                                   subprocess_result))
 
                 operation.mark_complete(model.STATUS_ERROR,
-                                        "Operation failed unexpectedly! Probably segmentation fault.")
+                                        "Operation failed unexpectedly! Please check the log files.")
                 dao.store_entity(operation)
 
                 burst_entity = dao.get_burst_for_operation_id(self.operation_id)
                 if burst_entity:
-                    message = "Error on burst operation! Probably segmentation fault."
+                    message = "Error in operation process! Possibly segmentation fault."
                     WorkflowService().mark_burst_finished(burst_entity, error=True, error_message=message)
 
             del launched_process
@@ -231,11 +231,13 @@ class ClusterSchedulerClient(object):
         minutes = (int(time_estimate) % 3600) / 60
         seconds = int(time_estimate) % 60
         # Anything lower than 2 hours just use default walltime
+        ## TODO: clean this hard-coded values (TVB-1225)
         if hours < 2:
-            walltime = "02:00:00"
+            walltime = "05:00:00"
+        if (hours >= 2 or hours <= 24):
+            walltime = "48:00:00"
         else:
-            walltime = datetime.time(hours, minutes, seconds)
-            walltime = walltime.strftime("%H:%M:%S")
+            walltime = "167:00:00"
 
         call_arg = config.CLUSTER_SCHEDULE_COMMAND % (walltime, operation_identifier, user_name_label)
         LOGGER.info(call_arg)

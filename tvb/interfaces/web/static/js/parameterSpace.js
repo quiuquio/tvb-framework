@@ -148,7 +148,7 @@ function applyHoverEvent(canvasId) {
 }
 
 
-function PSEDiscreteInitialize(labelsXJson, labelsYJson, series_array, dataJson, backPage,
+function PSEDiscreteInitialize(labelsXJson, labelsYJson, series_array, dataJson, backPage, hasStartedOperations,
                                min_color, max_color, min_size, max_size) {
 
     //ColSch_initColorSchemeParams(min_color, max_color, changeColors);
@@ -187,7 +187,7 @@ function PSEDiscreteInitialize(labelsXJson, labelsYJson, series_array, dataJson,
                 redrawPlot('main_div_pse');
     };
 	
-	if (status == "started") {
+	if (hasStartedOperations) {
 		setTimeout("PSE_mainDraw('main_div_pse','" + backPage + "')", 3000);
 	}
 }
@@ -217,7 +217,7 @@ function PSE_mainDraw(parametersCanvasId, backPage, groupGID) {
         }
 	}
 	
-	$.ajax({  	
+	doAjaxCall({
 			type: "POST", 
 			url: url,
             success: function(r) { 
@@ -334,7 +334,7 @@ function hoverPlot(id, x, y, val) {
 function Isocline_MainDraw(groupGID, divId, width, height) {
 
 	$('#' + divId).html('');
-	$.ajax({
+	doAjaxCall({
             type: "POST",
             url: '/burst/explore/draw_isocline_exploration/' + groupGID + '/' + width + '/' + height,
             success: function(r) {

@@ -66,25 +66,20 @@ var picking_triangles_number = [];
 function BASE_PICK_customInitGL(canvas) {
 	window.onresize = function() {
         updateGLCanvasSize(BRAIN_CANVAS_ID);
+        LEG_updateLegendVerticesBuffers();
 	};
 	initGL(canvas);
+    canvas.redrawFunctionRef = drawScene;
     drawingMode = gl.TRIANGLES;
 }
 
 
 function BASE_PICK_initShaders() {
 	basicInitShaders("shader-fs", "shader-vs");
-
+    basicInitSurfaceLighting();
+    shaderProgram.isPicking = gl.getUniformLocation(shaderProgram, "isPicking");
     shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
     gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
-
-    shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
-    shaderProgram.lightingDirectionUniform = gl.getUniformLocation(shaderProgram, "uLightingDirection");
-    shaderProgram.directionalColorUniform = gl.getUniformLocation(shaderProgram, "uDirectionalColor");
-    shaderProgram.isPicking = gl.getUniformLocation(shaderProgram, "isPicking");
-    shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
-    shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
-    shaderProgram.pointLightingSpecularColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor");
 }
 
 
@@ -118,6 +113,10 @@ function BASE_PICK_webGLStart(urlVerticesPickList, urlTrianglesPickList, urlNorm
     canvas.onmousemove = customMouseMove;
     canvas.onmouseout = handleMouseOut;
 
+    $(canvas).mousewheel(function(event, delta) {
+            BASE_PICK_handleMouseWeel(delta);
+            return false; // prevent default
+    });
     // Needed for when drawing the legend.
     isOneToOneMapping = true;
     
@@ -153,7 +152,7 @@ function BASE_PICK_drawBrain(brainBuffers, noOfUnloadedBuffers) {
     } else {
         gl.enable(gl.BLEND);
 	    gl.enable(gl.DITHER);
-    	addLight();
+    	basicAddLight(defaultLightSettings);
     	gl.uniform1f(shaderProgram.isPicking, 0);
     }
 
@@ -207,26 +206,10 @@ function drawBuffers(drawMode, buffersSets) {
 }
 
 /**
- * Draw the light
- */
-function addLight() {
-    var lightingDirection = Vector.create([-0.5, 0, -1]);
-    var adjustedLD = lightingDirection.toUnitVector().x(-1);
-    var flatLD = adjustedLD.flatten();
-
-    gl.uniform3f(shaderProgram.ambientColorUniform, 0.6, 0.6, 0.5);
-    gl.uniform3f(shaderProgram.lightingDirectionUniform, flatLD[0], flatLD[1], flatLD[2]);
-    gl.uniform3f(shaderProgram.directionalColorUniform, 0.7, 0.7, 0.7);
-    gl.uniform3f(shaderProgram.pointLightingLocationUniform, 0, -10, -400);
-    gl.uniform3f(shaderProgram.pointLightingSpecularColorUniform, 0.8, 0.8, 0.8);
-    gl.uniform1f(shaderProgram.materialShininessUniform, 30.0);
-}
-
-/**
  * @param callback a string which should represents a valid js code.
  */
 function executeCallback(callback) {
-    if (callback == undefined || callback == null || callback.trim().length == 0) {
+    if (callback == null || callback.trim().length == 0) {
         return;
     }
     if (noOfUnloadedBrainPickingBuffers == 0 && noOfUnloadedBrainDisplayBuffers == 0) {
@@ -333,7 +316,13 @@ function initDrawingBrainBuffersAsynchronous(urlList, resultBuffers, isIndex, ca
     if (urlList.length == 0) {
         noOfUnloadedBrainDisplayBuffers -= 1;
         if (noOfUnloadedBrainDisplayBuffers == 0) {
-            __createColorBuffers();
+            // Finished downloading buffer data. Initialize BASE_PICK_brainDisplayBuffers
+            for (var i = 0; i < drawingBrainVertices.length; i++) {
+                BASE_PICK_brainDisplayBuffers.push([drawingBrainVertices[i], drawingBrainNormals[i],
+                                                    drawingBrainIndexes[i], null]);
+            }
+            // Now fill the color buffer (at index 3) with the default
+            BASE_PICK_buffer_default_color();
             displayMessage("Finished loading surface data!", "infoMessage");
             executeCallback(callback);
             drawScene();
@@ -349,16 +338,23 @@ function initDrawingBrainBuffersAsynchronous(urlList, resultBuffers, isIndex, ca
     });
 }
 
-function __createColorBuffers() {
+/**
+ * Buffers the default gray surface color to the GPU
+ * And updates BASE_PICK_brainDisplayBuffers[i][3]
+ */
+function BASE_PICK_buffer_default_color(){
     for (var i = 0; i < drawingBrainVertices.length; i++) {
-        var fakeColorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, fakeColorBuffer);
-        var thisBufferColors = new Float32Array(drawingBrainVertices[i].numItems / 3 * 4);
-        for (var j = 0; j < drawingBrainVertices[i].numItems / 3 * 4; j++) {
-            thisBufferColors[j] = 0.5;
+        var colorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        var colors = new Float32Array(drawingBrainVertices[i].numItems / 3 * 4);
+        for (var j = 0; j < drawingBrainVertices[i].numItems / 3 * 4; j+=4) {
+            colors[j] = 0.5;
+            colors[j + 1] = 0.5;
+            colors[j + 2] = 0.5;
+            colors[j + 3] = 1.0;
         }
-        gl.bufferData(gl.ARRAY_BUFFER, thisBufferColors, gl.STATIC_DRAW);
-        BASE_PICK_brainDisplayBuffers.push([drawingBrainVertices[i], drawingBrainNormals[i], drawingBrainIndexes[i], fakeColorBuffer]);
+        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+        BASE_PICK_brainDisplayBuffers[i][3] = colorBuffer;
     }
 }
 

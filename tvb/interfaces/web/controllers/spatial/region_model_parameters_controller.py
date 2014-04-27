@@ -35,12 +35,11 @@
 
 import json
 import cherrypy
-import tvb.interfaces.web.controllers.base_controller as base
-from tvb.interfaces.web.controllers.users_controller import logged
-from tvb.interfaces.web.controllers.base_controller import using_template, ajax_call
+from tvb.interfaces.web.controllers import common
+from tvb.interfaces.web.controllers.base_controller import BaseController
+from tvb.interfaces.web.controllers.decorators import expose_page, expose_fragment, expose_json, handle_error, check_user
 from tvb.interfaces.web.entities.context_model_parameters import ContextModelParameters
-from tvb.interfaces.web.controllers.spatial.base_spatio_temporal_controller import SpatioTemporalController
-from tvb.interfaces.web.controllers.spatial.base_spatio_temporal_controller import PARAMS_MODEL_PATTERN
+from tvb.interfaces.web.controllers.spatial.base_spatio_temporal_controller import SpatioTemporalController, PARAMS_MODEL_PATTERN
 
 
 ### SESSION KEY for ContextModelParameter entity.
@@ -56,9 +55,7 @@ class RegionsModelParametersController(SpatioTemporalController):
         SpatioTemporalController.__init__(self)
 
 
-    @cherrypy.expose
-    @using_template('base_template')
-    @logged()
+    @expose_page
     def edit_model_parameters(self):
         """
         Main method, to initialize Model-Parameter visual-set.
@@ -68,7 +65,7 @@ class RegionsModelParametersController(SpatioTemporalController):
         connectivity_viewer_params = self.get_connectivity_parameters(connectivity)
         context_model_parameters = ContextModelParameters(connectivity, model, integrator)
         data_for_param_sliders = self.get_data_for_param_sliders('0', context_model_parameters)
-        base.add2session(KEY_CONTEXT_MPR, context_model_parameters)
+        common.add2session(KEY_CONTEXT_MPR, context_model_parameters)
 
         template_specification = dict(title="Spatio temporal - Model parameters")
         template_specification['submit_parameters_url'] = '/spatial/modelparameters/regions/submit_model_parameters'
@@ -82,16 +79,14 @@ class RegionsModelParametersController(SpatioTemporalController):
         return self.fill_default_attributes(template_specification)
 
 
-    @cherrypy.expose
-    @using_template('spatial/model_param_region_param_sliders')
-    @logged()
+    @expose_fragment('spatial/model_param_region_param_sliders')
     def load_model_for_connectivity_node(self, connectivity_node_index):
         """
         Loads the model of the given connectivity node into the phase plane.
         """
         if int(connectivity_node_index) < 0:
             return
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPR)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPR)
         context_model_parameters.load_model_for_connectivity_node(connectivity_node_index)
 
         data_for_param_sliders = self.get_data_for_param_sliders(connectivity_node_index, context_model_parameters)
@@ -101,9 +96,7 @@ class RegionsModelParametersController(SpatioTemporalController):
         return template_specification
 
 
-    @cherrypy.expose
-    @ajax_call()
-    @logged()
+    @expose_json
     def update_model_parameter_for_nodes(self, param_name, new_param_value, connectivity_node_indexes):
         """
         Updates the specified model parameter for the first node from the 'connectivity_node_indexes'
@@ -113,19 +106,17 @@ class RegionsModelParametersController(SpatioTemporalController):
         connectivity_node_indexes = json.loads(connectivity_node_indexes)
         if not len(connectivity_node_indexes):
             return
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPR)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPR)
         first_node_index = connectivity_node_indexes[0]
         context_model_parameters.update_model_parameter(first_node_index, param_name, new_param_value)
         if len(connectivity_node_indexes) > 1:
             #eliminate the first node
             connectivity_node_indexes = connectivity_node_indexes[1: len(connectivity_node_indexes)]
             context_model_parameters.set_model_for_connectivity_nodes(first_node_index, connectivity_node_indexes)
-        base.add2session(KEY_CONTEXT_MPR, context_model_parameters)
+        common.add2session(KEY_CONTEXT_MPR, context_model_parameters)
 
 
-    @cherrypy.expose
-    @ajax_call()
-    @logged()
+    @expose_json
     def copy_model(self, from_node, to_nodes):
         """
         Replace the model of the nodes 'to_nodes' with the model of the node 'from_node'.
@@ -137,14 +128,12 @@ class RegionsModelParametersController(SpatioTemporalController):
         to_nodes = json.loads(to_nodes)
         if from_node < 0 or not len(to_nodes):
             return
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPR)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPR)
         context_model_parameters.set_model_for_connectivity_nodes(from_node, to_nodes)
-        base.add2session(KEY_CONTEXT_MPR, context_model_parameters)
+        common.add2session(KEY_CONTEXT_MPR, context_model_parameters)
 
 
-    @cherrypy.expose
-    @using_template('spatial/model_param_region_param_sliders')
-    @logged()
+    @expose_fragment('spatial/model_param_region_param_sliders')
     def reset_model_parameters_for_nodes(self, connectivity_node_indexes):
         """
         Resets the model parameters, of the specified connectivity nodes, to their default values.
@@ -153,11 +142,11 @@ class RegionsModelParametersController(SpatioTemporalController):
         if not len(connectivity_node_indexes):
             return
 
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPR)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPR)
         context_model_parameters.reset_model_parameters_for_nodes(connectivity_node_indexes)
         context_model_parameters.load_model_for_connectivity_node(connectivity_node_indexes[0])
         data_for_param_sliders = self.get_data_for_param_sliders(connectivity_node_indexes[0], context_model_parameters)
-        base.add2session(KEY_CONTEXT_MPR, context_model_parameters)
+        common.add2session(KEY_CONTEXT_MPR, context_model_parameters)
 
         template_specification = dict()
         template_specification['paramSlidersData'] = json.dumps(data_for_param_sliders)
@@ -166,22 +155,22 @@ class RegionsModelParametersController(SpatioTemporalController):
 
 
     @cherrypy.expose
-    @ajax_call()
-    @logged()
+    @handle_error(redirect=True)
+    @check_user
     def submit_model_parameters(self):
         """
         Collects the model parameters values from all the models used for the connectivity nodes.
         """
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPR)
-        burst_configuration = base.get_from_session(base.KEY_BURST_CONFIG)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPR)
+        burst_configuration = common.get_from_session(common.KEY_BURST_CONFIG)
         for param_name in context_model_parameters.model_parameter_names:
             full_name = PARAMS_MODEL_PATTERN % (context_model_parameters.model_name, param_name)
             full_values = context_model_parameters.get_values_for_parameter(param_name)
             burst_configuration.update_simulation_parameter(full_name, full_values) 
         ### Clean from session drawing context
-        base.remove_from_session(KEY_CONTEXT_MPR)
+        common.remove_from_session(KEY_CONTEXT_MPR)
         ### Update in session BURST configuration for burst-page. 
-        base.add2session(base.KEY_BURST_CONFIG, burst_configuration.clone())
+        common.add2session(common.KEY_BURST_CONFIG, burst_configuration.clone())
         raise cherrypy.HTTPRedirect("/burst/")
 
         
@@ -189,9 +178,9 @@ class RegionsModelParametersController(SpatioTemporalController):
         """
         Overwrite base controller to add required parameters for adapter templates.
         """
-        template_dictionary[base.KEY_SECTION] = 'burst'
-        template_dictionary[base.KEY_SUB_SECTION] = 'regionmodel'
-        template_dictionary[base.KEY_INCLUDE_RESOURCES] = 'spatial/included_resources'
-        base.BaseController.fill_default_attributes(self, template_dictionary)
+        template_dictionary[common.KEY_SECTION] = 'burst'
+        template_dictionary[common.KEY_SUB_SECTION] = 'regionmodel'
+        template_dictionary[common.KEY_INCLUDE_RESOURCES] = 'spatial/included_resources'
+        BaseController.fill_default_attributes(self, template_dictionary)
         return template_dictionary
     

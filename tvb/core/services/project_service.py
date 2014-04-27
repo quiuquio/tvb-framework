@@ -39,15 +39,16 @@ import os
 import copy
 import json
 import formencode
-from tvb.core import utils
 from inspect import stack, getmro
+
+from tvb.core import utils
 from tvb.basic.traits.types_mapped import MappedType
 from tvb.basic.logger.builder import get_logger
 from tvb.basic.filters.chain import FilterChain
 from tvb.core.utils import string2date, date2string, timedelta2string
 from tvb.core.removers_factory import get_remover
 from tvb.core.entities import model
-from tvb.core.entities.storage import dao
+from tvb.core.entities.storage import dao, transactional
 from tvb.core.entities.transient.context_overlay import CommonDetails, DataTypeOverlayDetails, OperationOverlayDetails
 from tvb.core.entities.transient.filtering import StaticFiltersFactory
 from tvb.core.entities.transient.structure_entities import StructureNode, DataTypeMetaData
@@ -55,7 +56,7 @@ from tvb.core.entities.file.files_helper import FilesHelper
 from tvb.core.entities.file.exceptions import FileStructureException
 from tvb.core.services.event_handlers import handle_event
 from tvb.core.services.exceptions import StructureException, ProjectServiceException
-from tvb.core.services.exceptions import RemoveDataTypeException, RemoveDataTypeError
+from tvb.core.services.exceptions import RemoveDataTypeException
 from tvb.core.services.user_service import UserService
 from tvb.core.adapters.abcadapter import ABCAdapter
 
@@ -112,8 +113,6 @@ class ProjectService:
             raise ProjectServiceException("A project can not be renamed while operations are still running!")
         if is_create:
             current_proj = model.Project(new_name, current_user.id, data["description"])
-            #Create the root folder, and remove if that folder already exists.
-            self.structure_helper.remove_project_structure(new_name)
             self.structure_helper.get_project_folder(current_proj)
         else:
             try:
@@ -272,8 +271,7 @@ class ProjectService:
 
                     # Compute the full path to the figure / image on disk
                     for figure in operation_figures:
-                        figures_folder = self.structure_helper.get_images_folder(figure.project.name,
-                                                                                 figure.operation.id)
+                        figures_folder = self.structure_helper.get_images_folder(figure.project.name)
                         figure_full_path = os.path.join(figures_folder, figure.file_path)
                         # Compute the path available from browser
                         figure.figure_path = utils.path2url_part(figure_full_path)
@@ -316,6 +314,7 @@ class ProjectService:
         return dao.get_linkable_projects_for_user(user_id, data_id)
 
 
+    @transactional
     def remove_project(self, project_id):
         """
         Remove Project from DB and File Storage.
@@ -332,21 +331,15 @@ class ProjectService:
             name = project2delete.name
             dao.delete_project(project_id)
             self.logger.debug("Deleted project: id=" + str(project_id) + ' name=' + name)
-        except RemoveDataTypeError, excep:
-            self.logger.error("Invalid DataType to remove!")
-            self.logger.exception(excep)
-            raise ProjectServiceException(str(excep))
+
         except RemoveDataTypeException, excep:
-            self.logger.error("Could not execute operation Node Remove!")
-            self.logger.exception(excep)
+            self.logger.exception("Could not execute operation Node Remove!")
             raise ProjectServiceException(str(excep))
         except FileStructureException, excep:
-            self.logger.error("Could not delete because of rights!")
-            self.logger.exception(excep)
+            self.logger.exception("Could not delete because of rights!")
             raise ProjectServiceException(str(excep))
         except Exception, excep:
-            self.logger.error("Given ID does not exist in DB!")
-            self.logger.exception(excep)
+            self.logger.exception("Given ID does not exist in DB!")
             raise ProjectServiceException(str(excep))
 
 
@@ -427,7 +420,7 @@ class ProjectService:
         """
         :returns: an entity OperationOverlayDetails filled with all information for current operation details.
         """
-        operation_group = None
+
         if is_group:
             operation_group = self.get_operation_group_by_gid(operation_gid)
             operation = dao.get_operations_in_group(operation_group.id, False, True)
@@ -448,11 +441,9 @@ class ProjectService:
         burst = dao.get_burst_for_operation_id(operation.id)
         datatypes_param, all_special_params = ProjectService._review_operation_inputs(operation.gid)
 
+        op_pid = dao.get_operation_process_for_operation(operation.id)
         op_details = OperationOverlayDetails(operation, username, len(datatypes_param),
-                                             count_result, burst, no_of_op_in_group)
-        if is_group:
-            op_details.gid = operation_group.gid
-            op_details.operation_id = operation_group.id
+                                             count_result, burst, no_of_op_in_group, op_pid)
 
         ## Add all parameter which are set differently by the user on this Operation.
         if all_special_params is not None:
@@ -582,7 +573,7 @@ class ProjectService:
                         dao.remove_link(link)
                         was_link = True
                 if not was_link:
-                # Create a clone of the operation
+                    # Create a clone of the operation
                     new_op = model.Operation(dao.get_system_user().id,
                                              links[0].fk_to_project,
                                              datatype.parent_operation.fk_from_algo,
@@ -610,10 +601,6 @@ class ProjectService:
 
         except RemoveDataTypeException, excep:
             self.logger.error("Could not execute operation Node Remove!")
-            self.logger.exception(excep)
-            raise excep
-        except RemoveDataTypeError, excep:
-            self.logger.error("Invalid DataType to remove!")
             self.logger.exception(excep)
             raise excep
         except FileStructureException, excep:

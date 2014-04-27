@@ -38,10 +38,9 @@ Here we define entities for Operations and Algorithms.
 
 import json
 import datetime
-from tvb.basic.logger.builder import get_logger
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import Boolean, Integer, String, DateTime, Column, ForeignKey
-
+from tvb.basic.logger.builder import get_logger
 from tvb.config import TVB_IMPORTER_CLASS, TVB_IMPORTER_MODULE
 from tvb.core.utils import string2date, generate_guid
 from tvb.core.entities.exportable import Exportable
@@ -317,10 +316,10 @@ class Operation(Base, Exportable):
     range_values = Column(String, default=None)
     result_disk_size = Column(Integer)
 
-    algorithm = relationship(Algorithm, backref=backref('OPERATIONS', order_by=id))
-    project = relationship(Project, backref=backref('PROJECTS', order_by=id, cascade="all,delete"))
-    operation_group = relationship(OperationGroup, backref=backref('OPERATION_GROUPS', order_by=id))
-    user = relationship(User, primaryjoin=(fk_launched_by == User.id), lazy='joined')
+    algorithm = relationship(Algorithm)
+    project = relationship(Project, backref=backref('OPERATIONS', order_by=id, cascade="all,delete"))
+    operation_group = relationship(OperationGroup)
+    user = relationship(User)
 
 
     def __init__(self, fk_launched_by, fk_launched_in, fk_from_algo, parameters, meta='', method_name='',
@@ -537,7 +536,7 @@ class ResultFigure(Base, Exportable):
 
 
     def __repr__(self):
-        return "<ResultFigure(%d, %d, %d, %s, %s, %s, %s)>" % (self.fk_from_operation, self.fk_for_user,
+        return "<ResultFigure(%s, %s, %s, %s, %s, %s, %s)>" % (self.fk_from_operation, self.fk_for_user,
                                                                self.fk_in_project, self.session_name, self.name,
                                                                self.file_path, self.file_format)
 
@@ -548,7 +547,7 @@ class ResultFigure(Base, Exportable):
         """
         _, base_dict = super(ResultFigure, self).to_dict(excludes=['id', 'fk_from_operation', 'fk_for_user',
                                                                    'fk_in_project', 'operation', 'project'])
-        base_dict['fk_from_operation'] = self.operation.gid
+        base_dict['fk_from_operation'] = self.operation.gid if self.operation is not None else None
         base_dict['fk_in_project'] = self.project.gid
         return self.__class__.__name__, base_dict
 

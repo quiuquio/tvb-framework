@@ -37,7 +37,7 @@ import sys
 from copy import copy
 from sys import platform
 from subprocess import Popen, PIPE
-from tvb.basic.profile import TvbProfile as tvb_profile
+from tvb.basic.profile import TvbProfile
 from tvb.basic.config.utils import ClassProperty, EnhancedDictionary
 from functools import wraps
 
@@ -108,7 +108,7 @@ class BaseProfile():
 
 
     # II. Attributes with value not changeable from settings page:
-    DB_CURRENT_VERSION = 7
+    DB_CURRENT_VERSION = 9
     # Overwrite number of connections to the DB. 
     # Otherwise might reach PostgreSQL limit when launching multiple concurrent operations.
     # MAX_DB_CONNECTION default value will be used for WEB  
@@ -128,6 +128,10 @@ class BaseProfile():
     DATA_VERSION = 2
     DATA_VERSION_ATTRIBUTE = "Data_version"
 
+    # This is the version of the tvb project.
+    # It should be updated every time the project structure changes
+    # Should this be sync-ed with data version changes?
+    PROJECT_VERSION = 1
 
     @ClassProperty
     @staticmethod
@@ -151,17 +155,23 @@ class BaseProfile():
     @staticmethod
     def SVN_VERSION():
         """Current SVN version in the package running now."""
+        svn_variable = 'SVN_REVISION'
+        if svn_variable in os.environ:
+            return os.environ[svn_variable]
+
         try:
             with open(os.path.join(FrameworkSettings.BIN_FOLDER, 'tvb.version'), 'r') as version_file:
                 return BaseProfile.parse_svn_version(version_file.read())
         except Exception:
             pass
+
         try:
             _proc = Popen(["svnversion", "."], stdout=PIPE)
             return BaseProfile.parse_svn_version(_proc.communicate()[0])
         except Exception:
             pass
-        return BaseProfile.parse_svn_version('1')
+
+        raise ValueError('cannot determine svn version')
 
 
     @ClassProperty
@@ -176,7 +186,7 @@ class BaseProfile():
     @settings_loaded()
     def CODE_CHECKED_TO_VERSION():
         """The version up until we done the upgrade properly for the file data storage."""
-        version_string = FrameworkSettings.get_attribute(FrameworkSettings.KEY_LAST_CHECKED_CODE_VERSION, '-1', str)
+        version_string = FrameworkSettings.get_attribute(FrameworkSettings.KEY_LAST_CHECKED_CODE_VERSION, '-1')
         return BaseProfile.parse_svn_version(version_string)
 
 
@@ -444,7 +454,9 @@ class BaseProfile():
     @staticmethod
     def URL_TVB_VERSION():
         """URL for reading current available version information."""
-        default = "http://www.thevirtualbrain.org/register/version.xml"
+        default = "http://www.thevirtualbrain.org/tvb/zwei/action/serialize?" \
+                  "kind=tvb-release&type=JSON&counter=1&orderBy=releaseDate&asc=false&" \
+                  "field=version&field=description&field=releaseDate"
         return FrameworkSettings.get_attribute(FrameworkSettings.KEY_URL_VERSION, default)
 
 
@@ -538,13 +550,12 @@ class BaseProfile():
 
     @staticmethod
     def parse_svn_version(version_string):
-        try:
+        if ':' in version_string:
+            version_string = version_string.split(':')[1]
+            number = ''.join([ch for ch in version_string if ch.isdigit()])
+            return int(number)
+        else:
             return int(version_string)
-        except ValueError:
-            if ':' in version_string:
-                version_string = version_string.split(':')[1]
-                number = ''.join([ch for ch in version_string if ch.isdigit()])
-                return int(number)
 
 
     @staticmethod
@@ -719,7 +730,7 @@ class DevelopmentProfile(BaseProfile):
     """
 
     LOGGER_CONFIG_FILE_NAME = "dev_logger_config.conf"
-
+    TRADE_CRASH_SAFETY_FOR_SPEED = False
 
 
 class TestSQLiteProfile(BaseProfile):
@@ -730,7 +741,7 @@ class TestSQLiteProfile(BaseProfile):
     TVB_CONFIG_FILE = os.path.expanduser(os.path.join("~", '.test.tvb.configuration'))
 
     RENDER_HTML = False
-
+    TRADE_CRASH_SAFETY_FOR_SPEED = True
 
     @ClassProperty
     @staticmethod
@@ -773,6 +784,19 @@ class TestSQLiteProfile(BaseProfile):
     def SVN_VERSION():
         """Current SVN version in the package running now."""
         return 1
+
+
+    @ClassProperty
+    @staticmethod
+    def TVB_LOG_FOLDER():
+        """
+        Represents a folder, where all log files are stored.
+        For tests we will place them in the workspace, to have them visible from Hudson.
+        """
+        tmp_path = os.path.join(FrameworkSettings.BIN_FOLDER, "TEST_OUTPUT")
+        if not os.path.exists(tmp_path):
+            os.makedirs(tmp_path)
+        return tmp_path
 
 
 
@@ -872,16 +896,16 @@ class ConsoleProfile(DeploymentProfile):
 
 
 
-if tvb_profile.CURRENT_SELECTED_PROFILE == tvb_profile.TEST_POSTGRES_PROFILE:
+if TvbProfile.CURRENT_SELECTED_PROFILE == TvbProfile.TEST_POSTGRES_PROFILE:
     FrameworkSettings = TestPostgresProfile
 
-elif tvb_profile.CURRENT_SELECTED_PROFILE == tvb_profile.TEST_SQLITE_PROFILE:
+elif TvbProfile.CURRENT_SELECTED_PROFILE == TvbProfile.TEST_SQLITE_PROFILE:
     FrameworkSettings = TestSQLiteProfile
 
-elif tvb_profile.CURRENT_SELECTED_PROFILE == tvb_profile.CONSOLE_PROFILE:
+elif TvbProfile.CURRENT_SELECTED_PROFILE == TvbProfile.CONSOLE_PROFILE:
     FrameworkSettings = ConsoleProfile
 
-elif BaseProfile.is_development() or tvb_profile.CURRENT_SELECTED_PROFILE == tvb_profile.DEVELOPMENT_PROFILE:
+elif BaseProfile.is_development() or TvbProfile.CURRENT_SELECTED_PROFILE == TvbProfile.DEVELOPMENT_PROFILE:
     FrameworkSettings = DevelopmentProfile
 
 else:

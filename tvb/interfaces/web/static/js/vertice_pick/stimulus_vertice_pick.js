@@ -109,16 +109,7 @@ function STIM_PICK_stopDataVisualization() {
 	document.getElementById("slider-div").innerHTML = '';
 	document.getElementById("TimeNow").innerHTML = '';
 	asyncLoadStarted = false;
-	for (var i=0; i<BASE_PICK_brainDisplayBuffers.length; i++) {
-		var fakeColorBuffer = gl.createBuffer();
-	    gl.bindBuffer(gl.ARRAY_BUFFER, fakeColorBuffer);
-	    var thisBufferColors = new Float32Array(BASE_PICK_brainDisplayBuffers[i][0].numItems/ 3 * 4);
-	    for (var j = 0; j < BASE_PICK_brainDisplayBuffers[i][0].numItems / 3 * 4; j++) {
-	    	thisBufferColors[j] = 0.5;
-	    }
-	    gl.bufferData(gl.ARRAY_BUFFER, thisBufferColors, gl.STATIC_DRAW);
-	    BASE_PICK_brainDisplayBuffers[i][3] = fakeColorBuffer;
-	}
+    BASE_PICK_buffer_default_color();
     drawScene();
 }
 
@@ -131,7 +122,7 @@ function STIM_PICK_loadNextStimulusChunk() {
 	if ((currentChunkIdx + 1) * DATA_CHUNK_SIZE < (maxTime - minTime)) {
 		// We haven't reached the final chunk so just load it normally.
 		asyncLoadStarted = true;
-		$.ajax({
+		doAjaxCall({
 			        type:'GET',
 			        url:'/spatial/stimulus/surface/get_stimulus_chunk/' + (currentChunkIdx + 1),
 			        success:function (data) {
@@ -236,8 +227,8 @@ function drawScene() {
         }
 		// Draw the legend for the stimulus now.
 		loadIdentity();
-	    addLight();
-		drawBuffers(gl.TRIANGLES, [LEG_legendBuffers], false);
+	    basicAddLight(defaultLightSettings);
+		drawBuffers(gl.TRIANGLES, [LEG_legendBuffers]);
 	} else {
 		// We are not in movie mode. The drawScene was called from some ui event (e.g.
 		// mouse over). Here we can afford to update the 2D slices because performance is

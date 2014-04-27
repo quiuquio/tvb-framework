@@ -36,17 +36,18 @@
 import cherrypy
 import json
 from copy import deepcopy
+
 import tvb.basic.traits.traited_interface as interface
-import tvb.datatypes.equations as equations
-import tvb.interfaces.web.controllers.base_controller as base
-from tvb.core.adapters.abcadapter import ABCAdapter
-from tvb.interfaces.web.controllers.users_controller import logged
-from tvb.interfaces.web.controllers.base_controller import using_template, ajax_call
 from tvb.basic.traits.parameters_factory import get_traited_instance_for_name
+from tvb.core.adapters.abcadapter import ABCAdapter
+from tvb.core.adapters.abcadapter import KEY_EQUATION, KEY_FOCAL_POINTS
+from tvb.datatypes import equations
+from tvb.interfaces.web.controllers import common
+from tvb.interfaces.web.controllers.base_controller import BaseController
+from tvb.interfaces.web.controllers.decorators import expose_page, expose_fragment, expose_json, handle_error, check_user
 from tvb.interfaces.web.controllers.spatial.base_spatio_temporal_controller import SpatioTemporalController
 from tvb.interfaces.web.controllers.spatial.base_spatio_temporal_controller import PARAMS_MODEL_PATTERN
 from tvb.interfaces.web.entities.context_model_parameters import SurfaceContextModelParameters, EquationDisplayer
-from tvb.core.adapters.abcadapter import KEY_EQUATION, KEY_FOCAL_POINTS
 
 
 MODEL_PARAM = 'model_param'
@@ -69,16 +70,14 @@ class SurfaceModelParametersController(SpatioTemporalController):
         self.plotted_equations_prefixes = ['model_param', 'min_x', 'max_x']
 
 
-    @cherrypy.expose
-    @using_template('base_template')
-    @logged()
+    @expose_page
     def edit_model_parameters(self):
         """
         Main method, to initialize Model-Parameter visual-set.
         """
         model, integrator, connectivity, surface = self.get_data_from_burst_configuration()
         context_model_parameters = SurfaceContextModelParameters(surface, connectivity, model, integrator)
-        base.add2session(KEY_CONTEXT_MPS, context_model_parameters)
+        common.add2session(KEY_CONTEXT_MPS, context_model_parameters)
 
         template_specification = dict(title="Spatio temporal - Model parameters")
         template_specification.update(self.display_surface(surface.gid))
@@ -93,18 +92,16 @@ class SurfaceModelParametersController(SpatioTemporalController):
         return self.fill_default_attributes(template_specification)
 
 
-    @cherrypy.expose
-    @using_template('spatial/model_param_surface_left')
-    @logged()
+    @expose_fragment('spatial/model_param_surface_left')
     def apply_equation(self, **kwargs):
         """
         Applies an equations for computing a model parameter.
         """
         submitted_data = ABCAdapter.collapse_arrays(kwargs, ['model_param'])
         model_param, equation = self._compute_equation(submitted_data)
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPS)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPS)
         context_model_parameters.apply_equation(model_param, equation)
-        base.add2session(KEY_CONTEXT_MPS, context_model_parameters)
+        common.add2session(KEY_CONTEXT_MPS, context_model_parameters)
         template_specification = self.get_surface_model_parameters_data(model_param)
         template_specification = self._add_entra_equation_entries(template_specification,
                                                                   kwargs['min_x'], kwargs['max_x'])
@@ -113,16 +110,14 @@ class SurfaceModelParametersController(SpatioTemporalController):
         return self.fill_default_attributes(template_specification)
 
 
-    @cherrypy.expose
-    @using_template('spatial/model_param_surface_focal_points')
-    @logged()
+    @expose_fragment('spatial/model_param_surface_focal_points')
     def apply_focal_point(self, model_param, triangle_index):
         """
         Adds the given focal point to the list of focal points specified for
         the equation used for computing the values for the specified model param.
         """
-        template_specification = dict()
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPS)
+        template_specification = {}
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPS)
         if context_model_parameters.get_equation_for_parameter(model_param) is not None:
             context_model_parameters.apply_focal_point(model_param, triangle_index)
         else:
@@ -132,42 +127,38 @@ class SurfaceModelParametersController(SpatioTemporalController):
         return template_specification
 
 
-    @cherrypy.expose
-    @using_template('spatial/model_param_surface_focal_points')
-    @logged()
+    @expose_fragment('spatial/model_param_surface_focal_points')
     def remove_focal_point(self, model_param, vertex_index):
         """
         Removes the given focal point from the list of focal points specified for
         the equation used for computing the values for the specified model param.
         """
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPS)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPS)
         context_model_parameters.remove_focal_point(model_param, vertex_index)
         return {'focal_points': context_model_parameters.get_focal_points_for_parameter(model_param),
                 'focal_points_json': json.dumps(context_model_parameters.get_focal_points_for_parameter(model_param))}
 
 
-    @cherrypy.expose
-    @using_template('spatial/model_param_surface_focal_points')
-    @logged()
+    @expose_fragment('spatial/model_param_surface_focal_points')
     def get_focal_points(self, model_param):
         """
         Returns the html which displays the list of focal points selected for the
         equation used for computing the values for the given model parameter.
         """
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPS)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPS)
         return {'focal_points': context_model_parameters.get_focal_points_for_parameter(model_param),
                 'focal_points_json': json.dumps(context_model_parameters.get_focal_points_for_parameter(model_param))}
 
 
     @cherrypy.expose
-    @ajax_call()
-    @logged()
+    @handle_error(redirect=True)
+    @check_user
     def submit_model_parameters(self):
         """
         Collects the model parameters values from all the models used for the surface vertices.
         """
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPS)
-        burst_configuration = base.get_from_session(base.KEY_BURST_CONFIG)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPS)
+        burst_configuration = common.get_from_session(common.KEY_BURST_CONFIG)
         for original_param, modified_param in context_model_parameters.prepared_model_parameter_names.items():
             full_name = PARAMS_MODEL_PATTERN % (context_model_parameters.model_name, original_param)
             param_data = context_model_parameters.get_data_for_model_param(original_param, modified_param)
@@ -178,9 +169,9 @@ class SurfaceModelParametersController(SpatioTemporalController):
                 param_data = json.dumps(param_data)
             burst_configuration.update_simulation_parameter(full_name, param_data)
         ### Clean from session drawing context
-        base.remove_from_session(KEY_CONTEXT_MPS)
+        common.remove_from_session(KEY_CONTEXT_MPS)
         ### Update in session BURST configuration for burst-page.
-        base.add2session(base.KEY_BURST_CONFIG, burst_configuration.clone())
+        common.add2session(common.KEY_BURST_CONFIG, burst_configuration.clone())
         raise cherrypy.HTTPRedirect("/burst/")
 
 
@@ -204,7 +195,7 @@ class SurfaceModelParametersController(SpatioTemporalController):
         Returns a dictionary which contains all the data needed for drawing the
         model parameters.
         """
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPS)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPS)
         if default_selected_model_param is None:
             default_selected_model_param = context_model_parameters.prepared_model_parameter_names.values()[0]
 
@@ -223,7 +214,7 @@ class SurfaceModelParametersController(SpatioTemporalController):
         input_list = [{'name': 'model_param', 'type': 'select', 'default': default_selected_model_param,
                        'label': 'Model param', 'required': True, 'options': options}]
         input_list = ABCAdapter.prepare_param_names(input_list)
-        return {base.KEY_PARAMETERS_CONFIG: False, 'inputList': input_list,
+        return {common.KEY_PARAMETERS_CONFIG: False, 'inputList': input_list,
                 'applied_equations': context_model_parameters.get_configure_info()}
 
 
@@ -235,7 +226,7 @@ class SurfaceModelParametersController(SpatioTemporalController):
         """
         #TODO: try to use fill_defaults from abcadapter
 
-        context_model_parameters = base.get_from_session(KEY_CONTEXT_MPS)
+        context_model_parameters = common.get_from_session(KEY_CONTEXT_MPS)
         if model_param in context_model_parameters.applied_equations:
             model_param_data = context_model_parameters.applied_equations[model_param]
             if KEY_EQUATION in model_param_data:
@@ -278,16 +269,14 @@ class SurfaceModelParametersController(SpatioTemporalController):
         """
         Overwrite base controller to add required parameters for adapter templates.
         """
-        template_dictionary[base.KEY_SECTION] = 'burst'
-        template_dictionary[base.KEY_SUB_SECTION] = 'surfacemodel'
-        template_dictionary[base.KEY_INCLUDE_RESOURCES] = 'spatial/included_resources'
-        base.BaseController.fill_default_attributes(self, template_dictionary)
+        template_dictionary[common.KEY_SECTION] = 'burst'
+        template_dictionary[common.KEY_SUB_SECTION] = 'surfacemodel'
+        template_dictionary[common.KEY_INCLUDE_RESOURCES] = 'spatial/included_resources'
+        BaseController.fill_default_attributes(self, template_dictionary)
         return template_dictionary
 
 
-    @cherrypy.expose
-    @using_template('spatial/equation_displayer')
-    @logged()
+    @expose_fragment('spatial/equation_displayer')
     def get_equation_chart(self, **form_data):
         """
         Returns the html which contains the plot with the equation selected by the user for a certain model param.

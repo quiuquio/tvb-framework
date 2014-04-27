@@ -33,18 +33,19 @@
 .. moduleauthor:: Ionel Ortelecan <ionel.ortelecan@codemart.ro>
 """
 
-import cherrypy
 import json
 
-from tvb.datatypes.equations import Equation
-from tvb.datatypes.patterns import StimuliRegion
-import tvb.interfaces.web.controllers.base_controller as base
-from tvb.interfaces.web.controllers.base_controller import using_template, ajax_call
-from tvb.interfaces.web.controllers.users_controller import logged
+import cherrypy
+
 from tvb.core.adapters.abcadapter import ABCAdapter
-from tvb.interfaces.web.controllers.spatial.base_spatio_temporal_controller import SpatioTemporalController
 from tvb.core.entities.transient.structure_entities import DataTypeMetaData
 from tvb.core.entities.transient.context_stimulus import RegionStimulusContext, SCALING_PARAMETER, CONNECTIVITY_PARAMETER
+from tvb.datatypes.equations import Equation
+from tvb.datatypes.patterns import StimuliRegion
+from tvb.interfaces.web.controllers import common
+from tvb.interfaces.web.controllers.decorators import handle_error, expose_page, expose_fragment
+from tvb.interfaces.web.controllers.spatial.base_spatio_temporal_controller import SpatioTemporalController
+
 
 REGION_STIMULUS_CREATOR_MODULE = "tvb.adapters.creators.stimulus_creator"
 REGION_STIMULUS_CREATOR_CLASS = "RegionStimulusCreator"
@@ -70,7 +71,7 @@ class RegionStimulusController(SpatioTemporalController):
         """
         Generate the required template dictionary for the first step.
         """
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         right_side_interface, any_scaling = self._get_stimulus_interface()
         selected_stimulus_gid = context.selected_stimulus
         left_side_interface = self.get_select_existent_entities('Load Region Stimulus:',
@@ -92,7 +93,7 @@ class RegionStimulusController(SpatioTemporalController):
         """
         Generate the required template dictionary for the second step.
         """
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         selected_stimulus_gid = context.selected_stimulus
         left_side_interface = self.get_select_existent_entities('Load Region Stimulus:',
                                                                 StimuliRegion, selected_stimulus_gid)
@@ -105,7 +106,7 @@ class RegionStimulusController(SpatioTemporalController):
             selected_connectivity = ABCAdapter.load_entity_by_gid(context.get_session_connectivity())
             default_weights = StimuliRegion.get_default_weights(selected_connectivity.number_of_regions)
         template_specification['node_weights'] = json.dumps(default_weights)
-        template_specification[base.KEY_PARAMETERS_CONFIG] = False
+        template_specification[common.KEY_PARAMETERS_CONFIG] = False
         template_specification.update(self.display_connectivity(context.get_session_connectivity()))
         return self.fill_default_attributes(template_specification)
 
@@ -127,9 +128,7 @@ class RegionStimulusController(SpatioTemporalController):
             return self.step_1()
 
 
-    @cherrypy.expose
-    @using_template('base_template')
-    @logged()
+    @expose_page
     def step_1_submit(self, next_step, do_reset=0, **kwargs):
         """
         Any submit from the first step should be handled here. Update the context then
@@ -137,23 +136,21 @@ class RegionStimulusController(SpatioTemporalController):
         """
         if int(do_reset) == 1:
             new_context = RegionStimulusContext()
-            base.add2session(KEY_REGION_CONTEXT, new_context)
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+            common.add2session(KEY_REGION_CONTEXT, new_context)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         if kwargs.get(CONNECTIVITY_PARAMETER) != context.get_session_connectivity():
             context.set_weights([])
         context.equation_kwargs = kwargs
         return self.do_step(next_step)
 
 
-    @cherrypy.expose
-    @using_template('base_template')
-    @logged()
+    @expose_page
     def step_2_submit(self, next_step, **kwargs):
         """
         Any submit from the second step should be handled here. Update the context and then do 
         the next step as required.
         """
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         context.equation_kwargs[DataTypeMetaData.KEY_TAG_1] = kwargs[DataTypeMetaData.KEY_TAG_1]
         return self.do_step(next_step, 2)
 
@@ -175,13 +172,13 @@ class RegionStimulusController(SpatioTemporalController):
         """
         Creates a stimulus from the given data.
         """
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         local_connectivity_creator = self.get_creator_and_interface(REGION_STIMULUS_CREATOR_MODULE,
                                                                     REGION_STIMULUS_CREATOR_CLASS, StimuliRegion())[0]
         context.equation_kwargs.update({'weight': json.dumps(context.get_weights())})
-        self.flow_service.fire_operation(local_connectivity_creator, base.get_logged_user(),
-                                         base.get_current_project().id, **context.equation_kwargs)
-        base.set_info_message("The operation for creating the stimulus was successfully launched.")
+        self.flow_service.fire_operation(local_connectivity_creator, common.get_logged_user(),
+                                         common.get_current_project().id, **context.equation_kwargs)
+        common.set_info_message("The operation for creating the stimulus was successfully launched.")
 
 
     def _get_stimulus_interface(self, default_connectivity_gid=None):
@@ -189,13 +186,13 @@ class RegionStimulusController(SpatioTemporalController):
         Returns a dictionary which contains the data needed
         for creating the interface for a stimulus.
         """
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         input_list = self.get_creator_and_interface(REGION_STIMULUS_CREATOR_MODULE,
                                                     REGION_STIMULUS_CREATOR_CLASS, StimuliRegion())[1]
         context.equation_kwargs.update({SCALING_PARAMETER: context.get_weights()})
         input_list = ABCAdapter.fill_defaults(input_list, context.equation_kwargs)
         input_list, any_scaling = self._remove_scaling(input_list)
-        template_specification = {'inputList': input_list, base.KEY_PARAMETERS_CONFIG: False}
+        template_specification = {'inputList': input_list, common.KEY_PARAMETERS_CONFIG: False}
         return self._add_extra_fields_to_interface(template_specification), any_scaling
 
 
@@ -218,14 +215,14 @@ class RegionStimulusController(SpatioTemporalController):
 
 
     @cherrypy.expose
-    @ajax_call(False)
+    @handle_error(redirect=False)
     def update_scaling(self, **kwargs):
         """
         Update the scaling according to the UI.
         """
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         try:
-            scaling = [float(entry) for entry in kwargs['scaling']]
+            scaling = json.loads(kwargs['scaling'])
             context.set_weights(scaling)
             return 'true'
         except Exception, ex:
@@ -233,9 +230,7 @@ class RegionStimulusController(SpatioTemporalController):
             return 'false'
 
 
-    @cherrypy.expose
-    @using_template('spatial/equation_displayer')
-    @logged()
+    @expose_fragment('spatial/equation_displayer')
     def get_equation_chart(self, **form_data):
         """
         Returns the html which contains the plot with the temporal equation.
@@ -262,9 +257,7 @@ class RegionStimulusController(SpatioTemporalController):
             return {'allSeries': None, 'errorMsg': ex.message}
 
 
-    @cherrypy.expose
-    @using_template('base_template')
-    @logged()
+    @expose_page
     def load_region_stimulus(self, region_stimulus_gid, from_step=None):
         """
         Loads the interface for the selected region stimulus.
@@ -290,7 +283,7 @@ class RegionStimulusController(SpatioTemporalController):
         input_list = self.get_creator_and_interface(REGION_STIMULUS_CREATOR_MODULE,
                                                     REGION_STIMULUS_CREATOR_CLASS, StimuliRegion())[1]
         input_list = ABCAdapter.fill_defaults(input_list, default_dict)
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         context.reset()
         context.update_from_interface(input_list)
         context.equation_kwargs[DataTypeMetaData.KEY_TAG_1] = selected_region_stimulus.user_tag_1
@@ -299,9 +292,7 @@ class RegionStimulusController(SpatioTemporalController):
         return self.do_step(from_step)
 
 
-    @cherrypy.expose
-    @using_template('base_template')
-    @logged()
+    @expose_page
     def reset_region_stimulus(self, from_step):
         """
         Just reload default data as if stimulus is None. 
@@ -313,7 +304,7 @@ class RegionStimulusController(SpatioTemporalController):
             stimulus where we want to stay in the same page.
 
         """
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         context.reset()
         return self.do_step(1)
 
@@ -340,15 +331,16 @@ class RegionStimulusController(SpatioTemporalController):
         """
         Overwrite base controller to add required parameters for adapter templates.
         """
-        context = base.get_from_session(KEY_REGION_CONTEXT)
+        context = common.get_from_session(KEY_REGION_CONTEXT)
         template_dictionary["entitiySavedName"] = [{'name': DataTypeMetaData.KEY_TAG_1,
                                                     'label': 'Display name', 'type': 'str',
                                                     "disabled": "False",
                                                 "default": context.equation_kwargs.get(DataTypeMetaData.KEY_TAG_1, '')}]
         template_dictionary['loadExistentEntityUrl'] = LOAD_EXISTING_URL
         template_dictionary['resetToDefaultUrl'] = RELOAD_DEFAULT_PAGE_URL
-        template_dictionary['displayedMessage'] = base.get_from_session(base.KEY_MESSAGE)
-        template_dictionary['messageType'] = base.get_from_session(base.KEY_MESSAGE_TYPE)
+        msg, msg_type = common.get_message_from_session()
+        template_dictionary['displayedMessage'] = msg
+        template_dictionary['messageType'] = msg_type
         return SpatioTemporalController.fill_default_attributes(self, template_dictionary, subsection='regionstim')
     
     

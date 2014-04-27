@@ -131,14 +131,40 @@ function clampValue(value) {
  * Sets the current color scheme to the given one
  * @param scheme The color scheme to use; currently supported: 'linear', 'rainbow', 'hotcold', 'TVB', 'sparse'
  *               'light-hotcold', 'light-TVB'
+ * @param notify_server When TRUE, trigger an ajax call to store on the server changed setting.
  */
-function ColSch_setColorScheme(scheme) {
+function ColSch_setColorScheme(scheme, notify_server) {
     $('fieldset[id^="colorSchemeFieldSet_"]').hide();
+    if(notify_server){
+        //could throttle this
+        doAjaxCall({
+            url: '/user/set_viewer_color_scheme/' + scheme,
+            error: function(jqXHR, textStatus, error){
+                console.warn(error);
+            }
+        });
+    } else {
+        $("#setColorSchemeSelId").val(scheme);
+    }
     _colorScheme = scheme;
+    $("#colorSchemeFieldSet_" + scheme).show();
     if (_refreshCallback) {
-        $("#colorSchemeFieldSet_" + scheme).show();
         _refreshCallback();
     }
+}
+
+function _loadInitialColorScheme(){
+
+    doAjaxCall({
+        url:'/user/get_viewer_color_scheme',
+        success:function(data){
+            ColSch_setColorScheme(JSON.parse(data), false);
+        },
+        error: function(jqXHR, textStatus, error){
+            console.warn(error);
+            ColSch_setColorScheme(null, false);
+        }
+    });
 }
 
 /**
@@ -146,7 +172,7 @@ function ColSch_setColorScheme(scheme) {
  *
  * @param minValue The minimum value for the linear slider
  * @param maxValue The maximum value for the linear slider
- * @param refreshFunction A reference to the function which updates the visualiser
+ * @param [refreshFunction] A reference to the function which updates the visualiser
  */
 function ColSch_initColorSchemeParams(minValue, maxValue, refreshFunction) {
     _refreshCallback = refreshFunction;
@@ -166,7 +192,7 @@ function ColSch_initColorSchemeParams(minValue, maxValue, refreshFunction) {
         change: function(event, ui) {
             _linearGradientStart = (ui.values[0] - minValue) / (maxValue - minValue);    // keep the interest interval
             _linearGradientEnd   = (ui.values[1] - minValue) / (maxValue - minValue) ;   // as normalized dist from min
-            if (_refreshCallback)      _refreshCallback()
+            if (_refreshCallback) { _refreshCallback() }
         }
     });
     $("#sliderMinValue").html(minValue.toFixed(3));
@@ -179,16 +205,15 @@ function ColSch_initColorSchemeParams(minValue, maxValue, refreshFunction) {
     var colorNoUIElem = $("#ColSch_colorNo");                    // cache the jQuery selector
     colorNoUIElem.html(_sparseColorNo);
     $("#sliderForSparseColSch").slider({
-        min: 2, max: SPARSE_COLORS.length - 1, step: 1, values: [_sparseColorNo],
+        min: 2, max: SPARSE_COLORS.length, step: 1, values: [_sparseColorNo],
         slide: function (event, ui) { colorNoUIElem.html(ui.value) },
         change: function (event, ui) {
             _sparseColorNo = ui.value;
             if (_refreshCallback) { _refreshCallback() }
         }
     });
-
     if (!_colorScheme)                      // on very first call, set the default color scheme
-        $("#setColorSchemeSelId").each(function() {this.selectedIndex = 0}).change()
+        _loadInitialColorScheme();
 }
 
 /**
@@ -240,7 +265,8 @@ var ColSchDarkTheme = {
         backgroundColor: [0.05, 0.05, 0.05, 1.0]
     },
     surfaceViewer : {
-        backgroundColor: [0.05, 0.05, 0.05, 1.0]
+        backgroundColor: [0.05, 0.05, 0.05, 1.0],
+        mutedRegionColor : [0.1, 0.1, 0.1]
             //, boundaryLineColor
     //, navigatorColor
     //, faceColor
@@ -260,7 +286,8 @@ var ColSchLightTheme = {
         backgroundColor: [1.0, 1.0, 1.0, 1.0]
     },
     surfaceViewer : {
-        backgroundColor: [1.0, 1.0, 1.0, 1.0]
+        backgroundColor: [1.0, 1.0, 1.0, 1.0],
+        mutedRegionColor : [0.8, 0.8, 0.8]
     }
 };
 
@@ -276,7 +303,8 @@ var ColSchTransparentTheme = {
         backgroundColor: [0.0, 0.0, 0.0, 0.0]
     },
     surfaceViewer : {
-        backgroundColor: [0.0, 0.0, 0.0, 0.0]
+        backgroundColor: [0.0, 0.0, 0.0, 0.0],
+        mutedRegionColor : [0.8, 0.8, 0.8]
     }
 };
 
@@ -389,7 +417,8 @@ TVB_BRANDING_COLORS = [
  * Resulting color scheme is segmented among these colors
  */
 function getTvbColor(normalizedValue) {
-    var selectedInterval = Math.floor(normalizedValue * (TVB_BRANDING_COLORS.length - 1));
+    normalizedValue = __convert_to_open(normalizedValue);
+    var selectedInterval = Math.floor(normalizedValue * TVB_BRANDING_COLORS.length);
     return normalizeColorArray(TVB_BRANDING_COLORS[selectedInterval])
 }
 
@@ -424,10 +453,24 @@ SPARSE_COLORS = [
 ];
 
 /**
+ * Used by discrete color schemes. This makes the color interval open at the right end.
+ * The effect is that the maximal value will map to the one below it. Otherwise we have
+ * the corner case that a color is used by a single value leading to special handling.
+ * @returns: a number within [0,1[
+ */
+function __convert_to_open(normalizedValue){
+    var epsilon = 0.00001; // This assumes that the sparse color scheme has less than 10**6 colors.
+    if (normalizedValue == 1.0) {
+        normalizedValue = 1.0 - epsilon;
+    }
+    return normalizedValue;
+}
+/**
  * Returns an [r, g, b] color the first <code>_sparseColorNo</code> colors in SPARSE COLORS
  * Resulting color scheme is segmented among these colors
  */
 function getSparseColor(normalizedValue) {
+    normalizedValue = __convert_to_open(normalizedValue);
     var selectedInterval = Math.floor(normalizedValue * _sparseColorNo);
     var color = SPARSE_COLORS[selectedInterval];
     var r = color >> (4 * 4);                // discard green and blue, i.e. four hex positions
@@ -446,29 +489,26 @@ function getSparseColor(normalizedValue) {
  * @param height The height of the drawn canvas
  */
 function ColSch_updateLegendColors(containerDiv, height) {
+    // Get canvas, or create it if it does not  exist
     var canvas = $(containerDiv).children("canvas");
-    if (!canvas.length) {                                   // create if it doesn't exist
-        canvas = document.createElement("canvas");
-        canvas.setAttribute("width", "20px");
-        containerDiv.appendChild(canvas)
+    if (!canvas.length) {
+        canvas = $('<canvas width="20">');
+        $(containerDiv).append(canvas);
     }
-    else
-        canvas = canvas[0];                                  // exists, so take the first one
-    canvas.setAttribute("height", height + "px");            // update canvas' height
+    canvas.attr("height", height);
+    canvas = canvas[0];
 
-	if (canvas.getContext) {                                // Make sure we don't execute when canvas isn't supported
-        var ctx = canvas.getContext('2d');
-        var legendGranularity = 127;
-        var step = height / legendGranularity;
-        var lingrad = ctx.createLinearGradient(0, height, 0, 0);         // y axis is inverted, so start from top
-        for (var i = 0; i <= height; i += step)
-            lingrad.addColorStop(i / height, getGradientColorString(i, 0, height))
+    var ctx = canvas.getContext('2d');
+    var legendGranularity = 127;
+    var step = height / legendGranularity;
+    // y axis is inverted, so start from top
+    var lingrad = ctx.createLinearGradient(0, height, 0, 0);
 
-        ctx.fillStyle = lingrad;                            // Fill a rect using the gradient
-        ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-	}
-    else
-        displayMessage('You need a browser with canvas capabilities, to see this demo fully!', "errorMessage");
+    for (var i = 0; i <= height ; i += step){
+        lingrad.addColorStop(i / height, getGradientColorString(i, 0, height));
+    }
+    ctx.fillStyle = lingrad;                            // Fill a rect using the gradient
+    ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 }
 
 function ColSch_updateLegendLabels(container, minValue, maxValue, height) {

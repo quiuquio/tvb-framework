@@ -64,7 +64,7 @@ function clone(object_) {
    */
 function resetToNewBurst() {
 	
-	$.ajax({ type: "POST", 
+	doAjaxCall({ type: "POST",
 			 url: '/burst/reset_burst/',
 	         success: function() {
 	        		loadSimulatorInterface();
@@ -85,7 +85,7 @@ function resetToNewBurst() {
  */
 function copyBurst(burstID) {
 	
-	$.ajax({ type: "POST", 
+	doAjaxCall({ type: "POST",
 			 url: '/burst/copy_burst/' + burstID,
 	         success: function(r) {
 	        		loadSimulatorInterface();
@@ -105,15 +105,16 @@ function copyBurst(burstID) {
  */
 function loadBurstHistory() {
 	
-	$.ajax({  	
+	doAjaxCall({
 		type: "POST", 
 		url: '/burst/load_burst_history',
 		cache: false,
 		async: false,
         success: function(r) {
-                    var historyElem = $('.view-history');
+                    var historyElem = $('#section-view-history');
         			historyElem.empty();
         			historyElem.append(r);
+                    MathJax.Hub.Queue(["Typeset", MathJax.Hub, "section-view-history"]);
         },
         error: function() {
             		displayMessage("Simulator data could not be loaded properly..", "errorMessage");
@@ -137,7 +138,7 @@ function updateBurstHistoryStatus() {
 		}
 	});
 	if (burst_ids.length > 0) {
-		$.ajax({  	
+		doAjaxCall({
 			type: "POST", 
 			data: {'burst_ids' : JSON.stringify(burst_ids)},
 			url: '/burst/get_history_status',
@@ -170,14 +171,14 @@ function updateBurstHistoryStatus() {
  */
 function scheduleNewUpdate(withFullUpdate, refreshCurrent) {
 	
-	if (document.getElementById('burst-history') != null && document.getElementById('burst-history') != undefined) {
+	if ($('#burst-history').length != 0) {
     	if (withFullUpdate) {
     		loadBurstHistory();
     		if (refreshCurrent) {
     			loadBurst(sessionStoredBurst.id);
     		}
     	} else {
-    		setTimeout("updateBurstHistoryStatus()", 5000);
+    		setTimeout(updateBurstHistoryStatus, 5000);
     	}
     }
 }
@@ -190,6 +191,7 @@ function cancelOrRemoveBurst(burst_id) {
 	doAjaxCall({  	
 			type: "POST", 
 			url: '/burst/cancel_or_remove_burst/' + burst_id,
+            showBlockerOverlay : true,
 	        success: function(r) {    
 	        	var liParent = document.getElementById("burst_id_"+ burst_id);
 	        	if (r == 'canceled') {
@@ -221,12 +223,12 @@ function cancelOrRemoveBurst(burst_id) {
 function renameBurstEntry(burst_id, new_name_id) {
 	
 	var newValue = document.getElementById(new_name_id).value;
-	$.ajax({type: "POST",
+	doAjaxCall({type: "POST",
 			async: false, 
 			url: '/burst/rename_burst/' + burst_id + '/' + newValue,
 	        success: function() {
 	        				displayMessage("Simulation successfully renamed!");
-	        				$("#burst_id_" + burst_id + " a")[0].innerHTML = newValue;
+	        				$("#burst_id_" + burst_id + " a").html(newValue);
 	        				if (sessionStoredBurst.id == burst_id + "") {
 	        					sessionStoredBurst.name = newValue;
 	        					fill_burst_name(newValue, true, false);
@@ -318,6 +320,7 @@ function loadSimulatorInterface() {
 	doAjaxCall({  	
 			type: "GET",
 			url: '/burst/get_reduced_simulator_interface',
+            showBlockerOverlay : true,
             success: function(r) { 
             	_fillSimulatorParametersArea(r, false);
             } ,
@@ -328,7 +331,7 @@ function loadSimulatorInterface() {
 }
 
 function tryExpandRangers() {
-	$.ajax({type: "GET", 
+	doAjaxCall({type: "GET",
 			url: '/burst/get_previous_selected_rangers',
 	        success: function(r) { 
 	        	var result = $.parseJSON(r); 
@@ -344,10 +347,14 @@ function tryExpandRangers() {
  * Set on change on all simulator inputs, to set a new burst as active whenever something changes.
  */
 function setSimulatorChangeListener(parentDiv) {
-	
-	$('#' + parentDiv + ' select').each(function() { if (!this.disabled) { this.onchange(); } });
-	$('#' + parentDiv + ' input[type="radio"]').each(function() { if (!this.disabled && this.checked) { this.onchange(); } });
-	$("#" + parentDiv + " :input").each(function () {
+	var parentDiv = $('#' + parentDiv);
+    parentDiv.find('select').each(function() {
+        if (!this.disabled) { this.onchange(); }
+    });
+	parentDiv.find('input[type="radio"]').each(function() {
+        if (!this.disabled && this.checked) { this.onchange(); }
+    });
+	parentDiv.find(":input").each(function () {
 		if (this.type != 'checkbox') {
 			$(this).change(function() { 
 				if (this.type != 'checkbox') { 
@@ -368,6 +375,7 @@ function configureSimulator(configureHref) {
 		doAjaxCall({
 				type: "GET", 
 				url: '/burst/configure_simulator_parameters',
+                showBlockerOverlay : true,
                 success: function(r) {
                 	_fillSimulatorParametersArea(r, true);
                 },
@@ -379,7 +387,7 @@ function configureSimulator(configureHref) {
 	} else {
 		var submitableData = getSubmitableData('div-simulator-parameters', true);
 	
-		$.ajax({type: "POST", 
+		doAjaxCall({type: "POST",
 				data: {'simulator_parameters' : JSON.stringify(submitableData)},
 				url: '/burst/save_simulator_configuration?exclude_ranges=True',
                 success: function() {
@@ -412,7 +420,7 @@ function toggleSimulatorParametersChecks(beChecked) {
 function configureModel(actionUrl) {
 	
 	var submitableData = getSubmitableData("div-simulator-parameters", false);
-	$.ajax({type: "POST",
+	doAjaxCall({type: "POST",
 			data: {'simulator_parameters' : JSON.stringify(submitableData),
                    'burstName': $("#input-burst-name-id").val()},
 			url: '/burst/save_simulator_configuration?exclude_ranges=False',
@@ -448,8 +456,7 @@ function toggleConfigSurfaceModelParamsButton() {
     selectorSurfaceElem.unbind('change.configureSurfaceModelParameters');
     selectorSurfaceElem.bind('change.configureSurfaceModelParameters', function () {
         var selectedValue = this.value;
-        if (selectedValue == undefined || selectedValue == 'None' ||
-            selectedValue == null || selectedValue.length == 0) {
+        if (selectedValue == null || selectedValue == 'None' || selectedValue.length == 0) {
             $("#configSurfaceModelParam").hide();
         } else {
             $("#configSurfaceModelParam").show();
@@ -471,13 +478,17 @@ function switch_top_level_visibility(currentVisibleSelection) {
 	if (currentVisibleSelection) {
 		$("" + currentVisibleSelection).show();
 	}
-	if (document.getElementById('button-maximize-flot')) {
-		minimizeColumn(document.getElementById('button-maximize-flot'), 'section-pse');
+    var maximize_flot = $('#button-maximize-flot')[0];
+    var maximize_iso = $('#button-maximize-iso')[0];
+    var maximize_portlets = $('#button-maximize-portlets')[0];
+
+	if (maximize_flot) {
+		minimizeColumn(maximize_flot, 'section-pse');
 	}
-	if (document.getElementById('button-maximize-iso')) {
-		minimizeColumn(document.getElementById('button-maximize-iso'), 'section-pse');
+	if (maximize_iso) {
+		minimizeColumn(maximize_iso, 'section-pse');
 	}
-	minimizeColumn(document.getElementById('button-maximize-portlets'), 'section-portlets');
+	minimizeColumn(maximize_portlets, 'section-portlets');
 }
 
 
@@ -488,7 +499,7 @@ function loadGroup(groupGID) {
 	$("#section-portlets-ul").find("li").each(function () {
 			$(this).removeClass('active');
 		});
-	$.ajax({  	
+	doAjaxCall({
 		type: "POST", 
 		async: false,
 		url: '/burst/explore/get_default_pse_viewer/' + groupGID,
@@ -560,20 +571,21 @@ function toogleMaximizeBurst(hrefElement) {
 
 
 function updatePortletsToolbar(state) {
-	
-	if (state==0) {
+	var secondClass;
+	if (state == 0) {
 		// Empty toolbar, when Tree TAB is selected
-		$("#portlets-toolbar")[0].className ='toolbar-inline empty-portlets-toolbar';
-	}else if (state==1) {
+		secondClass ='empty-portlets-toolbar';
+	}else if (state == 1) {
 		// Save and Cancel buttons when selecting currently visible portlets
-		$("#portlets-toolbar")[0].className = 'toolbar-inline select-portlets-toolbar';
-	} else if (state==2) {
+		secondClass = 'select-portlets-toolbar';
+	} else if (state == 2) {
 		// Save and Cancel when filling portlet parameters to work with
-		$("#portlets-toolbar")[0].className = 'toolbar-inline parameters-portlets-toolbar';
+		secondClass = 'parameters-portlets-toolbar';
 	} else {
 		// Standard (Configure button only) in rest
-		$("#portlets-toolbar")[0].className = 'toolbar-inline standard-portlets-toolbar';
+		secondClass = 'standard-portlets-toolbar';
 	}
+    $("#portlets-toolbar")[0].className = 'toolbar-inline ' + secondClass;
 }
 
 /*
@@ -609,7 +621,7 @@ function selectPortlets(isSave) {
 		for (var i = 0; i < selectedPortlets[0].length; i++) {
             selectedPortlets[selectedTab][i][1] = document.getElementById('portlet-name_entry-' + i).value;
 		}
-		$.ajax({	type: "POST", 
+		doAjaxCall({type: "POST",
 					data: {"tab_portlets_list": JSON.stringify(selectedPortlets)},
 					url: '/burst/portlet_tab_display',
 		            success: function(r) {
@@ -619,6 +631,7 @@ function selectPortlets(isSave) {
 		            	// from the static previews page or the visualization page.
 		            	portletDisplayElem.hide();
 						portletDisplayElem.show();
+                        $("#portlets-configure").hide();
 						portletConfigurationActive = false;
 						markBurstChanged();
 						updatePortletsToolbar(3);
@@ -636,7 +649,7 @@ function selectPortlets(isSave) {
  */
 function setPortletsStaticPreviews() {
 	
-	$.ajax({ type: "POST", 
+	doAjaxCall({ type: "POST",
 			 url: '/burst/get_configured_portlets',
 	         success: function(r) {    
 	        	$("#portlets-display").replaceWith(r);
@@ -674,8 +687,8 @@ function updatePortletConfiguration() {
 function savePortletParams() {
 	
 	var submitableData = getSubmitableData('portlet-param-config', false);
-	$.ajax({  	type: "GET", 
-				data: submitableData,
+	doAjaxCall({  	type: "GET",
+				data: {"portlet_parameters": JSON.stringify(submitableData)},
 				url: '/burst/save_parameters/' + indexInTab,
 				traditional: true,
                 success: function(r) {    
@@ -685,10 +698,10 @@ function savePortletParams() {
                 		var currentPortletDiv = $(".portlet-" + indexInTab)[0];
 						var width = currentPortletDiv.clientWidth;
 						var height = currentPortletDiv.clientHeight;
-			       		$.ajax({  	type: "GET", 
+			       		doAjaxCall({  	type: "GET",
 									url: '/burst/check_status_for_visualizer/' + selectedTab + '/' + indexInTab + '/' + width + '/' + height,
 					                success: function(r) {
-					                	currentPortletDiv.replaceWith(r); 
+					                	currentPortletDiv.replaceWith(r);
 					                	$("#portlets-display").show();
 					                } ,
 					                error: function() {
@@ -697,7 +710,7 @@ function savePortletParams() {
 						       });
                 	} else {
                 		markBurstChanged();
-						$.ajax({  	
+						doAjaxCall({
 								type: "POST", 
 								data: {"tab_portlets_list": JSON.stringify(selectedPortlets)},
 								url: '/burst/portlet_tab_display',
@@ -740,12 +753,13 @@ function showPortletParametersPage(tabIdx) {
 			}
 		}
 	}
-	$.ajax({  	type: "GET", 
+	doAjaxCall({  	type: "GET",
 				url: '/burst/get_portlet_configurable_interface/' + indexInTab,
                 success: function(r) {
                     var portletElem = $("#portlet-param-config");
                 	portletElem.empty();
                 	portletElem.append(r);
+                    MathJax.Hub.Queue(["Typeset", MathJax.Hub, "portlet-param-config"]);
                 	$("#portlets-display").hide();
 					portletElem.show();
 					updatePortletsToolbar(2);
@@ -764,7 +778,7 @@ function returnToSessionPortletConfiguration() {
 	
 	cancelPortletConfig();
 	$("#portlets-configure").hide();
-	$.ajax({  	type: "GET",
+	doAjaxCall({  	type: "GET",
                 async: false,
 				url: '/burst/get_portlet_session_configuration',
 	            success: function(r) {
@@ -796,7 +810,7 @@ function checkIfPortletDone(portlet_element_id, timedSelectedTab, timedTabIndex)
 	if (portlet_element.length > 0) {
 		var width = portlet_element[0].clientWidth;
 		var height = portlet_element[0].clientHeight;
-		$.ajax({  	type: "GET", 
+		doAjaxCall({  	type: "GET",
 						url: '/burst/check_status_for_visualizer/' + timedSelectedTab + '/' + timedTabIndex + '/' + width + '/' + height,
 		                success: function(r) {
 		                	var expectedParentElem = $("#" + portlet_element_id);
@@ -807,7 +821,7 @@ function checkIfPortletDone(portlet_element_id, timedSelectedTab, timedTabIndex)
 			                		var new_portlet_id = $(".portlet-" + timedTabIndex)[0].id;
 			                		var timeout = setTimeout("checkIfPortletDone('" + new_portlet_id + "'," + selectedTab + ", " + timedTabIndex + ")", 3000);
 									refreshTimeouts.push(timeout);
-			                	} 
+			                	}
 		                	}
 		                } ,
 		                error: function() {
@@ -836,29 +850,25 @@ function _clearAllTimeouts() {
  * Change tab for current burst.
  */
 function changeBurstTile(selectedHref) {
-	
 	_clearAllTimeouts();
 	$("#div-burst-tree").hide();
-	$("#section-portlets-ul").find("li").each(function () {
+	$("#section-portlets-ul, #section-portlets-ul").find("li").each(function () {
 			$(this).removeClass('active');
 		});
-	var prev_class = selectedHref.parentElement.className;
-	selectedHref.parentElement.className = prev_class + ' active';
+    $(selectedHref).parent().addClass('active');
 	// Refresh buttons
 	returnToSessionPortletConfiguration();
 	// First update with the value stored in the input fields
 	if (selectedTab >=0) {
 		for (var i = 0; i < selectedPortlets[0].length; i++) {
-            selectedPortlets[selectedTab][i][1] = document.getElementById('portlet-name_entry-' + i).value;
+            selectedPortlets[selectedTab][i][1] = $('#portlet-name_entry-' + i).val();
 		}
 	}
 	selectedTab = selectedHref.id.split('_')[1];
 	// Also update selected tab on cherryPy session.
-	$.ajax({  	type: "POST",
+	doAjaxCall({type: "POST",
 				async: false, 
-				url: '/burst/change_selected_tab/' + selectedTab,
-	            success: function(r) {} ,
-	            error: function(r) {}
+				url: '/burst/change_selected_tab/' + selectedTab
         	});
 	// Next update the checked check-boxes for this newly selected tab
 	updatePortletConfiguration();
@@ -871,12 +881,13 @@ function changeBurstTile(selectedHref) {
 			var sectionPortlets = $("#section-portlets")[0];
 			var width = sectionPortlets.clientWidth;
 			var height = sectionPortlets.clientHeight;
-			$.ajax({  	
+			doAjaxCall({
 				type: "POST", 
 				url: '/burst/load_configured_visualizers/' + width + '/' + height,
 	            success: function(r) {    
 					$("#portlets-display").replaceWith(r);
 					_setPortletRefreshTimeouts();
+                    MathJax.Hub.Queue(["Typeset", MathJax.Hub, "portlets-display"]);
 	            } ,
 	            error: function() {
 	                displayMessage("Visualizers selection was not properly saved.", "errorMessage");
@@ -899,14 +910,11 @@ function displayBurstTree(selectedHref, selectedProjectID, baseURL) {
 	$("#section-portlets-ul").find("li").each(function () {
 			$(this).removeClass('active');
 		});
-	var prev_class = selectedHref.parentElement.className;
-	selectedHref.parentElement.className = prev_class + ' active';
+	$(selectedHref).parent().addClass('active');
 	// Also update selected tab on cherryPy session.
-	$.ajax({  	type: "POST",
+	doAjaxCall({type: "POST",
 				async: false, 
-				url: '/burst/change_selected_tab/-1',
-	            success: function(r) {} ,
-	            error: function(r) {}
+				url: '/burst/change_selected_tab/-1'
         	});
 	var filterValue = {'type' : 'from_burst', 'value' : sessionStoredBurst.id};
 	if (filterValue.value == '') {
@@ -920,7 +928,7 @@ function displayBurstTree(selectedHref, selectedProjectID, baseURL) {
 }
 
 /*************************************************************************************************************************
- * 			GENRIC FUNCTIONS
+ * 			GENERIC FUNCTIONS
  *************************************************************************************************************************/
 
   /*
@@ -928,7 +936,7 @@ function displayBurstTree(selectedHref, selectedProjectID, baseURL) {
    */
 function initBurstConfiguration(sessionPortlets, selectedTab) {
 	//Get the selected burst from session and store it to be used further ....
-	$.ajax({ type: "POST", 
+	doAjaxCall({ type: "POST",
 			 url: '/burst/get_selected_burst',
 			 cache: false,
 			 async: false,
@@ -978,7 +986,8 @@ function loadBurst(burst_id) {
 	doAjaxCall({  	
 		type: "POST", 
 		url: '/burst/load_burst/' + burst_id,
-        success: function(r) {  
+        showBlockerOverlay : true,
+        success: function(r) {
 	        	var result = $.parseJSON(r);
 	        	selectedTab = result['selected_tab'];
 	        	var groupGID = result['group_gid'];
@@ -1010,11 +1019,13 @@ function loadBurst(burst_id) {
 			    	doAjaxCall({  	
 						type: "POST", 
 						url: '/burst/load_configured_visualizers/' + fullWidth + '/' + fullHeight,
+                        showBlockerOverlay : true,
 				        success: function(portlets) {    
 				        	doAjaxCall({  	
 									type: "POST", 
 									async: false,
 									url: '/burst/get_selected_portlets',
+                                    showBlockerOverlay : true,
 							        success: function(rr) {    
 							        	selectedPortlets = $.parseJSON(rr);
 							        } ,
@@ -1024,6 +1035,7 @@ function loadBurst(burst_id) {
 								});
 							$("#portlets-display").replaceWith(portlets); 
 							_setPortletRefreshTimeouts();
+                            MathJax.Hub.Queue(["Typeset", MathJax.Hub, "portlets-display"]);
 							displayMessage("Simulation successfully loaded!");
 				        } ,
 			        	error: function() {
@@ -1127,10 +1139,10 @@ function launchNewBurst(launchMode) {
     }
     displayMessage("You've submitted parameters for simulation launch! Please wait for preprocessing steps...", 'warningMessage');
     var submitableData = getSubmitableData('div-simulator-parameters', false);
-    $.ajax({  	type: "POST", 
+    doAjaxCall({  	type: "POST",
     			async: true,
 				url: '/burst/launch_burst/' + launchMode + '/' + newBurstName,
-				data: submitableData, 
+				data: { 'simulator_parameters' : JSON.stringify(submitableData) },
 				traditional: true,
                 success: function(r) {
 	                		loadBurstHistory();

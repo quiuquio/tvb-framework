@@ -144,7 +144,7 @@ class FlowService:
     
     @staticmethod
     def load_operation(operation_id):
-        """ Retrieve loaded OPeration from DB"""
+        """ Retrieve previously stored Operation from DB, and load operation.burst attribute"""
         operation = dao.get_operation_by_id(operation_id)
         operation.burst = dao.get_burst_for_operation_id(operation_id)
         return operation
@@ -263,7 +263,7 @@ class FlowService:
         """
         result = []
         for param in attributes_list:
-            if (ABCAdapter.KEY_UI_HIDE in param) and param[ABCAdapter.KEY_UI_HIDE]:
+            if param.get(ABCAdapter.KEY_UI_HIDE):
                 continue
             transformed_param = copy(param)
 
@@ -282,10 +282,8 @@ class FlowService:
                 values = self.populate_values(data_list, param[ABCAdapter.KEY_TYPE], 
                                               category_key, complex_dt_attributes)
                 
-                if (transformed_param.get(ABCAdapter.KEY_REQUIRED) and
-                    len(values) > 0 and (ABCAdapter.KEY_DEFAULT not in transformed_param or 
-                                         transformed_param[ABCAdapter.KEY_DEFAULT] is None or 
-                                         transformed_param[ABCAdapter.KEY_DEFAULT] == 'None')):
+                if (transformed_param.get(ABCAdapter.KEY_REQUIRED) and len(values) > 0 and
+                            transformed_param.get(ABCAdapter.KEY_DEFAULT) in [None, 'None']):
                     def_val = str(values[-1][ABCAdapter.KEY_VALUE])
                     transformed_param[ABCAdapter.KEY_DEFAULT] = def_val
                 transformed_param[ABCAdapter.KEY_FILTERABLE] = FilterChain.get_filters_for_type(
@@ -312,11 +310,9 @@ class FlowService:
                 if param.get(ABCAdapter.KEY_OPTIONS) is not None:
                     transformed_param[ABCAdapter.KEY_OPTIONS] = self.prepare_parameters(param[ABCAdapter.KEY_OPTIONS],
                                                                                         project_id, category_key)
-                    if (transformed_param.get(ABCAdapter.KEY_REQUIRED)
-                        and len(param[ABCAdapter.KEY_OPTIONS]) > 0 and
-                            ((ABCAdapter.KEY_DEFAULT not in transformed_param) or
-                                transformed_param[ABCAdapter.KEY_DEFAULT] is None or
-                                transformed_param[ABCAdapter.KEY_DEFAULT] == 'None')):
+                    if (transformed_param.get(ABCAdapter.KEY_REQUIRED) and
+                                len(param[ABCAdapter.KEY_OPTIONS]) > 0 and
+                                (transformed_param.get(ABCAdapter.KEY_DEFAULT) in [None, 'None'])):
                         def_val = str(param[ABCAdapter.KEY_OPTIONS][-1][ABCAdapter.KEY_VALUE])
                         transformed_param[ABCAdapter.KEY_DEFAULT] = def_val
                     
@@ -376,11 +372,6 @@ class FlowService:
             self.logger.exception(excep)
             raise OperationException(str(excep))      
 
-     
-    def parse_version_xml(self, xml_content):
-        """Parse XML content, to retrieve Version number, 
-        release date and release notes.""" 
-        return self.file_helper.parse_xml_content(xml_content)
     
     ##########################################################################
     ######## Methods below are for connectivity selections ###################

@@ -147,22 +147,23 @@ class HDF5StorageManager(object):
         if data_buffer is None:
             chunk_shape = self.__compute_chunk_shape(data_to_store.shape, grow_dimension)
             hdf5File = self._open_h5_file(chunk_shape=chunk_shape)
-            try:
-                dataset = hdf5File[where + dataset_name]
-                self.data_buffers[where + dataset_name] = HDF5StorageManager.H5pyStorageBuffer(dataset,
-                                                                                        buffer_size=self.__buffer_size,
-                                                                                        buffered_data=data_to_store,
-                                                                                        grow_dimension=grow_dimension)
-            except KeyError:
+            datapath = where + dataset_name
+            if datapath in hdf5File:
+                dataset = hdf5File[datapath]
+                self.data_buffers[datapath] = HDF5StorageManager.H5pyStorageBuffer(dataset,
+                                                                                   buffer_size=self.__buffer_size,
+                                                                                   buffered_data=data_to_store,
+                                                                                   grow_dimension=grow_dimension)
+            else:
                 data_shape_list = list(data_to_store.shape)
                 data_shape_list[grow_dimension] = None
                 data_shape = tuple(data_shape_list)
                 dataset = hdf5File.create_dataset(where + dataset_name, data=data_to_store, shape=data_to_store.shape,
                                                   dtype=data_to_store.dtype, maxshape=data_shape)
-                self.data_buffers[where + dataset_name] = HDF5StorageManager.H5pyStorageBuffer(dataset,
-                                                                                        buffer_size=self.__buffer_size,
-                                                                                        buffered_data=None,
-                                                                                        grow_dimension=grow_dimension)
+                self.data_buffers[datapath] = HDF5StorageManager.H5pyStorageBuffer(dataset,
+                                                                                   buffer_size=self.__buffer_size,
+                                                                                   buffered_data=None,
+                                                                                   grow_dimension=grow_dimension)
         else:
             if not data_buffer.buffer_data(data_to_store):
                 data_buffer.flush_buffered_data()
@@ -211,21 +212,23 @@ class HDF5StorageManager(object):
         if where is None:
             where = self.ROOT_NODE_PATH
 
+        datapath = where + dataset_name
         try:
             # Open file to read data
             hdf5File = self._open_h5_file('r')
-            data_array = hdf5File[where + dataset_name]
-            # Now read data
-            if data_slice is None:
-                return data_array[()]
+            if datapath in hdf5File:
+                data_array = hdf5File[datapath]
+                # Now read data
+                if data_slice is None:
+                    return data_array[()]
+                else:
+                    return data_array[data_slice]
             else:
-                return data_array[data_slice]
-        except KeyError:
-            if not ignore_errors:
-                LOG.error("Trying to read data from a missing data set: %s" % dataset_name)
-                raise MissingDataSetException("Could not locate dataset: %s" % dataset_name)
-            else:
-                return numpy.ndarray(0)
+                if not ignore_errors:
+                    LOG.error("Trying to read data from a missing data set: %s" % dataset_name)
+                    raise MissingDataSetException("Could not locate dataset: %s" % dataset_name)
+                else:
+                    return numpy.ndarray(0)
         finally:
             self.close_file()
 
@@ -492,9 +495,11 @@ class HDF5StorageManager(object):
         much overhead in most situation we'll leave it like this for now since in case
         of concurrent writes(metadata) this provides extra safety.
         """
-        self.__aquire_lock()
-        self.__close_file()
-        self.__release_lock()
+        try:
+            self.__aquire_lock()
+            self.__close_file()
+        finally:
+            self.__release_lock()
 
 
     def _open_h5_file(self, mode='a', chunk_shape=None):
@@ -504,9 +509,11 @@ class HDF5StorageManager(object):
         much overhead in most situation we'll leave it like this for now since in case
         of concurrent writes(metadata) this provides extra safety.
         """
-        self.__aquire_lock()
-        file_obj = self.__open_h5_file(mode, chunk_shape)
-        self.__release_lock()
+        try:
+            self.__aquire_lock()
+            file_obj = self.__open_h5_file(mode, chunk_shape)
+        finally:
+            self.__release_lock()
         return file_obj
 
 
@@ -570,10 +577,17 @@ class HDF5StorageManager(object):
         :returns: returns the file which stores data in HDF5 format opened for read / write according to mode param
         
         """
-        if self.__storage_full_name is not None:
+        if self.__storage_full_name is None:
+            raise FileStructureException("Invalid storage file. Please provide a valid path.")
+        try:
             # Check if file is still open from previous writes.
             if self.__hfd5_file is None or not self.__hfd5_file.fid.valid:
                 file_exists = os.path.exists(self.__storage_full_name)
+
+                # bug in some versions of hdf5 on windows prevent creating file with mode='a'
+                if not file_exists and mode == 'a':
+                    mode = 'w'
+
                 LOG.debug("Opening file: %s in mode: %s" % (self.__storage_full_name, mode))
                 self.__hfd5_file = hdf5.File(self.__storage_full_name, mode, libver='latest', chunks=chunk_shape)
 
@@ -582,9 +596,12 @@ class HDF5StorageManager(object):
                     os.chmod(self.__storage_full_name, cfg.ACCESS_MODE_TVB_FILES)
                     self.__hfd5_file['/'].attrs[self.TVB_ATTRIBUTE_PREFIX +
                                                 cfg.DATA_VERSION_ATTRIBUTE] = cfg.DATA_VERSION
-            return self.__hfd5_file
-        else:
-            raise FileStructureException("Invalid storage file. Please provide a valid path.")
+        except (IOError, OSError), err:
+            LOG.exception("Could not open storage file.")
+            raise FileStructureException("Could not open storage file. %s" % err)
+
+        return self.__hfd5_file
+
 
 
     def _check_data(self, data_list):

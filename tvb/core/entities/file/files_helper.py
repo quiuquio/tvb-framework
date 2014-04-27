@@ -78,6 +78,7 @@ class FilesHelper():
         This method is synchronized, for parallel access from events, to avoid conflicts.
         """
         try:
+            # if this is meant to be used concurrently it might be better to catch OSError 17 then checking exists
             if not os.path.exists(path):
                 self.logger.debug("Creating folder:" + str(path))
                 os.makedirs(path, mode=TVBSettings.ACCESS_MODE_TVB_FILES)
@@ -104,23 +105,19 @@ class FilesHelper():
     
     def rename_project_structure(self, project_name, new_name):
         """ Rename Project folder or THROW FileStructureException. """
-        try:     
-            path = self.get_project_folder(project_name)     
-            folder = os.path.split(path)[0]
-            new_full_name = os.path.join(folder, new_name)            
-        except Exception, excep:
-            self.logger.error("Could not rename node!")
-            self.logger.exception(excep)
-            raise FileStructureException("Could not Rename:" + str(new_name))
-        if os.path.exists(new_full_name):
-            raise FileStructureException("File already used " + str(new_name) + " Can not add a duplicate!")
         try:
+            path = self.get_project_folder(project_name)
+            folder = os.path.split(path)[0]
+            new_full_name = os.path.join(folder, new_name)
+
+            if os.path.exists(new_full_name):
+                raise IOError("Path exists %s " % new_full_name)
+
             os.rename(path, new_full_name)
             return path, new_full_name
-        except Exception, excep:
-            self.logger.error("Could not rename node!")
-            self.logger.exception(excep)
-            raise FileStructureException("Could not Rename: " + str(new_name))
+        except Exception:
+            self.logger.exception("Could not rename node!")
+            raise FileStructureException("Could not rename to %s" % new_name)
     
     
     def remove_project_structure(self, project_name):
@@ -151,16 +148,26 @@ class FilesHelper():
         complete_path = os.path.join(complete_path, self.TVB_PROJECT_FILE)
         return complete_path
     
-    
+
+    def read_project_metadata(self, project_path):
+        project_cfg_file = os.path.join(project_path, self.TVB_PROJECT_FILE)
+        return XMLReader(project_cfg_file).read_metadata()
+
+
+    def write_project_metadata_from_dict(self, project_path, meta_dictionary):
+        project_cfg_file = os.path.join(project_path, self.TVB_PROJECT_FILE)
+        meta_entity = GenericMetaData(meta_dictionary)
+        XMLWriter(meta_entity).write(project_cfg_file)
+        os.chmod(project_path, TVBSettings.ACCESS_MODE_TVB_FILES)
+
+
     def write_project_metadata(self, project):
         """
         :param project: Project instance, to get metadata from it.
         """
-        proj_path = self.get_project_meta_file_path(project.name)
+        proj_path = self.get_project_folder(project.name)
         _, meta_dictionary = project.to_dict()
-        meta_entity = GenericMetaData(meta_dictionary)
-        XMLWriter(meta_entity).write(proj_path)
-        os.chmod(proj_path, TVBSettings.ACCESS_MODE_TVB_FILES)
+        self.write_project_metadata_from_dict(proj_path, meta_dictionary)
         
      
     ############# OPERATION related METHODS Start Here #########################
@@ -269,14 +276,13 @@ class FilesHelper():
     
     
     ######################## IMAGES METHODS Start Here #######################    
-    def get_images_folder(self, project_name, operation_id):
+    def get_images_folder(self, project_name):
         """
         Computes the name/path of the folder where to store images.
         """
-        operation_folder = self.get_operation_folder(project_name, operation_id)
-        images_folder = os.path.join(operation_folder, self.IMAGES_FOLDER)
-        if not os.path.exists(images_folder):
-            self.check_created(images_folder)
+        project_folder = self.get_project_folder(project_name)
+        images_folder = os.path.join(project_folder, self.IMAGES_FOLDER)
+        self.check_created(images_folder)
         return images_folder
         
     def write_image_metadata(self, figure):
@@ -300,7 +306,7 @@ class FilesHelper():
         Computes full path of image meta data XML file. 
         """
         name = figure.file_path.split('.')[0]
-        images_folder = self.get_images_folder(figure.project.name, figure.operation.id)
+        images_folder = self.get_images_folder(figure.project.name)
         return os.path.join(TVBSettings.TVB_STORAGE, images_folder, name + XMLWriter.FILE_EXTENSION)
     
     
@@ -385,24 +391,33 @@ class FilesHelper():
      
     def unpack_zip(self, uploaded_zip, folder_path):
         """ Simple method to unpack ZIP archive in a given folder. """
+        EXCLUDED_FOLDERS = ["__MACOSX" + os.path.sep, ".DS_Store" + os.path.sep]
         try:
             zip_arch = zipfile.ZipFile(uploaded_zip)
             result = []
             for filename in zip_arch.namelist():
+                to_be_excluded = False
+                for excluded in EXCLUDED_FOLDERS:
+                    if filename.startswith(excluded) or filename.find(os.path.sep + excluded) >= 0:
+                        to_be_excluded = True
+                        break
+                if to_be_excluded:
+                    continue
                 new_file_name = os.path.join(folder_path, filename)
                 src = zip_arch.open(filename, 'rU')
                 if new_file_name.endswith('/'):
-                    os.makedirs(new_file_name)
+                    if not os.path.exists(new_file_name):
+                        os.makedirs(new_file_name)
                 else:
                     FilesHelper.copy_file(src, new_file_name)
                 result.append(new_file_name)
             return result
         except BadZipfile, excep:
-            self.logger.error(excep)
-            raise FileStructureException("Invalid ZIP file...")
+            self.logger.exception("Could not process zip file")
+            raise FileStructureException("Invalid ZIP file..." + str(excep))
         except Exception, excep:
-            self.logger.error(excep)
-            raise FileStructureException("Could not unpack the given ZIP file...")
+            self.logger.exception("Could not process zip file")
+            raise FileStructureException("Could not unpack the given ZIP file..." + str(excep))
             
 
     @staticmethod
@@ -471,8 +486,8 @@ class FilesHelper():
         if os.path.isfile(file_path):
             return int(os.path.getsize(file_path) / 1024)
         return 0
-        
-        
+
+
 class TvbZip(ZipFile):
     def __init__(self, dest_path, mode="r"):
         ZipFile.__init__(self, dest_path, mode, ZIP_DEFLATED, True)
@@ -483,15 +498,25 @@ class TvbZip(ZipFile):
     def __exit__(self, _type, _value, _traceback):
         self.close()
 
-    def write_folder(self, folder, arcprefix=""):
+    def write_folder(self, folder, archive_path_prefix="", exclude=None):
         """
         write folder contents in archive
+        :param archive_path_prefix: root folder in archive. Defaults to "" the archive root
+        :param exclude: a list of file or folder names that will be recursively excluded
         """
-        for root, _, files in os.walk(folder):
-            #NOTE: ignore empty directories
+        if exclude is None:
+            exclude = []
+
+        for root, dirs, files in os.walk(folder):
+            for ex in exclude:
+                if ex in dirs:
+                    dirs.remove(ex)
+                if ex in files:
+                    files.remove(ex)
+
             for file_n in files:
                 abs_file_n = os.path.join(root, file_n)
                 zip_file_n = abs_file_n[len(folder) + len(os.sep):]
-                self.write(abs_file_n, arcprefix + zip_file_n)
+                self.write(abs_file_n, archive_path_prefix + zip_file_n)
 
     # TODO: move filehelper's zip methods here

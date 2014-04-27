@@ -365,22 +365,18 @@ class BurstServiceTest(BaseTestCase):
         """
         Test the branching of an existing burst.
         """
-        burst_config = self._prepare_and_launch_async_burst(wait_to_finish=80)
+        burst_config = self._prepare_and_launch_async_burst(wait_to_finish=60)
         burst_config.tabs = []
 
         algo_id, connectivity = self._burst_create_connectivity()
         launch_params = copy.deepcopy(SIMULATOR_PARAMETERS)
         launch_params['connectivity'] = dao.get_datatype_by_id(connectivity.id).gid
-        launch_params['simulation_length'] = '100'
+        launch_params['simulation_length'] = '9'
         burst_config.update_simulator_configuration(launch_params)
 
         burst_id, _ = self.burst_service.launch_burst(burst_config, 0, algo_id, self.test_user.id, "branch")
         burst_config = dao.get_burst_by_id(burst_id)
-        burst_config = self._wait_for_burst(burst_config, 95)
-
-        if burst_config.status != BurstConfiguration.BURST_FINISHED:
-            self.burst_service.stop_burst(burst_config)
-            self.fail("Burst should have finished succesfully.")
+        self._wait_for_burst(burst_config)
 
         ts_regions = self.get_all_entities(TimeSeriesRegion)
         sim_states = self.get_all_entities(SimulationState)
@@ -394,16 +390,13 @@ class BurstServiceTest(BaseTestCase):
         it would be from a Parameter Space Exploration. Check that the workflows are also
         deleted with the burst.
         """
-        burst_config = self._prepare_and_launch_async_burst(length=1, is_range=True, nr_ops=4, wait_to_finish=100)
+        burst_config = self._prepare_and_launch_async_burst(length=1, is_range=True, nr_ops=4, wait_to_finish=60)
 
         launched_workflows = dao.get_workflows_for_burst(burst_config.id)
         self.assertEqual(len(launched_workflows), 4, "4 workflows should have been launched due to group parameter.")
 
-        if burst_config.status != BurstConfiguration.BURST_FINISHED:
-            self.burst_service.stop_burst(burst_config)
-            self.fail("Burst status should have been FINISH. Instead got %s" % (burst_config.status,))
         got_deleted = self.burst_service.cancel_or_remove_burst(burst_config.id)
-        self.assertTrue(got_deleted, "Burst should be deleted if status is cancelled.")
+        self.assertTrue(got_deleted, "Burst should be deleted")
 
         launched_workflows = dao.get_workflows_for_burst(burst_config.id)
         self.assertEqual(len(launched_workflows), 0, "No workflows should remain after delete.")
@@ -494,11 +487,9 @@ class BurstServiceTest(BaseTestCase):
         burst_config = dao.get_burst_by_id(burst_id)
         self.assertTrue(burst_config.status in (BurstConfiguration.BURST_FINISHED, BurstConfiguration.BURST_RUNNING),
                         "Burst not launched successfully!")
-        # Wait maximum 40 seconds for burst to finish
-        burst_config = self._wait_for_burst(burst_config, timeout=40)
-        if burst_config.status == BurstConfiguration.BURST_ERROR:
-            self.burst_service.stop_burst(burst_config)
-            self.fail("Burst failed with error status.")
+        # Wait maximum x seconds for burst to finish
+        self._wait_for_burst(burst_config)
+
 
 
     def test_load_group_burst(self):
@@ -515,15 +506,12 @@ class BurstServiceTest(BaseTestCase):
         burst_config.update_simulator_configuration(launch_params)
         burst_id, _ = self.burst_service.launch_burst(burst_config, 0, algo_id, self.test_user.id)
         burst_config = dao.get_burst_by_id(burst_id)
-        # Wait maximum 40 seconds for burst to finish
-        burst_config = self._wait_for_burst(burst_config, timeout=40)
+        # Wait maximum x seconds for burst to finish
+        self._wait_for_burst(burst_config)
 
         launched_workflows = dao.get_workflows_for_burst(burst_id)
         self.assertEqual(len(launched_workflows), 3, "3 workflows should have been launched due to group parameter.")
 
-        if burst_config.status != BurstConfiguration.BURST_FINISHED:
-            self.burst_service.stop_burst(burst_config)
-            self.fail("Burst status should have been FINISH. Instead got %s" % (burst_config.status,))
         _, group_id = self.burst_service.load_burst(burst_id)
         self.assertTrue(group_id >= 0, "Should be part of group.")
         datatype_measures = self.get_all_entities(DatatypeMeasure)
@@ -543,11 +531,9 @@ class BurstServiceTest(BaseTestCase):
         burst_config.update_simulator_configuration(kwargs_replica)
         burst_id, _ = self.burst_service.launch_burst(burst_config, 0, algo_id, self.test_user.id)
         burst_config = dao.get_burst_by_id(burst_id)
-        #Wait maximum 40 seconds for burst to finish
-        burst_config = self._wait_for_burst(burst_config, timeout=40)
-        if burst_config.status != BurstConfiguration.BURST_ERROR:
-            self.burst_service.stop_burst(burst_config)
-            self.fail("Burst should have failed due to invalid first step data.")
+        #Wait maximum x seconds for burst to finish
+        self._wait_for_burst(burst_config, error_expected=True)
+
 
 
     def test_launch_burst_invalid_simulator_data(self):
@@ -562,11 +548,8 @@ class BurstServiceTest(BaseTestCase):
         burst_config.update_simulator_configuration(kwargs_replica)
         burst_id, _ = self.burst_service.launch_burst(burst_config, 0, algo_id, self.test_user.id)
         burst_config = dao.get_burst_by_id(burst_id)
-        #Wait maximum 40 seconds for burst to finish
-        burst_config = self._wait_for_burst(burst_config, timeout=40)
-        if burst_config.status != BurstConfiguration.BURST_ERROR:
-            self.burst_service.stop_burst(burst_config)
-            self.fail("Burst should have failed due to invalid first step data.")
+        #Wait maximum x seconds for burst to finish
+        self._wait_for_burst(burst_config, error_expected=True)
 
 
     def test_launch_burst_invalid_portlet_analyzer_data(self):
@@ -589,17 +572,15 @@ class BurstServiceTest(BaseTestCase):
 
         burst_id, _ = self.burst_service.launch_burst(burst_config, 0, algo_id, self.test_user.id)
         burst_config = dao.get_burst_by_id(burst_id)
-        #Wait maximum 40 seconds for burst to finish
-        burst_config = self._wait_for_burst(burst_config, timeout=40)
-        if burst_config.status != BurstConfiguration.BURST_ERROR:
-            self.burst_service.stop_burst(burst_config)
-            self.fail("Burst should have failed due to invalid first step data.")
+        #Wait maximum x seconds for burst to finish
+        burst_config = self._wait_for_burst(burst_config, error_expected=True)
+
         burst_wf = dao.get_workflows_for_burst(burst_config.id)[0]
         wf_steps = dao.get_workflow_steps(burst_wf.id)
         self.assertTrue(len(wf_steps) == 2,
                         "Should have exactly 2 wf steps. One for 'simulation' one for portlet analyze operation.")
         simulator_op = dao.get_operation_by_id(wf_steps[0].fk_operation)
-        self.assertEqual(simulator_op.status, model.STATUS_FINISHED,
+        self.assertEqual(model.STATUS_FINISHED, simulator_op.status,
                          "First operation should be simulator which should have 'finished' status.")
         portlet_analyze_op = dao.get_operation_by_id(wf_steps[1].fk_operation)
         self.assertEqual(portlet_analyze_op.status, model.STATUS_ERROR,
@@ -609,9 +590,9 @@ class BurstServiceTest(BaseTestCase):
     def test_launch_group_burst_happy_flow(self):
         """
         Happy flow of launching a burst with a range parameter. Expect to get both and operation
-        group and a datatype group for the results of the simulations and for the metric steps.
+        group and a DataType group for the results of the simulations and for the metric steps.
         """
-        burst_config = self._prepare_and_launch_async_burst(length=1, is_range=True, nr_ops=4, wait_to_finish=140)
+        burst_config = self._prepare_and_launch_async_burst(length=1, is_range=True, nr_ops=4, wait_to_finish=120)
         if burst_config.status != BurstConfiguration.BURST_FINISHED:
             self.burst_service.stop_burst(burst_config)
             self.fail("Burst should have finished successfully.")
@@ -640,11 +621,8 @@ class BurstServiceTest(BaseTestCase):
         burst_config.update_simulator_configuration(kwargs_replica)
         burst_id, _ = self.burst_service.launch_burst(burst_config, 0, algo_id, self.test_user.id)
         burst_config = dao.get_burst_by_id(burst_id)
-        # Wait maximum 40 seconds for burst to finish
-        burst_config = self._wait_for_burst(burst_config, timeout=40)
-        if burst_config.status != BurstConfiguration.BURST_ERROR:
-            self.burst_service.stop_burst(burst_config)
-            self.fail("Burst should have failed due to metric step expecting a timeseries.")
+        # Wait maximum x seconds for burst to finish
+        self._wait_for_burst(burst_config, error_expected=True)
 
         launched_workflows = dao.get_workflows_for_burst(burst_id)
         self.assertEqual(len(launched_workflows), 3, "3 workflows should have been launched due to group parameter.")
@@ -673,7 +651,7 @@ class BurstServiceTest(BaseTestCase):
         burst_config.update_simulator_configuration(kwargs_replica)
         burst_id, _ = self.burst_service.launch_burst(burst_config, 0, algo_id, self.test_user.id)
         burst_config = dao.get_burst_by_id(burst_id)
-        burst_config = self._wait_for_burst(burst_config, timeout=40)
+        burst_config = self._wait_for_burst(burst_config)
         burst_wf = dao.get_workflows_for_burst(burst_config.id)[0]
         wf_step = dao.get_workflow_steps(burst_wf.id)[0]
         burst_config.prepare_after_load()
@@ -690,10 +668,10 @@ class BurstServiceTest(BaseTestCase):
                     self.assertTrue(portlet is None, "Before loading the tab configuration all portlets should be none")
 
 
-    def _wait_for_burst(self, burst_config, timeout=40):
+    def _wait_for_burst(self, burst_config, error_expected=False, timeout=40):
         """
-        Method that just waits until a burst configuration is finished or a maximum
-        timeout is reached.
+        Method that just waits until a burst configuration is finished or a maximum timeout is reached.
+
         :param burst_config: the burst configuration that should be waited on
         :param timeout: the maximum number of seconds to wait after the burst
         """
@@ -702,8 +680,21 @@ class BurstServiceTest(BaseTestCase):
             sleep(1)
             waited += 1
             burst_config = dao.get_burst_by_id(burst_config.id)
+
         if waited > timeout:
-            self.fail("Timed out waiting for simulations to finish.")
+            self.burst_service.stop_burst(burst_config)
+            self.fail("Timed out waiting for simulations to finish. We will cancel it")
+
+        if error_expected and burst_config.status != BurstConfiguration.BURST_ERROR:
+            self.burst_service.stop_burst(burst_config)
+            self.fail("Burst should have failed due to invalid input data.")
+
+        if (not error_expected) and burst_config.status != BurstConfiguration.BURST_FINISHED:
+            msg = "Burst status should have been FINISH. Instead got %s %s" % (burst_config.status,
+                                                                               burst_config.error_message)
+            self.burst_service.stop_burst(burst_config)
+            self.fail(msg)
+
         return burst_config
 
 
@@ -716,11 +707,11 @@ class BurstServiceTest(BaseTestCase):
         self.assertEqual(first_burst.status, second_burst.status, "Statuses not equal for bursts.")
 
 
-    def _prepare_and_launch_async_burst(self, length=100, is_range=False, nr_ops=0, wait_to_finish=0):
+    def _prepare_and_launch_async_burst(self, length=10, is_range=False, nr_ops=0, wait_to_finish=0):
         """
-        Launch an asyncronous burst with a simulation having all the default parameters, only the length recieved as
+        Launch an asynchronous burst with a simulation having all the default parameters, only the length received as
         a parameters. This is launched with actual simulator and not with a dummy test adapter as replacement.
-        :param length: the lenght of the simulation in miliseconds. This is also used in case we need
+        :param length: the length of the simulation in milliseconds. This is also used in case we need
             a group burst, in which case we will have `nr_ops` simulations with lengths starting from 
             `length` to `length + nr_ops` milliseconds
         :param is_range: a boolean which switches between a group burst and a non group burst.
@@ -750,14 +741,14 @@ class BurstServiceTest(BaseTestCase):
             __waited += 1
 
         if wait_to_finish:
-            burst_config = self._wait_for_burst(burst_config, wait_to_finish)
+            burst_config = self._wait_for_burst(burst_config, timeout=wait_to_finish)
         return burst_config
 
 
     def _prepare_and_launch_sync_burst(self):
         """
         Private method to launch a dummy burst. Return the burst loaded after the launch finished
-        as well as the workflow steps that innitialy formed the burst.
+        as well as the workflow steps that initially formed the burst.
         NOTE: the burst launched by this method is a `dummy` one, meaning we do not use an actual
         simulation, but instead test adapters.
         """
@@ -767,8 +758,8 @@ class BurstServiceTest(BaseTestCase):
         test_portlet = dao.get_portlet_by_identifier(self.PORTLET_ID)
 
         stored_dt = datatypes_factory.DatatypesFactory()._store_datatype(Datatype1())
-        first_step_algorithm = self.flow_service.get_algorithm_by_module_and_class("tvb.tests.framework.adapters.testadapter1",
-                                                                                   "TestAdapterDatatypeInput")[0]
+        first_step_algorithm = self.flow_service.get_algorithm_by_module_and_class(
+            "tvb.tests.framework.adapters.testadapter1", "TestAdapterDatatypeInput")[0]
         metadata = {DataTypeMetaData.KEY_BURST: burst_config.id}
         kwargs = {"test_dt_input": stored_dt.gid, 'test_non_dt_input': '0'}
         operations, group = self.operation_service.prepare_operations(self.test_user.id, self.test_project.id,

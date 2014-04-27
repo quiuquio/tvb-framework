@@ -35,7 +35,7 @@
 import threading
 from functools import wraps
 from types import FunctionType
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -57,6 +57,19 @@ if cfg.SELECTED_DB == 'postgres':
 else:
     ### SqlLite does not support pool-size
     DB_ENGINE = create_engine(cfg.DB_URL, pool_recycle=5)
+
+    def __have_journal_in_memory(con, con_record):
+        con.execute("PRAGMA journal_mode = MEMORY")
+        con.execute("PRAGMA synchronous = OFF")
+        con.execute("PRAGMA temp_store = MEMORY")
+        con.execute("PRAGMA cache_size = 500000")
+
+    if getattr(cfg, "TRADE_CRASH_SAFETY_FOR_SPEED", False):
+        # uncomment for speed and no crash safety
+        # use only in development
+        LOGGER.warn("TRADE_CRASH_SAFETY_FOR_SPEED is on")
+        event.listen(DB_ENGINE, 'connect', __have_journal_in_memory)
+
 
 SA_SESSIONMAKER = sessionmaker(bind=DB_ENGINE)
 

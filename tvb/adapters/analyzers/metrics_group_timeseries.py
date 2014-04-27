@@ -32,6 +32,7 @@
 Adapter that uses the traits module to generate interfaces for group of 
 Analyzer used to calculate a single measure for TimeSeries.
 
+.. moduleauthor:: Paula Sanz Leon <pau.sleon@gmail.com>
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 .. moduleauthor:: Stuart A. Knock <Stuart@tvb.invalid>
 .. moduleauthor:: Lia Domide <lia.domide@codemart.ro>
@@ -39,14 +40,14 @@ Analyzer used to calculate a single measure for TimeSeries.
 """
 
 import numpy
-from tvb.core.adapters.abcadapter import ABCAsynchronous, ABCAdapter
-from tvb.datatypes.time_series import TimeSeries
-from tvb.datatypes.mapped_values import DatatypeMeasure
+from tvb.analyzers.metrics_base import BaseTimeseriesMetricAlgorithm
 from tvb.basic.traits.util import log_debug_array
 from tvb.basic.traits.parameters_factory import get_traited_subclasses
 from tvb.basic.filters.chain import FilterChain
-from tvb.analyzers.metrics_base import BaseTimeseriesMetricAlgorithm
 from tvb.basic.logger.builder import get_logger
+from tvb.core.adapters.abcadapter import ABCAsynchronous, ABCAdapter
+from tvb.datatypes.time_series import TimeSeries
+from tvb.datatypes.mapped_values import DatatypeMeasure
 
 
 LOG = get_logger(__name__)
@@ -54,7 +55,9 @@ LOG = get_logger(__name__)
 
 
 class TimeseriesMetricsAdapter(ABCAsynchronous):
-    """ TVB adapter for calling the VarianceNodeVariance algorithm. """
+    """
+    TVB adapter for exposing as a group the measure algorithm.
+    """
 
     _ui_name = "TimeSeries Metrics"
     _ui_description = "Compute a single number for a TimeSeries input DataType."
@@ -66,27 +69,28 @@ class TimeseriesMetricsAdapter(ABCAsynchronous):
         """
         Compute interface based on introspected algorithms found.
         """
-        input_tree = [{'name': 'time_series', 'label': 'TimeSeries to be analyzed: ',
-                       'type': TimeSeries, 'required': True,
-                       'conditions': FilterChain(fields=[FilterChain.datatype + '._nr_dimensions'],
-                                                 operations=["=="], values=[4]),
-                       'description': 'Input TimeSeries on which to launch available metrics.'}]
+        algorithm = BaseTimeseriesMetricAlgorithm()
+        algorithm.trait.bound = self.INTERFACE_ATTRIBUTES_ONLY
+        tree = algorithm.interface[self.INTERFACE_ATTRIBUTES]
+        tree[0]['conditions'] = FilterChain(fields=[FilterChain.datatype + '._nr_dimensions'],
+                                            operations=["=="], values=[4])
 
         algo_names = self.available_algorithms.keys()
         options = []
         for name in algo_names:
             options.append({ABCAdapter.KEY_NAME: name, ABCAdapter.KEY_VALUE: name})
-        input_tree.append({'name': 'algorithms', 'label': 'Selected metrics to be applied',
-                           'type': ABCAdapter.TYPE_MULTIPLE, 'required': False, 'options': options,
-                           'description': 'The selected metric algorithms will be applied on the input TimeSeries'})
-        return input_tree
+        tree.append({'name': 'algorithms', 'label': 'Selected metrics to be applied',
+                     'type': ABCAdapter.TYPE_MULTIPLE, 'required': False, 'options': options,
+                     'description': 'The selected metric algorithms will be applied on the input TimeSeries'})
+
+        return tree
 
 
     def get_output(self):
         return [DatatypeMeasure]
 
 
-    def configure(self, time_series, algorithms=None):
+    def configure(self, time_series, **kwargs):
         """
         Store the input shape to be later used to estimate memory usage.
         """
@@ -108,7 +112,7 @@ class TimeseriesMetricsAdapter(ABCAsynchronous):
         return 0
 
 
-    def launch(self, time_series, algorithms=None):
+    def launch(self, time_series, algorithms=None, start_point=None, segment=None):
         """ 
         Launch algorithm and build results.
 
@@ -120,6 +124,7 @@ class TimeseriesMetricsAdapter(ABCAsynchronous):
         """
         if algorithms is None:
             algorithms = self.available_algorithms.keys()
+
         shape = time_series.read_data_shape()
         log_debug_array(LOG, time_series, "time_series")
 
@@ -135,6 +140,11 @@ class TimeseriesMetricsAdapter(ABCAsynchronous):
 
             ##-------------------- Fill Algorithm for Analysis -------------------##
             algorithm = self.available_algorithms[algorithm_name](time_series=unstored_ts)
+            if segment is not None:
+                algorithm.segment = segment
+            if start_point is not None:
+                algorithm.start_point = start_point
+
             ## Validate that current algorithm's filter is valid.
             if (algorithm.accept_filter is not None and
                     not algorithm.accept_filter.get_python_filter_equivalent(time_series)):
@@ -145,8 +155,11 @@ class TimeseriesMetricsAdapter(ABCAsynchronous):
                 LOG.debug("Applying measure: " + str(algorithm_name))
 
             unstored_result = algorithm.evaluate()
-            ##----------------- Prepare a Float object for result ----------------##
-            metrics_results[algorithm_name] = unstored_result
+            ##----------------- Prepare a Float object(s) for result ----------------##
+            if isinstance(unstored_result, dict):
+                metrics_results.update(unstored_result)
+            else:
+                metrics_results[algorithm_name] = unstored_result
 
         result = DatatypeMeasure(analyzed_datatype=time_series, storage_path=self.storage_path,
                                  data_name=self._ui_name, metrics=metrics_results)

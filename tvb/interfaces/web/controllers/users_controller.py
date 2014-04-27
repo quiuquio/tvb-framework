@@ -35,79 +35,41 @@ but also user related annotation (checked-logged).
 
 .. moduleauthor:: Lia Domide <lia.domide@codemart.ro>
 """
+
+import json
 import cherrypy
 import formencode
+from formencode import validators
 from hashlib import md5
 from urllib2 import urlopen
-from formencode import validators
 from tvb.basic.config.settings import TVBSettings as cfg
 from tvb.core.services.user_service import UserService, KEY_PASSWORD, KEY_EMAIL, KEY_USERNAME, KEY_COMMENT
 from tvb.core.services.project_service import ProjectService
 from tvb.core.services.exceptions import UsernameException
-from tvb.core.services.settings_service import SettingsService
-from tvb.interfaces.web.controllers.base_controller import using_template, ajax_call, settings
-import tvb.interfaces.web.controllers.base_controller as basecontroller
-from functools import wraps
+from tvb.interfaces.web.controllers import common
+from tvb.interfaces.web.controllers.base_controller import BaseController
+from tvb.interfaces.web.controllers.decorators import handle_error, using_template, settings
+from tvb.interfaces.web.controllers.decorators import check_user, expose_json, check_admin
+
 
 KEY_SERVER_VERSION = "versionInfo"
 KEY_CURRENT_VERSION_FULL = "currentVersionLongText"
 KEY_NEED_FILE_STORAGE_UPG = "needFileStorageUpgrade"
 
 
-def logged():
-    """
-    Annotation to check if a user is logged before accessing a controller method.
-    """
-
-    def dec(func):
-        @wraps(func)
-        def deco(*a, **b):            
-            if hasattr(cherrypy, basecontroller.KEY_SESSION):
-                if basecontroller.get_logged_user():
-                    return func(*a, **b)
-
-            basecontroller.set_error_message('Login Required!')
-            raise cherrypy.HTTPRedirect('/user')
-
-        return deco
-
-    return dec
-
-
-def admin():
-    """
-    Annotation to check if a user is administrator before accessing a controller method
-    """
-
-    def dec(func):
-        """ Annotation wrapping web public function"""
-
-        def deco(*a, **b):
-            """ Decorator for public method"""
-            if hasattr(cherrypy, basecontroller.KEY_SESSION):
-                user = basecontroller.get_logged_user()
-                if (user is not None and user.is_administrator()) or SettingsService.is_first_run():
-                    return func(*a, **b)
-            basecontroller.set_error_message('Only Administrators can access this application area!')
-            raise cherrypy.HTTPRedirect('/tvb')
-
-        return deco
-
-    return dec
-
-
-class UserController(basecontroller.BaseController):
+class UserController(BaseController):
     """
     This class takes care of the user authentication and/or register.
     """
 
     def __init__(self):
-        basecontroller.BaseController.__init__(self)
+        BaseController.__init__(self)
 
 
     @cherrypy.expose
+    @handle_error(redirect=True)
     @using_template('user/base_user')
-    @settings()
+    @settings
     def index(self, **data):
         """
         Login page (with or without messages).
@@ -121,8 +83,8 @@ class UserController(basecontroller.BaseController):
                 password = data[KEY_PASSWORD]
                 user = self.user_service.check_login(username, password)
                 if user is not None:
-                    basecontroller.add2session(basecontroller.KEY_USER, user)
-                    basecontroller.set_info_message('Welcome ' + username)
+                    common.add2session(common.KEY_USER, user)
+                    common.set_info_message('Welcome ' + username)
                     self.logger.debug("User " + username + " has just logged in!")
                     if user.selected_project is not None:
                         prj = user.selected_project
@@ -130,18 +92,19 @@ class UserController(basecontroller.BaseController):
                         self._mark_selected(prj)
                     raise cherrypy.HTTPRedirect('/user/profile')
                 else:
-                    basecontroller.set_error_message('Wrong username/password, or user not yet validated...')
+                    common.set_error_message('Wrong username/password, or user not yet validated...')
                     self.logger.debug("Wrong username " + username + " !!!")
             except formencode.Invalid, excep:
-                template_specification[basecontroller.KEY_ERRORS] = excep.unpack_errors()
+                template_specification[common.KEY_ERRORS] = excep.unpack_errors()
 
         return self.fill_default_attributes(template_specification)
 
 
     @cherrypy.expose
+    @handle_error(redirect=True)
     @using_template('user/base_user')
-    @settings()
-    @logged()
+    @check_user
+    @settings
     def profile(self, logout=False, save=False, **data):
         """
         Display current user's profile page.
@@ -154,7 +117,7 @@ class UserController(basecontroller.BaseController):
             try:
                 form = EditUserForm()
                 data = form.to_python(data)
-                user = basecontroller.get_logged_user()
+                user = common.get_logged_user()
                 if KEY_PASSWORD in data and data[KEY_PASSWORD]:
                     user.password = md5(data[KEY_PASSWORD]).hexdigest()
                 if KEY_EMAIL in data and data[KEY_EMAIL]:
@@ -164,57 +127,69 @@ class UserController(basecontroller.BaseController):
                     old_password = md5(data['old_password']).hexdigest()
                 self.user_service.edit_user(user, old_password)
                 if old_password:
-                    basecontroller.set_info_message("Changes Submitted!")
+                    common.set_info_message("Changes Submitted!")
                 else:
-                    basecontroller.set_info_message("Submitted!  No password changed.")
+                    common.set_info_message("Submitted!  No password changed.")
             except formencode.Invalid, excep:
-                template_specification[basecontroller.KEY_ERRORS] = excep.unpack_errors()
+                template_specification[common.KEY_ERRORS] = excep.unpack_errors()
             except UsernameException, excep:
                 self.logger.exception(excep)
-                user = basecontroller.get_logged_user()
-                basecontroller.add2session(basecontroller.KEY_USER, self.user_service.get_user_by_id(user.id))
-                basecontroller.set_error_message("Could not save changes. Probably wrong old password!!")
+                user = common.get_logged_user()
+                common.add2session(common.KEY_USER, self.user_service.get_user_by_id(user.id))
+                common.set_error_message("Could not save changes. Probably wrong old password!!")
         else:
-            user = basecontroller.get_logged_user()
+            user = common.get_logged_user()
             #Update session user since disk size might have changed from last time to profile.
             user = self.user_service.get_user_by_id(user.id)
-            basecontroller.add2session(basecontroller.KEY_USER, user)
+            common.add2session(common.KEY_USER, user)
         return self.fill_default_attributes(template_specification)
 
 
     @cherrypy.expose
-    @ajax_call()
-    @logged()
+    @handle_error(redirect=True)
+    @check_user
     def logout(self):
         """
         Logging out user and clean session
         """
-        user = basecontroller.remove_from_session(basecontroller.KEY_USER)
+        user = common.remove_from_session(common.KEY_USER)
         if user is not None:
             self.logger.debug("User " + user.username + " is just logging out!")
-        basecontroller.remove_from_session(basecontroller.KEY_PROJECT)
-        basecontroller.remove_from_session(basecontroller.KEY_BURST_CONFIG)
-        basecontroller.remove_from_session(basecontroller.KEY_CACHED_SIMULATOR_TREE)
-        basecontroller.set_info_message("Thank you for using The Virtual Brain!")
+        common.remove_from_session(common.KEY_PROJECT)
+        common.remove_from_session(common.KEY_BURST_CONFIG)
+        common.remove_from_session(common.KEY_CACHED_SIMULATOR_TREE)
+        common.set_info_message("Thank you for using The Virtual Brain!")
         raise cherrypy.HTTPRedirect("/user")
 
 
     @cherrypy.expose
-    @ajax_call()
-    @logged()
+    @handle_error(redirect=True)
+    @check_user
     def switchOnlineHelp(self):
         """
         Switch flag that displays online helps
         """
-        user = basecontroller.get_logged_user()
+        user = common.get_logged_user()
 
         # Change OnlineHelp Active flag and save user
         user.switch_online_help_state()
         self.user_service.edit_user(user)
         raise cherrypy.HTTPRedirect("/user/profile")
 
+    @expose_json
+    def get_viewer_color_scheme(self):
+        user = common.get_logged_user()
+        return user.get_viewers_color_scheme()
+
+    @expose_json
+    def set_viewer_color_scheme(self, color_scheme_name):
+        user = common.get_logged_user()
+        user.set_viewers_color_scheme(color_scheme_name)
+        self.user_service.edit_user(user)
+
 
     @cherrypy.expose
+    @handle_error(redirect=True)
     @using_template('user/base_user')
     def register(self, cancel=False, **data):
         """
@@ -227,17 +202,16 @@ class UserController(basecontroller.BaseController):
                 raise cherrypy.HTTPRedirect('/user')
             try:
                 okmessage = self._create_user(**data)
-                basecontroller.set_info_message(okmessage)
+                common.set_info_message(okmessage)
                 redirect = True
             except formencode.Invalid, excep:
-                template_specification[basecontroller.KEY_ERRORS] = excep.unpack_errors()
+                template_specification[common.KEY_ERRORS] = excep.unpack_errors()
                 redirect = False
             except Exception, excep1:
                 self.logger.error("Could not create user:" + data["username"])
                 self.logger.exception(excep1)
-                basecontroller.set_error_message("We are very sorry, but we could not create your " +
-                                                 "user. Most probably is because it was impossible" +
-                                                 " to sent emails. Please try again later...")
+                common.set_error_message("We are very sorry, but we could not create your user. Most probably is "
+                                         "because it was impossible to sent emails. Please try again later...")
                 redirect = False
 
         if redirect:
@@ -249,6 +223,7 @@ class UserController(basecontroller.BaseController):
 
 
     @cherrypy.expose
+    @handle_error(redirect=True)
     @using_template('user/base_user')
     def create_new(self, cancel=False, **data):
         """
@@ -266,15 +241,14 @@ class UserController(basecontroller.BaseController):
                 email_msg = """A TVB account was just created for you by an administrator.
                 Your credentials are username=%s, password=%s.""" % (data[KEY_USERNAME], data[KEY_PASSWORD])
                 self._create_user(email_msg=email_msg, validated=True, **data)
-                basecontroller.set_info_message("New user created successfully.")
+                common.set_info_message("New user created successfully.")
                 redirect = True
             except formencode.Invalid, excep:
-                template_specification[basecontroller.KEY_ERRORS] = excep.unpack_errors()
+                template_specification[common.KEY_ERRORS] = excep.unpack_errors()
             except Exception, excep:
                 self.logger.exceptrion(excep)
-                basecontroller.set_error_message("We are very sorry, but we could not create your " +
-                                                 "user. Most probably is because it was impossible" +
-                                                 " to sent emails. Please try again later...")
+                common.set_error_message("We are very sorry, but we could not create your user. Most probably is "
+                                         "because it was impossible to sent emails. Please try again later...")
         if redirect:
             raise cherrypy.HTTPRedirect('/user/usermanagement')
         else:
@@ -282,8 +256,9 @@ class UserController(basecontroller.BaseController):
 
 
     @cherrypy.expose
+    @handle_error(redirect=True)
     @using_template('user/base_user')
-    @admin()
+    @check_admin
     def usermanagement(self, cancel=False, page=1, do_persist=False, **data):
         """
         Display a table used for user management.
@@ -309,7 +284,7 @@ class UserController(basecontroller.BaseController):
             if not_deleted == 0 and page > 1:
                 page -= 1
 
-        admin_ = basecontroller.get_logged_user().username
+        admin_ = common.get_logged_user().username
         user_list, pages_no = self.user_service.retrieve_all_users(admin_, page)
         template_specification = dict(mainContent="user_management", title="Users management", page_number=page,
                                       total_pages=pages_no, userList=user_list, allRoles=UserService.USER_ROLES,
@@ -318,6 +293,7 @@ class UserController(basecontroller.BaseController):
 
 
     @cherrypy.expose
+    @handle_error(redirect=True)
     @using_template('user/base_user')
     def recoverpassword(self, cancel=False, **data):
         """
@@ -333,15 +309,15 @@ class UserController(basecontroller.BaseController):
             try:
                 data = form.to_python(data)
                 okmessage = self.user_service.reset_password(**data)
-                basecontroller.set_info_message(okmessage)
+                common.set_info_message(okmessage)
                 redirect = True
             except formencode.Invalid, excep:
-                template_specification[basecontroller.KEY_ERRORS] = excep.unpack_errors()
+                template_specification[common.KEY_ERRORS] = excep.unpack_errors()
                 redirect = False
             except UsernameException, excep1:
                 self.logger.error("Could not reset password!")
                 self.logger.exception(excep1)
-                basecontroller.set_error_message(excep1.message)
+                common.set_error_message(excep1.message)
                 redirect = False
         if redirect:
             #Redirect to login page, with some success message to display
@@ -351,8 +327,7 @@ class UserController(basecontroller.BaseController):
             return self.fill_default_attributes(template_specification)
 
 
-    @cherrypy.expose
-    @ajax_call()
+    @expose_json
     def upgrade_file_storage(self):
         """
         Upgrade the file storage to the latest version if needed.
@@ -363,8 +338,8 @@ class UserController(basecontroller.BaseController):
 
 
     @cherrypy.expose
-    @ajax_call()
-    @admin()
+    @handle_error(redirect=True)
+    @check_admin
     def validate(self, name):
         """
         A link to this page will be sent to the administrator to validate 
@@ -372,10 +347,10 @@ class UserController(basecontroller.BaseController):
         """
         success = self.user_service.validate_user(name)
         if not success:
-            basecontroller.set_error_message("Problem validating user:" + name + "!! Please check logs.")
+            common.set_error_message("Problem validating user:" + name + "!! Please check logs.")
             self.logger.error("Problem validating user " + name)
         else:
-            basecontroller.set_info_message("User Validated successfully and notification email sent!")
+            common.set_info_message("User Validated successfully and notification email sent!")
         raise cherrypy.HTTPRedirect('/tvb')
 
 
@@ -395,10 +370,10 @@ class UserController(basecontroller.BaseController):
         Fill into 'template_dictionary' data that we want to have ready in UI.
         """
         template_dictionary = self._populate_version(template_dictionary)
-        basecontroller.BaseController.fill_default_attributes(self, template_dictionary)
-        template_dictionary[basecontroller.KEY_INCLUDE_TOOLTIP] = True
-        template_dictionary[basecontroller.KEY_WRAP_CONTENT_IN_MAIN_DIV] = False
-        template_dictionary[basecontroller.KEY_CURRENT_TAB] = 'nav-user'
+        BaseController.fill_default_attributes(self, template_dictionary)
+        template_dictionary[common.KEY_INCLUDE_TOOLTIP] = True
+        template_dictionary[common.KEY_WRAP_CONTENT_IN_MAIN_DIV] = False
+        template_dictionary[common.KEY_CURRENT_TAB] = 'nav-user'
         return template_dictionary
 
 
@@ -410,12 +385,13 @@ class UserController(basecontroller.BaseController):
         if self.version_info is None:
             try:
                 content = urlopen(cfg.URL_TVB_VERSION, timeout=7).read()
-                self.version_info = self.flow_service.parse_version_xml(str(content))
-                pos = cfg.URL_TVB_VERSION.rfind('/')
+                self.version_info = json.loads(content)[0]
+                pos = cfg.URL_TVB_VERSION.find('/tvb')
                 self.version_info['url'] = cfg.URL_TVB_VERSION[:pos]
+                self.logger.debug("Read version: " + json.dumps(self.version_info))
             except Exception, excep:
-                self.logger.warning("Could not read current version.xml!")
-                self.logger.warning(content)
+                self.logger.warning("Could not read current version from remote server!")
+                self.logger.debug(content)
                 self.logger.exception(excep)
                 self.version_info = {}
         template_dictionary[KEY_SERVER_VERSION] = self.version_info
