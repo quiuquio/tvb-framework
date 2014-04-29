@@ -13,12 +13,12 @@ follow the instructions [in our documentation](https://github.com/the-virtual-br
 
 Alternatively, if you plan to develop with TVB, extensively modify code,
 or prefer to use your own Python installation, you may prefer to use the
-[tvb-pack]() repo which gathers together several required modules and a
+[tvb-pack](https://github.com/the-virtual-brain/tvb-pack) repo which gathers together several required modules and a
 few helpful tools.
 
 If you don't require the framework features listed above, the simulator 
 and associated scientific modules can be used independently; please see
-the [tvb-library]() repo.
+the [tvb-library](https://github.com/the-virtual-brain/tvb-library) repo.
 
 For more details, please see our [full documentation](http://docs.thevirtualbrain.org/).
 
