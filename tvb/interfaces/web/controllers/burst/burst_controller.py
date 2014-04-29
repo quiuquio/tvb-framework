@@ -312,13 +312,7 @@ class BurstController(BaseController):
         self._validate_burst_name(burst_name)
         self.burst_service.rename_burst(burst_id, burst_name)
 
-<<<<<<< HEAD
-    @cherrypy.expose
-    @ajax_call()
-=======
-
     @expose_json
->>>>>>> a2e4e98fa3c11a702b1f4143ace78997ef960e05
     def launch_burst(self, launch_mode, burst_name, **data):
         """
         Do the actual burst launch, using the configuration saved in current session.
