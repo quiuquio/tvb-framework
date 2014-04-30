@@ -5,6 +5,8 @@ time series and sensor data.
 
 """
 
+import os
+
 import numpy
 import scipy.io
 
@@ -12,6 +14,7 @@ from tvb.adapters.uploaders.abcuploader import ABCUploader
 from tvb.basic.logger.builder import get_logger
 from tvb.datatypes.time_series import TimeSeriesMEG, TimeSeriesEEG
 from tvb.datatypes.sensors import SensorsMEG, SensorsEEG
+
 
 class FieldTripUploader(ABCUploader):
     """
