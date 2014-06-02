@@ -44,7 +44,7 @@ color: #000;
 }
 
 /* !-------------------------------------------- */
-/* !COMPONENT: Visualizer GUI */
+/* !COMPONENT: Volume Time Series Visualizer GUI */
 /* !-------------------------------------------- */
 .volumetric-ts-ui {
 	height: 8%;
@@ -112,7 +112,7 @@ color: #000;
 	top: 19px;
 }
 
-#time-slider-min {
+#time-slider-value {
 	position: relative;
 	left: 101%; 
 	top: -3px;

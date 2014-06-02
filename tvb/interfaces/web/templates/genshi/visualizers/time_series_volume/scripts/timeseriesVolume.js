@@ -308,12 +308,18 @@ function customMouseMove(e) {
 // ==================================== PICKING RELATED CODE  END  ==========================================
 
 // ==================================== UI RELATED CODE START ===============================================
+/**
+ * Functions that calls all the setup functions for the main UI of the time series volume visualizer.
+*/
 function startUserInterface(){
     startButtomSet();
     startPositionSliders();
     startMovieSlider();
 }
 
+/**
+ * Function that creates all the buttons for playing, stoping and seeking time points.
+*/
 function startButtomSet(){
 	// we setup every buttom
     var container = $('#buttons')
@@ -335,7 +341,7 @@ function startButtomSet(){
     first.click(seekFirst);
     end.click(seekEnd);
 
-    // we setup the DOM element that will contain the buttoms
+    // we setup the DOM element that will contain the buttoms 
     container.buttonset();
 
     // add every buttom to the container and refresh it afterwards
@@ -345,6 +351,9 @@ function startButtomSet(){
     container.buttonset('refresh');
 }
 
+/**
+ * Code for the navigation slider. Creates the x,y,z sliders and adds labels
+*/
 function startPositionSliders(){
     var i = 0;
     var axArray = ["X", "Y", "Z"];
@@ -368,7 +377,7 @@ function startPositionSliders(){
             el = $('<label class="axis-name">'+axArray[i]+' Axis'+'</label>');        
             $(this).append(el);
             // The current value of the slider
-            el = $('<label class="slider-value">['+value+']</label>');    
+            el = $('<label class="slider-value" id="slider-'+axArray[i]+'-value">['+value+']</label>');    
             $(this).append(el);
             // The maximum value for the slider
             el = $('<label class="max-coord">'+opts.max+'</label>');
@@ -378,26 +387,25 @@ function startPositionSliders(){
     });
 }
 
+/**
+ * Code for "movie player" slider. Creates the slider and adds labels
+*/
 function startMovieSlider(){
-	/*
-     * Code for "movie player" slider
-     */
-
-    $("#time-position > span").each(function(){
+	    $("#time-position > span").each(function(){
         var value = 0;
         var opts = {
                         value: value,
                         min: 0,
-                        max: timeLength, //Time
+                        max: timeLength,
                         animate: true,
                         orientation: "horizontal",
                         range: "min",
-                        stop: moviePlayerMoveEnd, // we call this function *after* the slide is moved or the value changes
-                        slide: moviePlayerMove  //  we call this function whenever the slide is clicked AND moved  
+                        stop: moviePlayerMoveEnd,
+                        slide: moviePlayerMove   
                     };
         $(this).slider(opts).each(function(){
             // The starting point. Supposing it is always ZERO.
-            var el = $('<label id="time-slider-min>'+opts.min+'</label>');
+            var el = $('<label id="time-slider-min">'+opts.min+'</label>');
             $(this).append(el);
             // The actual time point we are seeing
             el = $('<label id="time-slider-value">'+value+'/'+timeLength+'</label>');
@@ -417,25 +425,30 @@ function stopPlayback(){
     window.clearInterval(playerIntervalID);
     playerIntervalID = null;
 }
+
 function playNextTimePoint(){
     currentTimePoint++;
     currentTimePoint = currentTimePoint%(timeLength+1)
     drawSceneFunctional(currentTimePoint)
 }
+
 function playPreviousTimePoint(){
     if(currentTimePoint == 0)
         currentTimePoint = timeLength+1
     drawSceneFunctional(--currentTimePoint)
 }
+
 function seekFirst(){
     currentTimePoint = 0
     drawSceneFunctional(currentTimePoint);
 }
+
 function seekEnd(){
     currentTimePoint = timeLength;
     drawSceneFunctional(currentTimePoint-1);
 }
 
+// Updates the position and values of the x,y,z navigation sliders when we click the canvas.
 function updateSliders(){
     var axArray = ["X", "Y", "Z"];
     var i = 0;
@@ -446,6 +459,7 @@ function updateSliders(){
     });
 }
 
+// Updated the player slider bar while playback is on.
 function updateMoviePlayerSlider(){
     $("#time-position > span").each(function(){
         $(this).slider("option", "value", currentTimePoint);
@@ -453,6 +467,7 @@ function updateMoviePlayerSlider(){
     })
 }
 
+// When the navigation sliders are moved, this redraws the scene accordingly.
 function slideMove(event, ui){
     var quadID = ["x-slider", "y-slider", "z-slider"].indexOf(event.target.id)
     var selectedQuad = quadrants[quadID];
@@ -467,17 +482,23 @@ function slideMove(event, ui){
     drawSceneFunctional(currentTimePoint);
 }
 
+// Updated the value at the end of the player bar when we move the handle.
 function moviePlayerMove(event, ui){
     $("#time-position > span").each(function(){
         //$(this).slider("option", "value", currentTimePoint);
         $('#time-slider-value').empty().text( ui.value+'/'+timeLength );
     })
 }
+
+/*
+* Redraws the scene at the selected timepoint at the end of a slide action.
+* Calling this during the the whole slide showed to be too expensive.
+* Thus, the new timepoint is drawn only when the user releases the click from the handler
+*/
 function moviePlayerMoveEnd(event, ui){
     currentTimePoint = ui.value;
     drawSceneFunctional(currentTimePoint);
 }
 
-
-
+// ==================================== CALLBACK FUCTIONS END ===============================================
 // ==================================== UI RELATED CODE END =================================================
