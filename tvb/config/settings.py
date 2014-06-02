@@ -581,7 +581,8 @@ class BaseProfile():
             number = ''.join([ch for ch in version_string if ch.isdigit()])
             return int(number)
         else:
-            return int(version_string)
+            #return int(version_string)
+            return 1
 
 
     @staticmethod
