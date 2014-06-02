@@ -346,57 +346,32 @@ function startButtomSet(){
 }
 
 function startPositionSliders(){
-	$('#sliders').css('float','left');
-
-    $( "#sliders > span" ).css({
-        "width":"150px",
-        "float":"left",
-        "margin":"15px"
-    });
-
     var i = 0;
     var axArray = ["X", "Y", "Z"];
-
     // We loop trough every slider
     $( "#sliders > span" ).each(function(){
         var value = selectedEntity[i];
         var opts = {
                         value: value,
                         min: 0,
-                        max: entitySize[i]-1,
+                        max: entitySize[i]-1, // yeah.. if we start from zero we need to subtract 1
                         animate: true,
                         orientation: "horizontal",
-                        change: slideMove, // call this function *after* the slide is moved or the value changes
-                        slide: slideMove  //  call this function whenever the slide is clicked and moved  
+                        change: slideMove, // call this function *after* the slide is moved OR the value changes
+                        slide: slideMove  //  we use this to keep it smooth.   
                     }
         $(this).slider(opts).each(function(){
             // The starting time point. Supposing it is always ZERO.
-            var el = $('<label>'+opts.min+'</label>').css({
-                "position": "relative",
-                "left": "0px",
-                "top":"17px"
-            });
+            var el = $('<label class="min-coord">'+opts.min+'</label>');
+            $(this).append(el);
             // The name of the slider
+            el = $('<label class="axis-name">'+axArray[i]+' Axis'+'</label>');        
             $(this).append(el);
-            el = $('<label>'+axArray[i]+' Axis'+'</label>').css({
-                "position": "relative",
-                "left": "30%",
-                "bottom":"21px"
-            });
             // The current value of the slider
+            el = $('<label class="slider-value">['+value+']</label>');    
             $(this).append(el);
-            el = $('<label id="slider-'+axArray[i]+'-value">['+value+']</label>').css({
-                "position": "relative",
-                "left": "8%",
-                "top":"17px"
-            });
             // The maximum value for the slider
-            $(this).append(el);
-            el = $('<label>'+opts.max+'</label>').css({
-                "position": "relative",
-                "left": "30%",
-                "top":"17px"
-            });
+            el = $('<label class="max-coord">'+opts.max+'</label>');
             $(this).append(el);
             i++; // let's do the same on the next slider now..
         })
@@ -407,17 +382,6 @@ function startMovieSlider(){
 	/*
      * Code for "movie player" slider
      */
-    
-    $('#time-position').css({
-        "float": "left",
-        "width": "80%",
-    })
-    $( "#time-position > span" ).css({
-        "width":"100%",
-        "float":"left",
-        "margin":"15px",
-        "margin-bottom":"40px"
-    });
 
     $("#time-position > span").each(function(){
         var value = 0;
@@ -433,36 +397,16 @@ function startMovieSlider(){
                     };
         $(this).slider(opts).each(function(){
             // The starting point. Supposing it is always ZERO.
-            var el = $('<label>'+opts.min+'</label>').css({
-                "position": "relative",
-                "left": "0px",
-                "top":"19px"
-            });
+            var el = $('<label id="time-slider-min>'+opts.min+'</label>');
             $(this).append(el);
-            el = $('<label id="time-slider-value">'+value+'/'+timeLength+'</label>').css({
-                "position": "relative",
-                "left": "101%",
-                "top":"-3px"
-            });
+            // The actual time point we are seeing
+            el = $('<label id="time-slider-value">'+value+'/'+timeLength+'</label>');
             $(this).append(el);
-            // Get the number of possible values
-            /*var vals = opts.max - opts.min; //TODO: add a threshold
-            // Space out values
-            for (var i = 0; i <= vals; i++) {
-                el = $('<label>'+" | "+'</label>').css({
-                    "left": ((i/vals)*100)+"%",
-                    "position": "absolute",
-                    "width": "20px",
-                    "margin-left": "-10px",
-                    "text-align": "center",
-                    //"margin-top": "20px"
-                    "top": "9px"
-                });
-                $(this).append(el);
-            }*/
         });
     });
 }
+
+// ==================================== CALLBACK FUCTIONS START ===============================================
 
 function playBack(){
     if(!playerIntervalID)
