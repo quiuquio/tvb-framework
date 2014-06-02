@@ -309,11 +309,6 @@ function customMouseMove(e) {
 
 // ==================================== UI RELATED CODE START ===============================================
 function startUserInterface(){
-
-    $('.volumetric-ts-ui').css({
-            "height":"8%",
-            "padding": "1px"
-        });
     startButtomSet();
     startPositionSliders();
     startMovieSlider();
@@ -331,11 +326,6 @@ function startButtomSet(){
 
     // put the buttoms on an array for easier manipulation
     buttonsArray = [first, prev, playButton, stopButton, next, end];
-    buttonsArray.forEach(function(entry){
-        entry.css({
-            "height":"inherit"
-        })
-    })
 
     //we attach event listeners to buttoms as needed
     playButton.click(playBack);
@@ -347,11 +337,6 @@ function startButtomSet(){
 
     // we setup the DOM element that will contain the buttoms
     container.buttonset();
-    container.css({
-        "height": "50px",
-        "float": "left",
-        "clear": "left"
-    });
 
     // add every buttom to the container and refresh it afterwards
     buttonsArray.forEach(function(entry){

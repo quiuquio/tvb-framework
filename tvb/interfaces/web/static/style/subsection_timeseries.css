@@ -42,3 +42,20 @@ width: 100%;
 .toolbar-inline .extension p {
 color: #000;
 }
+
+/* !-------------------------------------------- */
+/* !COMPONENT: Visualizer GUI */
+/* !-------------------------------------------- */
+.volumetric-ts-ui {
+	height: 8%;
+	padding: 1px;
+}
+
+#buttons {
+	height: 50px;
+    float: left;
+    clear: left;
+}
+#buttons > button {
+	height: inherit;
+}
