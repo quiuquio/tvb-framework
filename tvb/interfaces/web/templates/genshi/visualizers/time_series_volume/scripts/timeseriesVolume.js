@@ -22,6 +22,8 @@ var Quadrant = function (params) {                                  // this keep
     this.offsetY = params.offsetY || 0;
 };
 
+var dataAddress
+
 /**
  * Make all the necessary initialisations and draws the default view, with the center voxel selected
  * @param dataUrls  Urls containing data slices from server
@@ -57,19 +59,178 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     ctx.strokeStyle = 'black';
     ctx.stroke();
 
-    console.log(dataUrls)
-    dataUrls = $.parseJSON(dataUrls);
-    //dataUrls = ["/flow/read_datatype_attribute/015a9000-e986-11e3-b8e5-000c29b9a72b/get_volume_slice/False?from_idx=0;to_idx=30"] 
     console.log(dataUrls);
-    data = HLPR_readJSONfromFile(dataUrls[0]);
+    dataUrls = $.parseJSON(dataUrls);
+    console.log(dataUrls);
+    console.log(maxValue);
+    dataAddress = dataUrls[0];
+
+    //returns the log of y with base x.
+    function getBaseLog(x, y) {
+    	return Math.log(y) / Math.log(x);
+	}
+
+	var bits = Math.ceil(getBaseLog(maxValue));
+    data = new ArrayBuffer(bits);
+    console.log(data);
+    var bufferSize = 50;
+    for(var i = 0; i < 3; i++){
+    	var query = dataUrls[0]+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
+    	data[i] = HLPR_readJSONfromFile(query);
+    	console.log(data);
+    }
+    data2 = data;
+    data = [];
+    data = data.concat(data2[0]);
+    /*
+    *	CODE FOR WEBWORKERS
+    */
+    var blobURL = URL.createObjectURL( new Blob([ '(',
+
+	function(){
+		var n = 1;
+		//returns the log of y with base x.
+	    function getBaseLog(x, y) {
+	    	return Math.log(y) / Math.log(x);
+		}
+	    function searchh(){
+	    	maxValue = 3235
+			var bits = Math.ceil(getBaseLog(maxValue));
+			    data = new ArrayBuffer(bits);
+			    var bufferSize = 50;
+			    for(var i = 0; i < 1; i++){
+			    	var query = dataUrls[0]+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
+			    	data[i] = HLPR_readJSONfromFile(query);
+			    	console.log(data);
+			    }
+		}
+
+		self.addEventListener('message', function(e) {
+		  //self.postMessage(e.data);
+		  console.log(e.data);
+		  function searchh(){
+	    	maxValue = 3235
+			var bits = Math.ceil(getBaseLog(maxValue));
+			    data = new ArrayBuffer(bits);
+			    var bufferSize = 50;
+			    for(var i = 0; i < 2; i++){
+			    	var query = e.data+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
+			    	data[i] = HLPR_readJSONfromFile(query);
+			    	console.log(data);
+			    }
+			}
+
+			searchh();
+
+		}, false);
+
+		searchh();
+	}.toString(),
+
+	')()' ], { type: 'application/javascript' } ) ),
+
+	worker = new Worker( blobURL );
+	worker.postMessage(dataUrls);
+
+	// Won't be needing this anymore
+	URL.revokeObjectURL( blobURL );
+
+	worker.onmessage = function(e){
+		console.log(e.data);
+	}
+
+	/*
+    *	END OF CODE FOR WEBWORKERS
+    */
+
+
+    /*data = data.concat(data2[1]);
+    data = data.concat(data2[2]);
+    data = data.concat(data2[3]);
+    data = data.concat(data2[4]);
+    data = data.concat(data2[5]);
+    data = data.concat(data2[6]);
+    data = data.concat(data2[7]);
+    data = data.concat(data2[8]);
+    data = data.concat(data2[9]);
+    data = data.concat(data2[10]);
+    data = data.concat(data2[11]);
+    data = data.concat(data2[12]);
+    data = data.concat(data2[13]);
+    data = data.concat(data2[14]);
+    data = data.concat(data2[15]);
+    data = data.concat(data2[16]);
+    data = data.concat(data2[17]);
+    data = data.concat(data2[18]);
+    data = data.concat(data2[19]);*/
+
+    //dataUrls = ["/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=0;to_idx=30"] 
+    // dataUrls = ["/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=0;to_idx=50"];
+    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=50;to_idx=100");
+    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=100;to_idx=150");
+    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=150;to_idx=200");
+    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=200;to_idx=250");
+    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=300;to_idx=350");
+    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=350;to_idx=400");
+    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=400;to_idx=450");  
+    // console.log(dataUrls);
+    // data = HLPR_readJSONfromFile(dataUrls[0]);
+    // console.log(data);
+    // data2 = HLPR_readJSONfromFile(dataUrls[1]);
+    // console.log(data2);
+    // data3 = HLPR_readJSONfromFile(dataUrls[2]);
+    // console.log(data3);
+    // data4 = HLPR_readJSONfromFile(dataUrls[3]);
+    // console.log(data4);
+    // data5 = HLPR_readJSONfromFile(dataUrls[4]);
+    // console.log(data5);
+    // data6 = HLPR_readJSONfromFile(dataUrls[5]);
+    // console.log(data6);
+    // data7 = HLPR_readJSONfromFile(dataUrls[6]);
+    // console.log(data7);
+    // data8 = HLPR_readJSONfromFile(dataUrls[7]);
+    // console.log(data8);
+
+    // data = data.concat(data2);
+    // data = data.concat(data3);
+    // data = data.concat(data4);
+    // data = data.concat(data5);
+    // data = data.concat(data6);
+    // data = data.concat(data7);
+    // data = data.concat(data8);
+    // data = data.concat(HLPR_readJSONfromFile(dataUrls[1]));
+    // console.log(data);
+    // data = data.concat(HLPR_readJSONfromFile(dataUrls[2]));
+    // console.log(data);
+    // data = data.concat(HLPR_readJSONfromFile(dataUrls[3]));
+    // console.log(data);
+
+    // ttt = 1;
+    // loadID = window.setInterval(asyncLoad, 3000);
+    // function asyncLoad(){
+    // 	data = data.concat(HLPR_readJSONfromFile(dataUrls[ttt]));
+    // 	console.log(data);
+    // 	ttt++;
+    // 	if(ttt==dataUrls.length-2){
+    // 		window.clearInterval(loadID);
+    // 	}
+    // }
+
+
+
+
+    //data = data.concat(HLPR_readJSONfromFile(dataUrls[2]));
+    //console.log(data);
+    //data = data.concat(HLPR_readJSONfromFile(dataUrls[3]));
+    //console.log(data)
     //brain = data;
     //data = data[0];                                                  // just the first slice for now
 
-    _rotateFunctionalData();                                                   // rotate Z axis
+    //_rotateFunctionalData();                                                   // rotate Z axis
 
     minimumValue = minValue;
     maximumValue = maxValue;
-    timeLength = data.length-1;
+    timeLength = 1450; //timeLength = data.length-1;
 
     _setupQuadrants();
 
@@ -85,12 +246,38 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     //'linear', 'rainbow', 'hotcold', 'TVB', 'sparse', 'light-hotcold', 'light-TVB'
     ColSch_setColorScheme("rainbow", false);
 
+    data = getSliceAtTime(currentTimePoint);
     drawSceneFunctional(currentTimePoint);
     //window.setInterval(drawSceneFunctional, 200);
     /*while(++itr){
       drawSceneFunctional(itr%data.length);
     }*/
 }
+
+
+function getSliceAtTime(t){
+    	var query = dataAddress+"from_idx="+t+";to_idx="+(1+t);
+    	return HLPR_readJSONfromFile(query)[0];
+    }
+
+function array_compare(a1, a2) {
+ if(a1.length != a2.length) {
+  return false;
+ }
+ for(var i in a1) {
+  // Don't forget to check for arrays in our arrays.
+  if(a1[i] instanceof Array && a2[i] instanceof Array) {
+   if(!array_compare(a1[i], a2[i])) {
+    return false;
+   }
+  }
+  else if(a1[i] != a2[i]) {
+   return false;
+  }
+ }
+ return true;
+}
+
 
 // ==================================== DRAWING FUNCTIONS START =============================================
 
@@ -99,6 +286,43 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
  */
 // TODO: since only two dimensions change at every time, redraw just those quadrants
 // NOTE: this is true only when we navigate, not when we play the timeseries
+// function drawSceneFunctional(tIndex) {
+//     var i, j, k, ii, jj, kk;
+    
+//     // if we pass no tIndex the function will play
+//     // from the currentTimePoint and increment it
+//     if(tIndex == null){
+//         tIndex = currentTimePoint;
+//         currentTimePoint++;
+//         currentTimePoint = currentTimePoint%timeLength
+//     }
+//     _setCtxOnQuadrant(0);
+//     ctx.fillStyle = getGradientColorString(minimumValue, minimumValue, maximumValue);
+//     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+//     //console.log(getSliceAtTime(tIndex)[0]);
+//     //console.log(data[tIndex]);
+//     //console.log(array_compare(getSliceAtTime(tIndex)[0], data[tIndex]));
+//     data[tIndex] = getSliceAtTime(tIndex);
+//     for (j = 0; j < data[tIndex][0].length; ++j)
+//         for (i = 0; i < data[tIndex].length; ++i)
+//             drawVoxel(i, j, data[tIndex][i][j][selectedEntity[2]]);
+//     drawMargin();
+
+//     _setCtxOnQuadrant(1);
+//     for (k = 0; k < data[tIndex][0][0].length; ++k)
+//         for (jj = 0; jj < data[tIndex][0].length; ++jj)
+//             drawVoxel(k, jj, data[tIndex][selectedEntity[0]][jj][k]);
+//     drawMargin();
+
+//     _setCtxOnQuadrant(2);
+//     for (kk = 0; kk < data[tIndex][0][0].length; ++kk)
+//         for (ii = 0; ii < data[tIndex].length; ++ii)
+//             drawVoxel(kk, ii, data[tIndex][ii][selectedEntity[1]][kk]);
+//     drawMargin();
+//     drawNavigator();
+//     updateMoviePlayerSlider();  
+// }
+
 function drawSceneFunctional(tIndex) {
     var i, j, k, ii, jj, kk;
     
@@ -107,26 +331,31 @@ function drawSceneFunctional(tIndex) {
     if(tIndex == null){
         tIndex = currentTimePoint;
         currentTimePoint++;
-        currentTimePoint = currentTimePoint%timeLength
+        currentTimePoint = currentTimePoint%timeLength;
+        data = getSliceAtTime(tIndex);
     }
     _setCtxOnQuadrant(0);
     ctx.fillStyle = getGradientColorString(minimumValue, minimumValue, maximumValue);
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    for (j = 0; j < data[tIndex][0].length; ++j)
-        for (i = 0; i < data[tIndex].length; ++i)
-            drawVoxel(i, j, data[tIndex][i][j][selectedEntity[2]]);
+    //console.log(getSliceAtTime(tIndex)[0]);
+    //console.log(data[tIndex]);
+    //console.log(array_compare(getSliceAtTime(tIndex)[0], data[tIndex]));
+    
+    for (j = 0; j < data[0].length; ++j)
+        for (i = 0; i < data.length; ++i)
+            drawVoxel(i, j, data[i][j][selectedEntity[2]]);
     drawMargin();
 
     _setCtxOnQuadrant(1);
-    for (k = 0; k < data[tIndex][0][0].length; ++k)
-        for (jj = 0; jj < data[tIndex][0].length; ++jj)
-            drawVoxel(k, jj, data[tIndex][selectedEntity[0]][jj][k]);
+    for (k = 0; k < data[0][0].length; ++k)
+        for (jj = 0; jj < data[0].length; ++jj)
+            drawVoxel(k, jj, data[selectedEntity[0]][jj][k]);
     drawMargin();
 
     _setCtxOnQuadrant(2);
-    for (kk = 0; kk < data[tIndex][0][0].length; ++kk)
-        for (ii = 0; ii < data[tIndex].length; ++ii)
-            drawVoxel(kk, ii, data[tIndex][ii][selectedEntity[1]][kk]);
+    for (kk = 0; kk < data[0][0].length; ++kk)
+        for (ii = 0; ii < data.length; ++ii)
+            drawVoxel(kk, ii, data[ii][selectedEntity[1]][kk]);
     drawMargin();
     drawNavigator();
     updateMoviePlayerSlider();  
@@ -482,7 +711,7 @@ function slideMove(event, ui){
     drawSceneFunctional(currentTimePoint);
 }
 
-// Updated the value at the end of the player bar when we move the handle.
+// Updates the value at the end of the player bar when we move the handle.
 function moviePlayerMove(event, ui){
     $("#time-position > span").each(function(){
         //$(this).slider("option", "value", currentTimePoint);
