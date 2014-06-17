@@ -10,8 +10,14 @@ var quadrantHeight, quadrantWidth;
 
 var currentTimePoint = 0;
 var minRate = 33;
-var playbackRate = 33;
+var playbackRate = 99;
 var playerIntervalID;
+
+var lastBufferedTimePoint = null;
+var bufferSize = 5;
+var lookAhead = 20;
+
+var requestQueue = []
 
 var Quadrant = function (params) {                                  // this keeps all necessary data for drawing
     this.index = params.index || 0;                                  // in a quadrant
@@ -22,7 +28,7 @@ var Quadrant = function (params) {                                  // this keep
     this.offsetY = params.offsetY || 0;
 };
 
-var dataAddress
+var dataAddress;
 
 /**
  * Make all the necessary initialisations and draws the default view, with the center voxel selected
@@ -37,7 +43,7 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     /*robert*/
       //myVar = dataUrls;
     /*robert*/
-
+    console.log(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, voxelUnit);
     var canvas = document.getElementById("volumetric-ts-canvas");
     if (!canvas.getContext) {
         displayMessage('You need a browser with canvas capabilities, to see this demo fully!', "errorMessage");
@@ -59,23 +65,24 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     ctx.strokeStyle = 'black';
     ctx.stroke();
 
-    console.log(dataUrls);
     dataUrls = $.parseJSON(dataUrls);
-    console.log(dataUrls);
-    console.log(maxValue);
     dataAddress = dataUrls[0];
+    dataSize = dataUrls[1];
 
     //returns the log of y with base x.
     function getBaseLog(x, y) {
     	return Math.log(y) / Math.log(x);
 	}
 
-	var bits = Math.ceil(getBaseLog(maxValue));
-    data = new ArrayBuffer(bits);
+	bits = Math.ceil(getBaseLog(maxValue));
+    //data = new ArrayBuffer(bits);
+    data = {}
+    //bufferL2 = new ArrayBuffer(bits);
+    bufferL2 = {};
+    //bufferL2 = {};
     console.log(data);
-    var bufferSize = 50;
-    for(var i = 0; i < 3; i++){
-    	var query = dataUrls[0]+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
+    for(var i = 0; i < 1; i++){
+    	var query = dataAddress+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
     	data[i] = HLPR_readJSONfromFile(query);
     	console.log(data);
     }
@@ -85,59 +92,59 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     /*
     *	CODE FOR WEBWORKERS
     */
-    var blobURL = URL.createObjectURL( new Blob([ '(',
+ //    var blobURL = URL.createObjectURL( new Blob([ '(',
 
-	function(){
-		var n = 1;
-		//returns the log of y with base x.
-	    function getBaseLog(x, y) {
-	    	return Math.log(y) / Math.log(x);
-		}
-	    function searchh(){
-	    	maxValue = 3235
-			var bits = Math.ceil(getBaseLog(maxValue));
-			    data = new ArrayBuffer(bits);
-			    var bufferSize = 50;
-			    for(var i = 0; i < 1; i++){
-			    	var query = dataUrls[0]+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
-			    	data[i] = HLPR_readJSONfromFile(query);
-			    	console.log(data);
-			    }
-		}
+	// function(){
+	// 	var n = 1;
+	// 	//returns the log of y with base x.
+	//     function getBaseLog(x, y) {
+	//     	return Math.log(y) / Math.log(x);
+	// 	}
+	//     function searchh(){
+	//     	maxValue = 3235
+	// 		var bits = Math.ceil(getBaseLog(maxValue));
+	// 		    data = new ArrayBuffer(bits);
+	// 		    var bufferSize = 50;
+	// 		    for(var i = 0; i < 1; i++){
+	// 		    	var query = dataUrls[0]+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
+	// 		    	data[i] = HLPR_readJSONfromFile(query);
+	// 		    	console.log(data);
+	// 		    }
+	// 	}
 
-		self.addEventListener('message', function(e) {
-		  //self.postMessage(e.data);
-		  console.log(e.data);
-		  function searchh(){
-	    	maxValue = 3235
-			var bits = Math.ceil(getBaseLog(maxValue));
-			    data = new ArrayBuffer(bits);
-			    var bufferSize = 50;
-			    for(var i = 0; i < 2; i++){
-			    	var query = e.data+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
-			    	data[i] = HLPR_readJSONfromFile(query);
-			    	console.log(data);
-			    }
-			}
+	// 	self.addEventListener('message', function(e) {
+	// 	  //self.postMessage(e.data);
+	// 	  console.log(e.data);
+	// 	  function searchh(){
+	//     	maxValue = 3235
+	// 		var bits = Math.ceil(getBaseLog(maxValue));
+	// 		    data = new ArrayBuffer(bits);
+	// 		    var bufferSize = 50;
+	// 		    for(var i = 0; i < 2; i++){
+	// 		    	var query = e.data+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
+	// 		    	data[i] = HLPR_readJSONfromFile(query);
+	// 		    	console.log(data);
+	// 		    }
+	// 		}
 
-			searchh();
+	// 		searchh();
 
-		}, false);
+	// 	}, false);
 
-		searchh();
-	}.toString(),
+	// 	searchh();
+	// }.toString(),
 
-	')()' ], { type: 'application/javascript' } ) ),
+	// ')()' ], { type: 'application/javascript' } ) ),
 
-	worker = new Worker( blobURL );
-	worker.postMessage(dataUrls);
+	// worker = new Worker( blobURL );
+	// worker.postMessage(dataUrls);
 
-	// Won't be needing this anymore
-	URL.revokeObjectURL( blobURL );
+	// // Won't be needing this anymore
+	// URL.revokeObjectURL( blobURL );
 
-	worker.onmessage = function(e){
-		console.log(e.data);
-	}
+	// worker.onmessage = function(e){
+	// 	console.log(e.data);
+	// }
 
 	/*
     *	END OF CODE FOR WEBWORKERS
@@ -216,8 +223,16 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     // 	}
     // }
 
-
-
+    //loadID = window.setInterval(asyncLoad, 1000);
+    // fakeData = new ArrayBuffer(bits);
+    // function asyncLoad(){
+    //     //var query = dataUrls[0]+"from_idx="+300+";to_idx="+350;
+    //     var timeAtCall = currentTimePoint;
+    //     var bufferSize = 10
+    //     var query = dataAddress+"from_idx="+timeAtCall+";to_idx="+(timeAtCall+bufferSize);
+    //     testRequest(query);
+    //     console.log(fakeData);
+    // }
 
     //data = data.concat(HLPR_readJSONfromFile(dataUrls[2]));
     //console.log(data);
@@ -254,29 +269,140 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     }*/
 }
 
+// function testRequest(fileName, section) {
+//     var fileData = null;
+//     var timeAtCall = currentTimePoint;
+//     //console.log(timeAtCall)
+//     var bufferSize = 10
+//     doAjaxCall({
+//         async:true,
+//         url:fileName,
+//         methos:"GET",
+//         mimeType:"text/plain",
+//         success:function(r){
+//             //fileData = r;
+//             //console.log("chimato al frame:",timeAtCall);
+//             var tmp = new ArrayBuffer(bits);
+//             tmp = $.parseJSON(r);
+//             var i = 0;
+//             for(var t = timeAtCall; t < timeAtCall+bufferSize; t++){
+//                 if(buffer[t] == undefined)
+//                     buffer[t] = tmp[i];
+//                 i++;
+//             }
+//             //console.log(tmp)
+//             //fakeData[timeAtCall] = $.parseJSON(r);
+//             //fakeData.push($.parseJSON(r));
+//         }
+//     });
+// }
 
-function getSliceAtTime(t){
-    	var query = dataAddress+"from_idx="+t+";to_idx="+(1+t);
-    	return HLPR_readJSONfromFile(query)[0];
-    }
-
-function array_compare(a1, a2) {
- if(a1.length != a2.length) {
-  return false;
- }
- for(var i in a1) {
-  // Don't forget to check for arrays in our arrays.
-  if(a1[i] instanceof Array && a2[i] instanceof Array) {
-   if(!array_compare(a1[i], a2[i])) {
-    return false;
-   }
-  }
-  else if(a1[i] != a2[i]) {
-   return false;
-  }
- }
- return true;
+function testRequest2(fileName, sect) {
+    var fileData = null;
+    requestQueue.push(sect);
+    console.log("requestQueue push:", requestQueue);
+    //var timeAtCall = currentTimePoint;
+    //console.log(timeAtCall)
+    doAjaxCall({
+        async:true,
+        url:fileName,
+        methos:"GET",
+        mimeType:"text/plain",
+        success:function(r){
+            //fileData = r;
+            bufferL2[sect] = new ArrayBuffer(bits);
+            //bufferL2[section] = $.parseJSON(r);
+            //bufferL2[section] = JSON.parse(r);
+            var startTime = new Date().getTime();
+            parseAsync(r, function(json){
+                    var currentTime = new Date().getTime();
+                    var time = currentTime - startTime;
+                    console.log("chiamato alla sezione:", sect, "ci ha messo", time );
+                    bufferL2[sect] = json;
+                    var index = requestQueue.indexOf(sect);
+                    if (index > -1) {
+                        requestQueue.splice(index, 1);
+                        console.log("requestQueue pop", requestQueue);
+                    }   
+                });
+        }
+    });
 }
+//worker = new Worker( blobURL );
+
+// Won't be needing this anymore
+//URL.revokeObjectURL( blobURL );
+
+function parseAsync(data, callback){
+    var worker, json;
+    /****WORKER****/
+    // Build a worker from an anonymous function body
+    var blobURL = URL.createObjectURL( new Blob([ '(',
+    function(){
+        //Long-running work here
+        self.addEventListener( 'message', function (e){
+            var data = e.data;
+            var json = JSON.parse( data );
+            self.postMessage( json );
+            self.close();
+        }, false );
+    }.toString(),
+    ')()' ], { type: 'application/javascript' } ) );
+    /****END OF WORKER****/
+    if( window.Worker ){
+        worker = new Worker( blobURL );
+        URL.revokeObjectURL( blobURL );
+        worker.addEventListener( 'message', function (e){
+            json = e.data;
+            callback( json );
+        }, false);
+        worker.postMessage( data );
+        return;
+    }
+    else{
+        json = JSON.parse( data );
+        callback( json );
+    }
+};
+
+
+/*function getSliceAtTime(t){
+        console.log("missed at time", t);
+    	var query = dataAddress+"from_idx="+t+";to_idx="+(5+t);
+    	return HLPR_readJSONfromFile(query)[0];
+    }*/
+function getSliceAtTime(t){
+        //console.log("missed at time", t);
+        var query = dataAddress+"from_idx="+t+";to_idx="+(bufferSize+t);
+        var section = Math.floor(t/bufferSize);
+        var bufferedElements = Object.keys(bufferL2).length;
+        if(bufferedElements > 30){
+            for(var idx in bufferL2){
+                if (idx%2 && idx < section){
+                    delete bufferL2[idx];
+                }
+            }
+        }
+        for(var i = 0; i <= lookAhead; i++){
+            if(!bufferL2[section+i] && requestQueue.indexOf(section+i) < 0){
+                testRequest2(query, section+i);
+            }
+        }
+        if(bufferL2[section]){
+            buffer = bufferL2[section];
+        }else{
+            console.log("NOOOOOOOOOOO");
+            console.log("missed at time", t);
+            var query = dataAddress+"from_idx="+t+";to_idx="+(1+t);
+            buffer = HLPR_readJSONfromFile(query);
+            bufferL2[section] = buffer;
+        }
+
+        //buffer = HLPR_readJSONfromFile(query);
+        
+        //bufferL2[section] = buffer; 
+        return buffer[t%bufferSize];
+    }
 
 
 // ==================================== DRAWING FUNCTIONS START =============================================
@@ -332,7 +458,32 @@ function drawSceneFunctional(tIndex) {
         tIndex = currentTimePoint;
         currentTimePoint++;
         currentTimePoint = currentTimePoint%timeLength;
+        //data = getSliceAtTime(tIndex);
+
+        // if(tIndex%bufferSize){
+        //     data = buffer[tIndex%bufferSize];
+        // }else{
+        //     data = getSliceAtTime(tIndex);
+        // }
+
         data = getSliceAtTime(tIndex);
+
+
+        // if(buffer[tIndex] == undefined){
+        //     var timeAtCall = tIndex;
+        //     var bufferSize = 10;
+        //     var query = dataAddress+"from_idx="+timeAtCall+";to_idx="+(timeAtCall+bufferSize);
+        //     if(lastBufferedTimePoint+bufferSize < Math.max(0,tIndex)){
+        //         lastBufferedTimePoint = tIndex;
+        //         testRequest(query);
+        //     }
+        //     data = getSliceAtTime(tIndex);
+        // }
+        // else{
+        //     console.log("hit at time", tIndex);
+        //     data = buffer[tIndex];
+        // }
+        
     }
     _setCtxOnQuadrant(0);
     ctx.fillStyle = getGradientColorString(minimumValue, minimumValue, maximumValue);
