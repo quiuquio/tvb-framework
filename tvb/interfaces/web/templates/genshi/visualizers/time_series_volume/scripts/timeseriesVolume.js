@@ -13,9 +13,14 @@ var minRate = 33;
 var playbackRate = 99;
 var playerIntervalID;
 
-var lastBufferedTimePoint = null;
-var bufferSize = 5;
-var lookAhead = 20;
+var bufferSize = 1;
+var bufferL2Size = 1;
+var lookAhead = 5;
+
+var data = {};
+var bufferL2 = {};
+
+var dataAddress;
 
 var requestQueue = []
 
@@ -27,8 +32,6 @@ var Quadrant = function (params) {                                  // this keep
     this.offsetX = params.offsetX || 0;                              // the offset of the drawing relative to the quad
     this.offsetY = params.offsetY || 0;
 };
-
-var dataAddress;
 
 /**
  * Make all the necessary initialisations and draws the default view, with the center voxel selected
@@ -69,183 +72,12 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     dataAddress = dataUrls[0];
     dataSize = dataUrls[1];
 
-    //returns the log of y with base x.
-    function getBaseLog(x, y) {
-    	return Math.log(y) / Math.log(x);
-	}
-
-	bits = Math.ceil(getBaseLog(maxValue));
-    //data = new ArrayBuffer(bits);
-    data = {}
-    //bufferL2 = new ArrayBuffer(bits);
-    bufferL2 = {};
-    //bufferL2 = {};
-    console.log(data);
-    for(var i = 0; i < 1; i++){
-    	var query = dataAddress+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
-    	data[i] = HLPR_readJSONfromFile(query);
-    	console.log(data);
-    }
-    data2 = data;
-    data = [];
-    data = data.concat(data2[0]);
-    /*
-    *	CODE FOR WEBWORKERS
-    */
- //    var blobURL = URL.createObjectURL( new Blob([ '(',
-
-	// function(){
-	// 	var n = 1;
-	// 	//returns the log of y with base x.
-	//     function getBaseLog(x, y) {
-	//     	return Math.log(y) / Math.log(x);
-	// 	}
-	//     function searchh(){
-	//     	maxValue = 3235
-	// 		var bits = Math.ceil(getBaseLog(maxValue));
-	// 		    data = new ArrayBuffer(bits);
-	// 		    var bufferSize = 50;
-	// 		    for(var i = 0; i < 1; i++){
-	// 		    	var query = dataUrls[0]+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
-	// 		    	data[i] = HLPR_readJSONfromFile(query);
-	// 		    	console.log(data);
-	// 		    }
-	// 	}
-
-	// 	self.addEventListener('message', function(e) {
-	// 	  //self.postMessage(e.data);
-	// 	  console.log(e.data);
-	// 	  function searchh(){
-	//     	maxValue = 3235
-	// 		var bits = Math.ceil(getBaseLog(maxValue));
-	// 		    data = new ArrayBuffer(bits);
-	// 		    var bufferSize = 50;
-	// 		    for(var i = 0; i < 2; i++){
-	// 		    	var query = e.data+"from_idx="+(i*bufferSize)+";to_idx="+((1+i)*bufferSize);
-	// 		    	data[i] = HLPR_readJSONfromFile(query);
-	// 		    	console.log(data);
-	// 		    }
-	// 		}
-
-	// 		searchh();
-
-	// 	}, false);
-
-	// 	searchh();
-	// }.toString(),
-
-	// ')()' ], { type: 'application/javascript' } ) ),
-
-	// worker = new Worker( blobURL );
-	// worker.postMessage(dataUrls);
-
-	// // Won't be needing this anymore
-	// URL.revokeObjectURL( blobURL );
-
-	// worker.onmessage = function(e){
-	// 	console.log(e.data);
-	// }
-
-	/*
-    *	END OF CODE FOR WEBWORKERS
-    */
-
-
-    /*data = data.concat(data2[1]);
-    data = data.concat(data2[2]);
-    data = data.concat(data2[3]);
-    data = data.concat(data2[4]);
-    data = data.concat(data2[5]);
-    data = data.concat(data2[6]);
-    data = data.concat(data2[7]);
-    data = data.concat(data2[8]);
-    data = data.concat(data2[9]);
-    data = data.concat(data2[10]);
-    data = data.concat(data2[11]);
-    data = data.concat(data2[12]);
-    data = data.concat(data2[13]);
-    data = data.concat(data2[14]);
-    data = data.concat(data2[15]);
-    data = data.concat(data2[16]);
-    data = data.concat(data2[17]);
-    data = data.concat(data2[18]);
-    data = data.concat(data2[19]);*/
-
-    //dataUrls = ["/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=0;to_idx=30"] 
-    // dataUrls = ["/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=0;to_idx=50"];
-    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=50;to_idx=100");
-    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=100;to_idx=150");
-    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=150;to_idx=200");
-    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=200;to_idx=250");
-    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=300;to_idx=350");
-    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=350;to_idx=400");
-    // dataUrls.push("/flow/read_datatype_attribute/acdd50b6-eef9-11e3-a47c-000c29325ec7/get_volume_slice/False?from_idx=400;to_idx=450");  
-    // console.log(dataUrls);
-    // data = HLPR_readJSONfromFile(dataUrls[0]);
-    // console.log(data);
-    // data2 = HLPR_readJSONfromFile(dataUrls[1]);
-    // console.log(data2);
-    // data3 = HLPR_readJSONfromFile(dataUrls[2]);
-    // console.log(data3);
-    // data4 = HLPR_readJSONfromFile(dataUrls[3]);
-    // console.log(data4);
-    // data5 = HLPR_readJSONfromFile(dataUrls[4]);
-    // console.log(data5);
-    // data6 = HLPR_readJSONfromFile(dataUrls[5]);
-    // console.log(data6);
-    // data7 = HLPR_readJSONfromFile(dataUrls[6]);
-    // console.log(data7);
-    // data8 = HLPR_readJSONfromFile(dataUrls[7]);
-    // console.log(data8);
-
-    // data = data.concat(data2);
-    // data = data.concat(data3);
-    // data = data.concat(data4);
-    // data = data.concat(data5);
-    // data = data.concat(data6);
-    // data = data.concat(data7);
-    // data = data.concat(data8);
-    // data = data.concat(HLPR_readJSONfromFile(dataUrls[1]));
-    // console.log(data);
-    // data = data.concat(HLPR_readJSONfromFile(dataUrls[2]));
-    // console.log(data);
-    // data = data.concat(HLPR_readJSONfromFile(dataUrls[3]));
-    // console.log(data);
-
-    // ttt = 1;
-    // loadID = window.setInterval(asyncLoad, 3000);
-    // function asyncLoad(){
-    // 	data = data.concat(HLPR_readJSONfromFile(dataUrls[ttt]));
-    // 	console.log(data);
-    // 	ttt++;
-    // 	if(ttt==dataUrls.length-2){
-    // 		window.clearInterval(loadID);
-    // 	}
-    // }
-
-    //loadID = window.setInterval(asyncLoad, 1000);
-    // fakeData = new ArrayBuffer(bits);
-    // function asyncLoad(){
-    //     //var query = dataUrls[0]+"from_idx="+300+";to_idx="+350;
-    //     var timeAtCall = currentTimePoint;
-    //     var bufferSize = 10
-    //     var query = dataAddress+"from_idx="+timeAtCall+";to_idx="+(timeAtCall+bufferSize);
-    //     testRequest(query);
-    //     console.log(fakeData);
-    // }
-
-    //data = data.concat(HLPR_readJSONfromFile(dataUrls[2]));
-    //console.log(data);
-    //data = data.concat(HLPR_readJSONfromFile(dataUrls[3]));
-    //console.log(data)
-    //brain = data;
-    //data = data[0];                                                  // just the first slice for now
-
-    //_rotateFunctionalData();                                                   // rotate Z axis
+    var query = dataAddress+"from_idx="+(0)+";to_idx="+(1);
+    data = HLPR_readJSONfromFile(query);
 
     minimumValue = minValue;
     maximumValue = maxValue;
-    timeLength = 1450; //timeLength = data.length-1;
+    timeLength = 1452; //timeLength = data.length-1;
 
     _setupQuadrants();
 
@@ -256,102 +88,63 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     entitySize[0] = Math.floor(data[0].length);                         // get entities number of voxels
     entitySize[1] = Math.floor(data[0][0].length);
     entitySize[2] = Math.floor(data[0][0][0].length);
-    entitySize[4] = Math.floor(data.length);
+    entitySize[3] = Math.floor(data.length);
+
+    _setupBuffersSize();
 
     //'linear', 'rainbow', 'hotcold', 'TVB', 'sparse', 'light-hotcold', 'light-TVB'
     ColSch_setColorScheme("rainbow", false);
 
     data = getSliceAtTime(currentTimePoint);
     drawSceneFunctional(currentTimePoint);
-    //window.setInterval(drawSceneFunctional, 200);
-    /*while(++itr){
-      drawSceneFunctional(itr%data.length);
-    }*/
-}
 
-// function testRequest(fileName, section) {
-//     var fileData = null;
-//     var timeAtCall = currentTimePoint;
-//     //console.log(timeAtCall)
-//     var bufferSize = 10
-//     doAjaxCall({
-//         async:true,
-//         url:fileName,
-//         methos:"GET",
-//         mimeType:"text/plain",
-//         success:function(r){
-//             //fileData = r;
-//             //console.log("chimato al frame:",timeAtCall);
-//             var tmp = new ArrayBuffer(bits);
-//             tmp = $.parseJSON(r);
-//             var i = 0;
-//             for(var t = timeAtCall; t < timeAtCall+bufferSize; t++){
-//                 if(buffer[t] == undefined)
-//                     buffer[t] = tmp[i];
-//                 i++;
-//             }
-//             //console.log(tmp)
-//             //fakeData[timeAtCall] = $.parseJSON(r);
-//             //fakeData.push($.parseJSON(r));
-//         }
-//     });
-// }
+    window.setInterval(streamToBuffer, playbackRate);
+    window.setInterval(freeBuffer, playbackRate*10);  
+}
 
 function testRequest2(fileName, sect) {
     var fileData = null;
     requestQueue.push(sect);
     console.log("requestQueue push:", requestQueue);
-    //var timeAtCall = currentTimePoint;
-    //console.log(timeAtCall)
     doAjaxCall({
         async:true,
         url:fileName,
         methos:"GET",
         mimeType:"text/plain",
         success:function(r){
-            //fileData = r;
-            bufferL2[sect] = new ArrayBuffer(bits);
-            //bufferL2[section] = $.parseJSON(r);
-            //bufferL2[section] = JSON.parse(r);
-            var startTime = new Date().getTime();
+            bufferL2[sect] = {};
             parseAsync(r, function(json){
-                    var currentTime = new Date().getTime();
-                    var time = currentTime - startTime;
-                    console.log("chiamato alla sezione:", sect, "ci ha messo", time );
-                    bufferL2[sect] = json;
-                    var index = requestQueue.indexOf(sect);
-                    if (index > -1) {
-                        requestQueue.splice(index, 1);
-                        console.log("requestQueue pop", requestQueue);
-                    }   
-                });
+                bufferL2[sect] = json;
+                var index = requestQueue.indexOf(sect);
+                if (index > -1) {
+                    requestQueue.splice(index, 1);
+                    console.log("requestQueue pop", requestQueue);
+                }   
+            });
         }
     });
 }
-//worker = new Worker( blobURL );
 
-// Won't be needing this anymore
-//URL.revokeObjectURL( blobURL );
+    /****WEB WORKER****/
+    // We build a worker from an anonymous function body
+    var blobURL = URL.createObjectURL( new Blob([ '(',
+        function(){
+            self.addEventListener( 'message', function (e){
+                var data = e.data;
+                var json = JSON.parse( data );
+                self.postMessage( json );
+                self.close();
+            }, false );
+        }.toString(),
+        ')()' ], { type: 'application/javascript' } ) 
+    );
+    /****END OF WEB WORKER****/
 
 function parseAsync(data, callback){
-    var worker, json;
-    /****WORKER****/
-    // Build a worker from an anonymous function body
-    var blobURL = URL.createObjectURL( new Blob([ '(',
-    function(){
-        //Long-running work here
-        self.addEventListener( 'message', function (e){
-            var data = e.data;
-            var json = JSON.parse( data );
-            self.postMessage( json );
-            self.close();
-        }, false );
-    }.toString(),
-    ')()' ], { type: 'application/javascript' } ) );
-    /****END OF WORKER****/
+    var worker;
+    var json;
     if( window.Worker ){
         worker = new Worker( blobURL );
-        URL.revokeObjectURL( blobURL );
         worker.addEventListener( 'message', function (e){
             json = e.data;
             callback( json );
@@ -365,44 +158,48 @@ function parseAsync(data, callback){
     }
 };
 
-
-/*function getSliceAtTime(t){
-        console.log("missed at time", t);
-    	var query = dataAddress+"from_idx="+t+";to_idx="+(5+t);
-    	return HLPR_readJSONfromFile(query)[0];
-    }*/
-function getSliceAtTime(t){
-        //console.log("missed at time", t);
-        var query = dataAddress+"from_idx="+t+";to_idx="+(bufferSize+t);
-        var section = Math.floor(t/bufferSize);
-        var bufferedElements = Object.keys(bufferL2).length;
-        if(bufferedElements > 30){
-            for(var idx in bufferL2){
-                if (idx%2 && idx < section){
-                    delete bufferL2[idx];
-                }
+function freeBuffer(){
+    var section = Math.floor(currentTimePoint/bufferSize);
+    var bufferedElements = Object.keys(bufferL2).length;
+    if(bufferedElements > bufferL2Size){
+        for(var idx in bufferL2){
+            if (idx < (section-bufferL2Size/2)%timeLength || idx > (section+bufferL2Size/2)%timeLength){
+                console.log("ELIMINATO:", idx)
+                delete bufferL2[idx];
             }
         }
-        for(var i = 0; i <= lookAhead; i++){
-            if(!bufferL2[section+i] && requestQueue.indexOf(section+i) < 0){
-                testRequest2(query, section+i);
-            }
-        }
-        if(bufferL2[section]){
-            buffer = bufferL2[section];
-        }else{
-            console.log("NOOOOOOOOOOO");
-            console.log("missed at time", t);
-            var query = dataAddress+"from_idx="+t+";to_idx="+(1+t);
-            buffer = HLPR_readJSONfromFile(query);
-            bufferL2[section] = buffer;
-        }
-
-        //buffer = HLPR_readJSONfromFile(query);
-        
-        //bufferL2[section] = buffer; 
-        return buffer[t%bufferSize];
     }
+}
+
+function streamToBuffer(){
+    var section = Math.floor(currentTimePoint/bufferSize);
+    var maxSections = Math.floor(timeLength/bufferSize);
+    var query = dataAddress+"from_idx="+currentTimePoint+";to_idx="+(bufferSize+currentTimePoint)%timeLength;
+    for(var i = 0; i <= lookAhead; i++){
+            var tmp = (section+i)%maxSections;
+            if(!bufferL2[tmp] && requestQueue.indexOf(tmp) < 0){
+                testRequest2(query, tmp);
+            }
+        }
+}
+
+function getSliceAtTime(t){
+    var query = dataAddress+"from_idx="+t+";to_idx="+(bufferSize+t)%timeLength;
+    var section = Math.floor(t/bufferSize);
+    for(var i in requestQueue){
+        if( requestQueue[i] < section ){
+            requestQueue.splice(i, 1);
+        }
+    }   
+    if(bufferL2[section]){
+        buffer = bufferL2[section];
+    }else{
+        query = dataAddress+"from_idx="+t+";to_idx="+(bufferSize+t)%timeLength;
+        buffer = HLPR_readJSONfromFile(query);
+        bufferL2[section] = buffer;
+    }
+    return buffer[t%bufferSize];
+}
 
 
 // ==================================== DRAWING FUNCTIONS START =============================================
@@ -412,43 +209,6 @@ function getSliceAtTime(t){
  */
 // TODO: since only two dimensions change at every time, redraw just those quadrants
 // NOTE: this is true only when we navigate, not when we play the timeseries
-// function drawSceneFunctional(tIndex) {
-//     var i, j, k, ii, jj, kk;
-    
-//     // if we pass no tIndex the function will play
-//     // from the currentTimePoint and increment it
-//     if(tIndex == null){
-//         tIndex = currentTimePoint;
-//         currentTimePoint++;
-//         currentTimePoint = currentTimePoint%timeLength
-//     }
-//     _setCtxOnQuadrant(0);
-//     ctx.fillStyle = getGradientColorString(minimumValue, minimumValue, maximumValue);
-//     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-//     //console.log(getSliceAtTime(tIndex)[0]);
-//     //console.log(data[tIndex]);
-//     //console.log(array_compare(getSliceAtTime(tIndex)[0], data[tIndex]));
-//     data[tIndex] = getSliceAtTime(tIndex);
-//     for (j = 0; j < data[tIndex][0].length; ++j)
-//         for (i = 0; i < data[tIndex].length; ++i)
-//             drawVoxel(i, j, data[tIndex][i][j][selectedEntity[2]]);
-//     drawMargin();
-
-//     _setCtxOnQuadrant(1);
-//     for (k = 0; k < data[tIndex][0][0].length; ++k)
-//         for (jj = 0; jj < data[tIndex][0].length; ++jj)
-//             drawVoxel(k, jj, data[tIndex][selectedEntity[0]][jj][k]);
-//     drawMargin();
-
-//     _setCtxOnQuadrant(2);
-//     for (kk = 0; kk < data[tIndex][0][0].length; ++kk)
-//         for (ii = 0; ii < data[tIndex].length; ++ii)
-//             drawVoxel(kk, ii, data[tIndex][ii][selectedEntity[1]][kk]);
-//     drawMargin();
-//     drawNavigator();
-//     updateMoviePlayerSlider();  
-// }
-
 function drawSceneFunctional(tIndex) {
     var i, j, k, ii, jj, kk;
     
@@ -458,39 +218,11 @@ function drawSceneFunctional(tIndex) {
         tIndex = currentTimePoint;
         currentTimePoint++;
         currentTimePoint = currentTimePoint%timeLength;
-        //data = getSliceAtTime(tIndex);
-
-        // if(tIndex%bufferSize){
-        //     data = buffer[tIndex%bufferSize];
-        // }else{
-        //     data = getSliceAtTime(tIndex);
-        // }
-
         data = getSliceAtTime(tIndex);
-
-
-        // if(buffer[tIndex] == undefined){
-        //     var timeAtCall = tIndex;
-        //     var bufferSize = 10;
-        //     var query = dataAddress+"from_idx="+timeAtCall+";to_idx="+(timeAtCall+bufferSize);
-        //     if(lastBufferedTimePoint+bufferSize < Math.max(0,tIndex)){
-        //         lastBufferedTimePoint = tIndex;
-        //         testRequest(query);
-        //     }
-        //     data = getSliceAtTime(tIndex);
-        // }
-        // else{
-        //     console.log("hit at time", tIndex);
-        //     data = buffer[tIndex];
-        // }
-        
     }
     _setCtxOnQuadrant(0);
     ctx.fillStyle = getGradientColorString(minimumValue, minimumValue, maximumValue);
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    //console.log(getSliceAtTime(tIndex)[0]);
-    //console.log(data[tIndex]);
-    //console.log(array_compare(getSliceAtTime(tIndex)[0], data[tIndex]));
     
     for (j = 0; j < data[0].length; ++j)
         for (i = 0; i < data.length; ++i)
@@ -519,15 +251,8 @@ function drawSceneFunctional(tIndex) {
 function drawVoxel(line, col, value) {
     ctx.fillStyle = getGradientColorString(value, minimumValue, maximumValue);
     // col increases horizontally and line vertically, so col represents the X drawing axis, and line the Y
-    /*ctx.fillRect(col * currentQuadrant.entityWidth, line * currentQuadrant.entityHeight,
-                 currentQuadrant.entityWidth, currentQuadrant.entityHeight);*/
 	ctx.fillRect(col * currentQuadrant.entityWidth, line * currentQuadrant.entityHeight,
 	                 currentQuadrant.entityWidth+1, currentQuadrant.entityHeight+1);
-//ctx.beginPath();
-var x = col * currentQuadrant.entityWidth;
-var y = col * currentQuadrant.entityWidth;
-// ctx.moveTo(x, y); ctx.lineTo(x+5, y); ctx.lineTo(x+5, y-5); ctx.lineTo(x, y-5);ctx.fill();
-// ctx.lineWidth = 1; ctx.strokeStyle = ctx.fillStyle; ctx.closePath(); ctx.stroke();
 }
 
 /**
@@ -647,6 +372,18 @@ function _setupQuadrants() {
         quadrants[quadIdx].offsetY = 0;
         quadrants[quadIdx].offsetX = 0;
     }
+}
+
+function _setupBuffersSize() {
+    var tpSize = entitySize[0]*entitySize[1]*entitySize[2];
+    while(bufferSize*tpSize <= 1000000){ //enough to be able to parse the json smoothly
+        bufferSize++;
+    }
+    while(bufferSize*tpSize*bufferL2Size <= 157286400){ //Very safe measure to avoid crashes. Tested on Chrome.
+        bufferL2Size++;
+    }
+    console.log(bufferSize,bufferL2Size);
+
 }
 
 // ==================================== PRIVATE FUNCTIONS  END  =============================================
@@ -865,7 +602,6 @@ function slideMove(event, ui){
 // Updates the value at the end of the player bar when we move the handle.
 function moviePlayerMove(event, ui){
     $("#time-position > span").each(function(){
-        //$(this).slider("option", "value", currentTimePoint);
         $('#time-slider-value').empty().text( ui.value+'/'+timeLength );
     })
 }
