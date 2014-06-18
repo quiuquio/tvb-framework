@@ -1,7 +1,7 @@
 // TODO: add legend, labels on axes, color scheme support
 var ctx = null;                                                      // the context for drawing on current canvas
 var currentQuadrant, quadrants = [];
-var minimumValue, maximumValue, data;                                // minimum and maximum for current data slice
+var minimumValue, maximumValue;                                // minimum and maximum for current data slice
 var voxelSize, volumeOrigin;                                         // volumeOrigin is not used for now, as in 2D it
                                                                     // is irrelevant; if needed, use it _setQuadrant
 var selectedEntity = [0, 0, 0];                                      // the selected voxel; [i, j, k]
@@ -22,7 +22,7 @@ var bufferL2 = {};
 
 var dataAddress;
 
-var requestQueue = []
+var requestQueue = [];
 
 var Quadrant = function (params) {                                  // this keeps all necessary data for drawing
     this.index = params.index || 0;                                  // in a quadrant
@@ -50,7 +50,7 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     var canvas = document.getElementById("volumetric-ts-canvas");
     if (!canvas.getContext) {
         displayMessage('You need a browser with canvas capabilities, to see this demo fully!', "errorMessage");
-        return
+        return;
     }
 
     volumeOrigin = $.parseJSON(volOrigin)[0];
@@ -127,16 +127,21 @@ function testRequest2(fileName, sect) {
 
     /****WEB WORKER****/
     // We build a worker from an anonymous function body
-    var blobURL = URL.createObjectURL( new Blob([ '(',
-        function(){
-            self.addEventListener( 'message', function (e){
-                var data = e.data;
-                var json = JSON.parse( data );
-                self.postMessage( json );
-                self.close();
-            }, false );
-        }.toString(),
-        ')()' ], { type: 'application/javascript' } ) 
+    var blobURL = URL.createObjectURL( 
+        new Blob([ 
+            '(',
+            function(){
+                // our worker goes inside this functions
+                self.addEventListener( 'message', function (e){
+                    var data = e.data;
+                    var json = JSON.parse( data );
+                    self.postMessage( json );
+                    self.close();
+                }, false );
+            }.toString(),
+            ')()' ], 
+        { type: 'application/javascript' } 
+        ) 
     );
     /****END OF WEB WORKER****/
 
@@ -156,7 +161,7 @@ function parseAsync(data, callback){
         json = JSON.parse( data );
         callback( json );
     }
-};
+}
 
 function freeBuffer(){
     var section = Math.floor(currentTimePoint/bufferSize);
@@ -214,7 +219,7 @@ function drawSceneFunctional(tIndex) {
     
     // if we pass no tIndex the function will play
     // from the currentTimePoint and increment it
-    if(tIndex == null){
+    if(tIndex === null){
         tIndex = currentTimePoint;
         currentTimePoint++;
         currentTimePoint = currentTimePoint%timeLength;
@@ -550,7 +555,7 @@ function playNextTimePoint(){
 }
 
 function playPreviousTimePoint(){
-    if(currentTimePoint == 0)
+    if(currentTimePoint === 0)
         currentTimePoint = timeLength+1
     drawSceneFunctional(--currentTimePoint)
 }
