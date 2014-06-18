@@ -219,7 +219,7 @@ function drawSceneFunctional(tIndex) {
     
     // if we pass no tIndex the function will play
     // from the currentTimePoint and increment it
-    if(tIndex === null){
+    if(tIndex == null){
         tIndex = currentTimePoint;
         currentTimePoint++;
         currentTimePoint = currentTimePoint%timeLength;
