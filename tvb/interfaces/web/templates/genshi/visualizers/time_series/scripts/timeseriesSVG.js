@@ -16,6 +16,7 @@
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0
  *
  **/
+/* global tv, d3, TVBUI */
 
 var TS_SVG_selectedChannels = [];
 // Store a list with all the channel labels so one can easily refresh between them on channel refresh
@@ -26,19 +27,28 @@ var _initial_magic_fcs_amp_scl;
 var tsView;
 
 /**
+ * Initialize selected channels to default values. This is used when no selection ui is present (portlet mode)
+ * initializes global TS_SVG_selectedChannels
+ * Takes the first 20 channels or all
+ */
+function _initDefaultSelection(){
+    for(var i = 0; i < Math.min(MAX_INITIAL_CHANNELS, allChannelLabels.length); i++){
+            TS_SVG_selectedChannels.push(i);
+    }
+}
+
+/**
  * Initializes selected channels
  * initializes global TS_SVG_selectedChannels
  */
-function _initSelection(filterGid){
+function _initSelection(filterGid) {
     // initialize selection component
     var regionSelector = TVBUI.regionSelector("#channelSelector", {filterGid: filterGid});
     var initialSelection = regionSelector.val();
 
-    // If there is no selection take the first 20 channels or all
     if (initialSelection.length == 0) {
-        for(var i = 0; i < Math.min(MAX_INITIAL_CHANNELS, allChannelLabels.length); i++){
-            TS_SVG_selectedChannels.push(i);
-        }
+        // If there is no selection use the default
+        _initDefaultSelection();
         regionSelector.val(TS_SVG_selectedChannels);
     } else if (initialSelection.length > MAX_INITIAL_CHANNELS) {
         // Take a default of maximum 20 channels at start to be displayed
@@ -50,20 +60,23 @@ function _initSelection(filterGid){
     }
     // we bind the event here after the previous val calls
     // do not want those to trigger the change event as tsView is not initialized yet
-    regionSelector.change(function(value){
+    regionSelector.change(function (value) {
         TS_SVG_selectedChannels = [];
-        for(var i=0; i < value.length; i++){
+        for (var i = 0; i < value.length; i++) {
             TS_SVG_selectedChannels.push(parseInt(value[i], 10));
         }
         refreshChannels();
     });
+    var modeSelector = TVBUI.modeAndStateSelector("#channelSelector", 0);
+    modeSelector.modeChanged(_changeMode);
+    modeSelector.stateVariableChanged(_changeStateVariable);
+}
 
-    // compute labels for initial selection
+function _compute_labels_for_current_selection() {
     var selectedLabels = [];
-    for(i = 0; i < TS_SVG_selectedChannels.length; i++){
+    for(var i = 0; i < TS_SVG_selectedChannels.length; i++){
         selectedLabels.push(allChannelLabels[TS_SVG_selectedChannels[i]]);
     }
-
     return selectedLabels;
 }
 
@@ -72,7 +85,7 @@ function _updateScalingFromSlider(value){
         value = $("#ctrl-input-scale").slider("value");
     }
     var expo_scale = (value - 50) / 50; // [1 .. -1]
-    var scale = Math.pow(10, expo_scale*3); // [1000..-1000]
+    var scale = Math.pow(10, expo_scale*4); // [1000..-1000]
     tsView.magic_fcs_amp_scl = _initial_magic_fcs_amp_scl * scale;
     tsView.prepare_data();
     tsView.render_focus();
@@ -100,29 +113,54 @@ function initTimeseriesViewer(baseURL, isPreview, dataShape, t0, dt, channelLabe
     // setup dimensions, div, svg elements and plotter
     var ts = tv.plot.time_series();
 
-    var selectedLabels = _initSelection(filterGid);
+    isPreview = (isPreview === "True");
+
+    if(isPreview){
+        _initDefaultSelection();
+    }else{
+        _initSelection(filterGid);
+    }
 
     dataShape = $.parseJSON(dataShape);
     dataShape[2] = TS_SVG_selectedChannels.length;
 
     // configure data
     var displayElem = $('#time-series-viewer');
-    ts.w(displayElem.width()).h(displayElem.height()).baseURL(baseURL).preview(isPreview).mode(0).state_var(0);
+    ts.w(displayElem.width()).h(displayElem.height());
+    ts.baseURL(baseURL).preview(isPreview).mode(0).state_var(0);
     ts.shape(dataShape).t0(t0).dt(dt);
-    ts.labels(selectedLabels);
+    ts.labels(_compute_labels_for_current_selection());
     ts.channels(TS_SVG_selectedChannels);
     // run
+    resizeToFillParent(ts);
     ts(d3.select("#time-series-viewer"));
     tsView = ts;
 
     // This is arbitrarily set to a value. To be consistent with tsview we rescale relative to this value
     _initial_magic_fcs_amp_scl = tsView.magic_fcs_amp_scl;
 
-    $("#ctrl-input-scale").slider({ value: 50, min: 0, max: 100,
-        slide: function(event, target) {
-            _updateScalingFromSlider(target.value);
-        }
-    });
+    if (!isPreview) {
+        $("#ctrl-input-scale").slider({ value: 50, min: 0, max: 100,
+            slide: function (event, target) {
+                _updateScalingFromSlider(target.value);
+            }
+        });
+    }
+}
+
+function resizeToFillParent(ts){
+    var container, width, height;
+
+    if(!ts.preview()) {
+        container = $('#time-series-viewer').parent();
+        width = container.width();
+        height = container.height() - 80;
+    }else{
+        container = $('body');
+        width = container.width();
+        height = container.height() - 10;
+    }
+    ts.w(width).h(height);
 }
 
 /*
@@ -134,38 +172,58 @@ function refreshChannels() {
     var selectedLabels = [];
     var shape = tsView.shape();
 
-    if (TS_SVG_selectedChannels.length == 0) {
+    if (TS_SVG_selectedChannels.length === 0) {
+        // if all channels are deselected show them all
         selectedLabels = allChannelLabels;
         shape[2] = allChannelLabels.length;
     } else {
         for (var i = 0; i < TS_SVG_selectedChannels.length; i++) {
             selectedLabels.push(allChannelLabels[TS_SVG_selectedChannels[i]]);
         }
-        shape[2] = TS_SVG_selectedChannels.length
+        shape[2] = TS_SVG_selectedChannels.length;
     }
 
     var new_ts = tv.plot.time_series();
 
     // configure data
-    var displayElem = $('#time-series-viewer');
-    new_ts.w(displayElem.width()).h(displayElem.height());
     new_ts.baseURL(tsView.baseURL()).preview(tsView.preview()).mode(tsView.mode()).state_var(tsView.state_var());
     new_ts.shape(shape).t0(tsView.t0()).dt(tsView.dt());
     new_ts.labels(selectedLabels);
-    new_ts.channels(TS_SVG_selectedChannels);
+    // Usually the svg component shows the channels stored in TS_SVG_selectedChannels
+    // and that variable is in sync with the selection component.
+    // But if the selection is empty and we show a timeSeriesSurface
+    // then new_ts will get time series for all 65k vertices from the server.
+    if (TS_SVG_selectedChannels.length !== 0){
+        new_ts.channels(TS_SVG_selectedChannels);
+    }else {
+        new_ts.channels(tv.ndar.range(allChannelLabels.length).data);
+    }
 
-    displayElem.empty();
+    resizeToFillParent(new_ts);
+    $('#time-series-viewer').empty();
     new_ts(d3.select("#time-series-viewer"));
     tsView = new_ts;
-    _updateScalingFromSlider();
+    // The new_ts(...) call above will trigger a data load from the server based on the selected channels
+    // Until that internal ajax returns the new_ts has no time series data
+    // _updateScalingFromSlider calls new_ts render so that the rendering takes into account the slider value
+    // We use settimeout to defer _updateScalingFromSlider until data is available to it
+    // todo: The proper way to handle this is to subscribe to a data_loaded event raised by new_ts
+    function await_data() {
+        if (tsView.ts() == null) {
+            setTimeout(await_data, 100);
+        } else {
+            _updateScalingFromSlider();
+        }
+    }
+    await_data();
 }
 
-function changeMode() {
-    tsView.mode($('#mode-select').val());
+function _changeMode(id, val) {
+    tsView.mode(parseInt(val));
     refreshChannels();
 }
 
-function changeStateVar() {
-    tsView.state_var($('#state-var-select').val());
+function _changeStateVariable(id, val) {
+    tsView.state_var(parseInt(val));
     refreshChannels();
 }

@@ -44,13 +44,13 @@ from cfflib import CData
 from tvb.core.adapters.exceptions import ParseException
 from tvb.core.adapters.abcadapter import ABCAdapter
 from tvb.core.entities.storage import dao
-from tvb.core.utils import get_unique_file_name, read_matlab_data
+from tvb.core.utils import get_unique_file_name
+from tvb.adapters.uploaders.abcuploader import ABCUploader
 from tvb.adapters.uploaders.gifti.util import GiftiDataType, GiftiIntentCode
 from tvb.adapters.uploaders.gifti.gifti import GiftiNVPairs, GiftiMetaData, saveImage, GiftiDataArray, GiftiImage
 from tvb.adapters.uploaders.helper_handler import get_uids_dict, get_gifty_file_name
 from tvb.adapters.uploaders import constants
 from tvb.basic.config.settings import TVBSettings as cfg
-from tvb.basic.traits.util import read_list_data
 from tvb.basic.logger.builder import get_logger
 from tvb.datatypes.connectivity import Connectivity
 from tvb.datatypes import surfaces, projections
@@ -62,6 +62,8 @@ NUMPY_TEMP_FOLDER = os.path.join(cfg.TVB_STORAGE, "NUMPY_TMP")
 #
 # Surface <-> GIFTI
 # 
+
+
 def _create_gifty_array(input_data_list, intent, datatype=GiftiDataType.NIFTI_TYPE_FLOAT32):
     """
     From a input list of points, the intent of this list and the number of points(used for dimensionality)
@@ -243,7 +245,7 @@ def cdata2local_connectivity(local_connectivity_data, meta, storage_path, expect
     
     local_connectivity = surfaces.LocalConnectivity()
     local_connectivity.storage_path = storage_path 
-    local_connectivity_data = read_matlab_data(local_connectivity_path, constants.DATA_NAME_LOCAL_CONN)
+    local_connectivity_data = ABCUploader.read_matlab_data(local_connectivity_path, constants.DATA_NAME_LOCAL_CONN)
     
     if local_connectivity_data.shape[0] < expected_length:
         padding = sparse.csc_matrix((local_connectivity_data.shape[0],
@@ -280,7 +282,7 @@ def cdata2region_mapping(region_mapping_data, meta, storage_path):
     connectivity = ABCAdapter.load_entity_by_gid(gid)
     
     region_mapping = surfaces.RegionMapping(storage_path=storage_path)
-    region_mapping.array_data = read_list_data(region_mapping_path, dtype=numpy.int32)
+    region_mapping.array_data = ABCUploader.read_list_data(region_mapping_path, dtype=numpy.int32)
     region_mapping.connectivity = connectivity
     region_mapping.surface = surface_data
     uid = meta[constants.KEY_UID] if constants.KEY_UID in meta else None
@@ -298,7 +300,7 @@ def cdata2eeg_mapping(eeg_mapping_data, meta, storage_path, expected_shape=0):
     LOG.debug("Using temporary folder for EEG_Mapping import: " + tmpdir)
     _zipfile = ZipFile(eeg_mapping_data.parent_cfile.src, 'r', ZIP_DEFLATED)
     eeg_projection_path = _zipfile.extract(eeg_mapping_data.src, tmpdir)
-    eeg_projection_data = read_matlab_data(eeg_projection_path, constants.DATA_NAME_PROJECTION)
+    eeg_projection_data = ABCUploader.read_matlab_data(eeg_projection_path, constants.DATA_NAME_PROJECTION)
     if eeg_projection_data.shape[1] < expected_shape:
         padding = numpy.zeros((eeg_projection_data.shape[0], expected_shape - eeg_projection_data.shape[1]))
         eeg_projection_data = numpy.hstack((eeg_projection_data, padding))
@@ -335,4 +337,4 @@ def center_vertices(vertices):
     :param vertices: a numpy array of shape (n, 3)
     :returns: the centered array
     """
-    return vertices - numpy.mean(vertices, axis=0).reshape((1,3))
+    return vertices - numpy.mean(vertices, axis=0).reshape((1, 3))

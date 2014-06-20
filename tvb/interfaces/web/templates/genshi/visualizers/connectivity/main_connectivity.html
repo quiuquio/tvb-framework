@@ -65,7 +65,7 @@
 			<xi:include href="../mplh5/figure_template.html" py:with="parentDiv='monitorDiv'"/>
 			<script type="text/javascript">
 		        $(document).ready(function() {
-		            connect_manager('$serverIp', $serverPort, $figureNumber);
+		            connect_manager('$mplh5ServerURL', $figureNumber);
 		        });
 		    </script>
 		</div>	
@@ -90,7 +90,7 @@
 	    	<input type="hidden" id="newTractsId" name="new_tracts"/>
 	        <input type="hidden" id="interestAreaNodeIndexesId" name="interest_area_indexes"/>
 	        <input type="hidden" id="originalConnectivityId" name="original_connectivity" value="$originalConnectivity"/>
-	    	<a href="#" tabindex='-1' onclick='saveChanges();' class="action action-big-new column-control" title="Create new connectivity matrix from current selection">Create new</a>
+	    	<a href="#" tabindex='-1' onclick='saveSubConnectivity();' class="action action-big-new column-control" title="Create new connectivity matrix from current selection">Create new</a>
 	    </form>
 
     <div id="chkList" class="matrix">
@@ -108,7 +108,7 @@
 			<!-- Node/Edge operations -->
 			<li class="selection-ops">
 				<nav class="inline-menu">
-					<button class="action action-menu">Weights</button>
+					<button class="action action-menu">Edge Operations</button>
 
 					<div class="extension">
 		    			<div class="dropdown-pane">
@@ -202,7 +202,7 @@
                     '$connectivity_nose_correction', false, '$conductionSpeed',
                     '$raysArray', '$colorsArray');
             GVAR_baseSelection = '$base_selection';
-            GFUN_initSelectionComponent("${measurePointsSelectionGID}");
+            GFUN_initSelectionComponent("${measurePointsSelectionGID}", "${hemisphereOrderUrl}");
             GFUN_initializeConnectivityFull();
         });
 

@@ -29,55 +29,22 @@
 #
 
 """
-.. moduleauthor:: Marmaduke Woodman <mw@eml.cc>
+Launch an operation from the command line
 
-Shortcut for activating the console profile on the console and conveniently
-importing interacting with the full framework.
-
->>> import tvb.basic.console_profile as prof
->>> prof.attach_db_events()
->>> dao.get_foo()
-...
-
-tvb.console
------------
-
-Provides convenient access to framework from the console. 
-
+.. moduleauthor:: Lia Domide <lia.domide@codemart.ro>
 """
 
-## Select the profile with storage enabled, but without web interface:
-
-from tvb.basic.profile import TvbProfile as tvb_profile
-tvb_profile.set_profile(["-profile", "CONSOLE_PROFILE"], try_reload=False)
-
-from tvb.core.traits import db_events
-
-from tvb.core.entities.model import *
-from tvb.core.entities.storage import dao
-
-from tvb.core.services.flow_service import FlowService
-from tvb.core.services.operation_service import OperationService
-
-from tvb.adapters.uploaders.abcuploader import ABCUploader
-
-from tvb.basic.logger.builder import get_logger
-
-db_events.attach_db_events()
-
-
+import tvb.interfaces.command.prepare
 from tvb.core.entities.model import AlgorithmGroup, Algorithm
 from tvb.core.entities.storage import dao
 from tvb.core.services.flow_service import FlowService
 from tvb.core.services.operation_service import OperationService
-
-# Hook DB events (like prepare json attributes on traited DataTypes):
-db_events.attach_db_events()
+from new_importer import FooDataImporter
 
 
-# Take from Lia's example. How to provide more functionality in
-# a convenient way for the console user?
-"""
+## Before starting this, we need to have TVB web interface launched at least once (to have a default project, user, etc)
+if __name__ == "__main__":
+
     flow_service = FlowService()
     operation_service = OperationService()
 
@@ -101,11 +68,10 @@ db_events.attach_db_events()
 
     ## Prepare the input algorithms as if they were coming from web UI submit:
     #launch_args = {"array_data": "[1, 2, 3, 4, 5]"}
-    launch_args = {"array_data" : "demo_array.txt"}
+    launch_args = {"array_data": "demo_array.txt"}
 
     ## launch an operation and have the results sotored both in DB and on disk
     launched_operations = flow_service.fire_operation(adapter_instance,
                                                       project.administrator,
                                                       project.id,
                                                       **launch_args)
-"""

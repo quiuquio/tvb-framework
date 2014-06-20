@@ -1,12 +1,5 @@
 <fieldset class="slider" xmlns:py="http://genshi.edgewall.org/">
 
-    <ul class="toolbar-inline" py:if="not extended_view">
-        <li>
-            <button id="ctrl-action-pause" class="action action-controller-pause"
-                    title="Pause Animation" onclick="stopAnimation();">Pause</button>
-        </li>
-	</ul>
-
     <dl>
         <py:if test="not extended_view">
             <dt>
@@ -21,7 +14,7 @@
         </py:if>
 
         <dt>
-            <label for="ctrl-input-scale">Scaling</label>
+            <label for="ctrl-input-scale">Spacing</label>
             <span class="slider-value" id="display-scale" title="Distance between adjacent lines">1</span>
         </dt>
         <dd>

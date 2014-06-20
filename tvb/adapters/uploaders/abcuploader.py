@@ -32,7 +32,12 @@
 .. moduleauthor:: Mihai Andrei <mihai.andrei@codemart.ro>
 """
 
+import os
+import numpy
 from abc import abstractmethod
+from scipy import io as scipy_io
+from tvb.basic.logger.builder import get_logger
+from tvb.core.entities import model
 from tvb.core.adapters.abcadapter import ABCSynchronous
 from tvb.core.entities.transient.structure_entities import DataTypeMetaData
 from tvb.core.entities.storage import dao
@@ -42,6 +47,7 @@ class ABCUploader(ABCSynchronous):
     """
     Base class of the uploaders
     """
+    LOGGER = get_logger(__name__)
 
     def get_input_tree(self):
         """
@@ -59,6 +65,7 @@ class ABCUploader(ABCSynchronous):
         Build the list of dictionaries describing the input required for this uploader.
         :return: The input tree specific for this uploader
         """
+        return []
 
 
     def _prelaunch(self, operation, uid=None, available_disk_space=0, **kwargs):
@@ -89,15 +96,56 @@ class ABCUploader(ABCSynchronous):
         """
         return 0
 
+
     def ensure_db(self):
-        "Ensure algorithm exists in DB and add it if not"
+        """
+        Ensure algorithm exists in DB and add it if not
+        """
         cat = dao.get_uploader_categories()[0]
         cls = self.__class__
         cmd, cnm = cls.__module__, cls.__name__
         gp = dao.find_group(cmd, cnm)
         if gp is None:
-            gp = AlgorithmGroup(cmd, cnm, cat.id)
+            gp = model.AlgorithmGroup(cmd, cnm, cat.id)
             gp = dao.store_entity(gp)
-            dao.store_entity(Algorithm(gp.id, cnm, cnm))
+            dao.store_entity(model.Algorithm(gp.id, cnm, cnm))
         self.algorithm_group = gp
+
+
+    @staticmethod
+    def read_list_data(full_path, dimensions=None, dtype=numpy.float64, skiprows=0, usecols=None):
+        """
+        Read numpy.array from a text file.
+        """
+        try:
+            array_result = numpy.loadtxt(full_path, dtype=dtype, skiprows=skiprows, usecols=usecols)
+            if dimensions:
+                return array_result.reshape(dimensions)
+            return array_result
+        except ValueError, exc:
+            file_ending = os.path.split(full_path)[1]
+            exc.args = (exc.args[0] + " In file: " + file_ending,)
+            raise
+
+
+    @staticmethod
+    def read_matlab_data(path, matlab_data_name=None):
+        """
+        Read array from matlab file.
+        """
+        try:
+            matlab_data = scipy_io.matlab.loadmat(path)
+        except NotImplementedError:
+            ABCUploader.LOGGER.error("Could not read Matlab content from: " + path)
+            ABCUploader.LOGGER.error("Matlab files must be saved in a format <= -V7...")
+            raise
+
+        try:
+            return matlab_data[matlab_data_name]
+        except KeyError:
+            def double__(n):
+                n = str(n)
+                return n.startswith('__') and n.endswith('__')
+            available = [s for s in matlab_data if not double__(s)]
+            raise KeyError("Could not find dataset named %s. Available datasets: %s" % (matlab_data_name, available))
 

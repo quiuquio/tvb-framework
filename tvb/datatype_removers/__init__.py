@@ -35,19 +35,23 @@ Factory for mapping DataTypes to Remove handlers is build here.
 """
 
 from tvb.datatype_removers.remover_connectivity import ConnectivityRemover
+from tvb.datatype_removers.remover_sensor import SensorRemover
 from tvb.datatype_removers.remover_surface import SurfaceRemover
 from tvb.datatype_removers.remover_timeseries import TimeseriesRemover
 from tvb.datatype_removers.remover_volume import VolumeRemover
 
 
-REMOVERS_FACTORY = {'Connectivity': ConnectivityRemover, 
-                    'CorticalSurface': SurfaceRemover,
-                    'SkinAir': SurfaceRemover, 
-                    'BrainSkull': SurfaceRemover,
-                    'SkullSkin': SurfaceRemover,
-                    'TimeSeriesEEG': TimeseriesRemover,
-                    'TimeSeriesRegion': TimeseriesRemover,
-                    'TimeSeriesSurface': TimeseriesRemover,
-                    'TimeSeriesVolume': TimeseriesRemover,
-                    'Volume': VolumeRemover
-                    }
+REMOVERS_FACTORY = {
+    'Connectivity': ConnectivityRemover,
+    'CorticalSurface': SurfaceRemover,
+    'SkinAir': SurfaceRemover,
+    'BrainSkull': SurfaceRemover,
+    'SkullSkin': SurfaceRemover,
+    'SensorsEEG': SensorRemover,
+    'SensorsMEG': SensorRemover,
+    'TimeSeriesEEG': TimeseriesRemover,
+    'TimeSeriesRegion': TimeseriesRemover,
+    'TimeSeriesSurface': TimeseriesRemover,
+    'TimeSeriesVolume': TimeseriesRemover,
+    'Volume': VolumeRemover
+}
