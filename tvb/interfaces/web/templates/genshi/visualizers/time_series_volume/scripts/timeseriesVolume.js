@@ -122,11 +122,13 @@ function asyncRequest(fileName, sect) {
 
     /****WEB WORKER****/
     // We build a worker from an anonymous function body
+    // TODO: Create a nice inline worker-wrapper function
+    // that returns a blob.
     var blobURL = URL.createObjectURL( 
         new Blob([ 
             '(',
+            // our worker goes inside this function
             function(){
-                // our worker goes inside this functions
                 self.addEventListener( 'message', function (e){
                     var data = e.data;
                     var json = JSON.parse( data );
@@ -164,7 +166,7 @@ function freeBuffer(){
     if(bufferedElements > TsVol.bufferL2Size){
         for(var idx in TsVol.bufferL2){
             if (idx < (section-TsVol.bufferL2Size/2)%timeLength || idx > (section+TsVol.bufferL2Size/2)%timeLength){
-                console.log("erase:", idx)
+                //console.log("erase:", idx)
                 delete TsVol.bufferL2[idx];
             }
         }
@@ -174,7 +176,9 @@ function freeBuffer(){
 function streamToBuffer(){
     var section = Math.floor(TsVol.currentTimePoint/TsVol.bufferSize);
     var maxSections = Math.floor(timeLength/TsVol.bufferSize);
-    var query = TsVol.dataAddress+"from_idx="+TsVol.currentTimePoint+";to_idx="+(TsVol.bufferSize+TsVol.currentTimePoint)%timeLength;
+    var from = "from_idx="+TsVol.currentTimePoint;
+    var to = ";to_idx="+(TsVol.bufferSize+TsVol.currentTimePoint)%timeLength;
+    var query = TsVol.dataAddress+from+to;
     for(var i = 0; i <= TsVol.lookAhead; i++){
             var tmp = (section+i)%maxSections;
             if(!TsVol.bufferL2[tmp] && TsVol.requestQueue.indexOf(tmp) < 0){
@@ -184,7 +188,10 @@ function streamToBuffer(){
 }
 
 function getSliceAtTime(t){
-    var query = TsVol.dataAddress+"from_idx="+t+";to_idx="+(TsVol.bufferSize+t)%timeLength;
+    var buffer;
+    var from = "from_idx="+t;
+    var to = ";to_idx="+(TsVol.bufferSize+t)%timeLength;
+    var query = TsVol.dataAddress+from+to;
     var section = Math.floor(t/TsVol.bufferSize);
     for(var i in TsVol.requestQueue){
         if( TsVol.requestQueue[i] < section ){
@@ -194,7 +201,6 @@ function getSliceAtTime(t){
     if(TsVol.bufferL2[section]){
         buffer = TsVol.bufferL2[section];
     }else{
-        query = TsVol.dataAddress+"from_idx="+t+";to_idx="+(TsVol.bufferSize+t)%timeLength;
         buffer = HLPR_readJSONfromFile(query);
         TsVol.bufferL2[section] = buffer;
     }
@@ -317,16 +323,6 @@ function _setCtxOnQuadrant(quadIdx) {
 }
 
 /**
- * Rotates the K axis on the data to get a nice, upright view of the brain
- */
-function _rotateFunctionalData() {
-  for (var t = 0; t < TsVol.data.length; t++)
-    for (var i = 0; i < TsVol.data[0].length; i++)
-        for (var j = 0; j < TsVol.data[0][0].length; j++)
-            TsVol.data[t][i][j].reverse();
-}
-
-/**
  * Returns the number of elements on the given axis
  * @param axis The axis whose length is returned; i=0, j=1, k=2
  * @returns {*}
@@ -376,10 +372,12 @@ function _setupQuadrants() {
 
 function _setupBuffersSize() {
     var tpSize = TsVol.entitySize[0]*TsVol.entitySize[1]*TsVol.entitySize[2];
-    while(TsVol.bufferSize*tpSize <= 1000000){ //enough to be able to parse the json smoothly
+    //enough to be avoid waisting bandwidth and to parse the json smoothly
+    while(TsVol.bufferSize*tpSize <= 1000000){ 
         TsVol.bufferSize++;
     }
-    while(TsVol.bufferSize*tpSize*TsVol.bufferL2Size <= 157286400){ //Very safe measure to avoid crashes. Tested on Chrome.
+    //Very safe measure to avoid crashes. Tested on Chrome.
+    while(TsVol.bufferSize*tpSize*TsVol.bufferL2Size <= 157286400){ 
         TsVol.bufferL2Size++;
     }
     console.log(TsVol.bufferSize,TsVol.bufferL2Size);
@@ -411,7 +409,8 @@ function customMouseMove(e) {
     // check if it's inside the quadrant but outside the drawing
     if (ypos < selectedQuad.offsetY || ypos >= TsVol.quadrantHeight - selectedQuad.offsetY ||
         xpos < TsVol.quadrantWidth * selectedQuad.index + selectedQuad.offsetX ||
-        xpos >= TsVol.quadrantWidth * (selectedQuad.index + 1) - selectedQuad.offsetX)
+        xpos >= TsVol.quadrantWidth * (sele
+            ctedQuad.index + 1) - selectedQuad.offsetX)
         return;
     var selectedEntityOnX = Math.floor((xpos % TsVol.quadrantWidth) / selectedQuad.entityWidth);
     var selectedEntityOnY = Math.floor((ypos - selectedQuad.offsetY) / selectedQuad.entityHeight);
