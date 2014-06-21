@@ -255,6 +255,16 @@ class MatlabValidator(formencode.FancyValidator):
             raise formencode.Invalid('No valid matlab installation was found at the path you provided.', '', None)
 
 
+class AsciiValidator(formencode.FancyValidator):
+    """
+    Allow only ascii strings
+    """
+    def _convert_to_python(self, value, _):
+        try:
+            return str(value).encode('ascii')
+        except UnicodeError:
+            raise formencode.Invalid('Invalid ascii string %s' % value, '', None)
+
 
 class SettingsForm(formencode.Schema):
     """
@@ -264,14 +274,15 @@ class SettingsForm(formencode.Schema):
     ADMINISTRATOR_NAME = formencode.All(validators.UnicodeString(not_empty=True), validators.PlainText())
     ADMINISTRATOR_PASSWORD = validators.UnicodeString(not_empty=True)
     ADMINISTRATOR_EMAIL = validators.Email(not_empty=True)
-    TVB_STORAGE = validators.UnicodeString(not_empty=True)
+    TVB_STORAGE = AsciiValidator(not_empty=True)
     USR_DISK_SPACE = DiskSpaceValidator()
     MATLAB_EXECUTABLE = MatlabValidator()
     SELECTED_DB = validators.UnicodeString(not_empty=True)
     URL_VALUE = validators.UnicodeString(not_empty=True)
-    SERVER_IP = validators.UnicodeString(not_empty=True)
     WEB_SERVER_PORT = PortValidator()
     MPLH5_SERVER_PORT = PortValidator()
+    URL_WEB = validators.URL(not_empty=True, require_tld=False)
+    URL_MPLH5 = AsciiValidator(not_empty=True)
     MAXIMUM_NR_OF_THREADS = ThreadNrValidator()
     MAXIMUM_NR_OF_VERTICES_ON_SURFACE = SurfaceVerticesNrValidator()
     MAXIMUM_NR_OF_OPS_IN_RANGE = validators.Int(min=5, max=5000, not_empty=True)

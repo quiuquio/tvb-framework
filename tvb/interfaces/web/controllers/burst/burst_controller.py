@@ -43,7 +43,7 @@ from tvb.config import SIMULATOR_MODULE, SIMULATOR_CLASS, MEASURE_METRICS_MODULE
 from tvb.basic.config.settings import TVBSettings as cfg
 from tvb.core.utils import generate_guid, string2bool
 from tvb.core.adapters.abcadapter import ABCAdapter
-from tvb.core.services.burst_service import BurstService, KEY_PARAMETER_CHECKED
+from tvb.core.services.burst_service import BurstService, KEY_PARAMETER_CHECKED, LAUNCH_NEW
 from tvb.core.services.workflow_service import WorkflowService
 from tvb.core.services.operation_service import RANGE_PARAMETER_1, RANGE_PARAMETER_2
 from tvb.interfaces.web.controllers import common
@@ -309,8 +309,13 @@ class BurstController(BaseController):
         Rename the burst given by burst_id, setting it's new name to
         burst_name.
         """
-        self._validate_burst_name(burst_name)
-        self.burst_service.rename_burst(burst_id, burst_name)
+        validation_result = self._is_burst_name_ok(burst_name)
+        if validation_result is True:
+            self.burst_service.rename_burst(burst_id, burst_name)
+            return {'success': "Simulation successfully renamed!"}
+        else:
+            return {'error': validation_result}
+
 
     @expose_json
     def launch_burst(self, launch_mode, burst_name, **data):
@@ -324,9 +329,12 @@ class BurstController(BaseController):
         burst_config = common.get_from_session(common.KEY_BURST_CONFIG)
 
         ## Validate new burst-name
-        if burst_name != 'none_undefined':
-            self._validate_burst_name(burst_name)
-            burst_config.name = burst_name
+        if launch_mode == LAUNCH_NEW and burst_name != 'none_undefined':
+            validation_result = self._is_burst_name_ok(burst_name)
+            if validation_result is True:
+                burst_config.name = burst_name
+            else:
+                return {'error': validation_result}
 
         ## Fill all parameters 
         user_id = common.get_logged_user().id
@@ -337,7 +345,7 @@ class BurstController(BaseController):
         ## Do the asynchronous launch
         burst_id, burst_name = self.burst_service.launch_burst(burst_config, 0, self.cached_simulator_algorithm_id,
                                                                user_id, launch_mode)
-        return [burst_id, burst_name]
+        return {'id': burst_id, 'name': burst_name}
 
 
     @expose_json
@@ -601,7 +609,9 @@ class BurstController(BaseController):
         result, input_data, operation_id = self.burst_service.launch_visualization(visualizer, is_preview=False)
         algorithm = self.flow_service.get_algorithm_by_identifier(visualizer.fk_algorithm)
 
-        result[common.KEY_TITLE] = algorithm.name
+        if common.KEY_TITLE not in result:
+            result[common.KEY_TITLE] = algorithm.name
+
         result[common.KEY_ADAPTER] = algorithm.algo_group.id
         result[common.KEY_OPERATION_ID] = operation_id
         result[common.KEY_INCLUDE_RESOURCES] = 'flow/included_resources'
@@ -638,16 +648,19 @@ class BurstController(BaseController):
         return portlet_entity
 
 
-    def _validate_burst_name(self, burst_name):
+    def _is_burst_name_ok(self, burst_name):
         """
         Validate a new burst name, to have only plain text.
+        :returns: True, when validation succeeds, and an error message otherwise.
         """
         try:
             form = BurstNameForm()
             form.to_python({'burst_name': burst_name})
+            return True
         except formencode.Invalid:
-            self.logger.exception("Invalid simulation name " + str(burst_name))
-            raise
+            validation_error = "Invalid simulation name %s. Please use only letters, numbers, or _ " % str(burst_name)
+            self.logger.exception(validation_error)
+            return validation_error
 
 
 

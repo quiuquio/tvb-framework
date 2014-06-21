@@ -326,6 +326,18 @@ function changeDBValue(selectComponent) {
     }
 }
 
+function settingsPageInitialize(){
+    $('#TVB_STORAGE').change( function() {
+        if ($('#SELECTED_DB').val() == 'sqlite') {
+            var storagePath = $('#TVB_STORAGE').val();
+            if (storagePath.slice(-1) !== '/'){
+                storagePath += '/'
+            }
+            $('#URL_VALUE').val('sqlite:///' + storagePath + 'tvb-database.db');
+        }
+    });
+}
+
 
 // ------------------END USER-----------------------------
 
@@ -574,6 +586,9 @@ function _stopOperationsOrBurst(operationId, isGroup, isBurst, removeAfter) {
                 displayMessage("The operation was successfully removed.", "infoMessage")
             } else {
                 displayMessage("Could not remove operation.",'warningMessage');
+            }
+            if (removeAfter) {
+                refreshOperations();
             }
         },
         error: function() {

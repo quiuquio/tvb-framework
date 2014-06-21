@@ -108,14 +108,14 @@ class BaseProfile():
 
 
     # II. Attributes with value not changeable from settings page:
-    DB_CURRENT_VERSION = 10
+    DB_CURRENT_VERSION = 11
     # Overwrite number of connections to the DB. 
     # Otherwise might reach PostgreSQL limit when launching multiple concurrent operations.
     # MAX_DB_CONNECTION default value will be used for WEB  
     # When launched on cluster, the MAX_DB_ASYNC_CONNECTIONS overwrites MAX_DB_CONNECTIONS value 
     MAX_DB_CONNECTIONS = 20
     MAX_DB_ASYNC_CONNECTIONS = 2
-    BASE_VERSION = "1.1.5"
+    BASE_VERSION = "1.2.1"
     # Nested transactions are not supported by all databases and not really necessary in TVB so far so
     # we don't support them yet. However when running tests we can use them to out advantage to rollback 
     # any database changes between tests.
@@ -192,8 +192,12 @@ class BaseProfile():
     @settings_loaded()
     def CODE_CHECKED_TO_VERSION():
         """The version up until we done the upgrade properly for the file data storage."""
-        version_string = FrameworkSettings.get_attribute(FrameworkSettings.KEY_LAST_CHECKED_CODE_VERSION, '-1')
-        return BaseProfile.parse_svn_version(version_string)
+        default = -1
+        version_string = FrameworkSettings.get_attribute(FrameworkSettings.KEY_LAST_CHECKED_CODE_VERSION, str(default))
+        try:
+            return BaseProfile.parse_svn_version(version_string)
+        except Exception:
+            return default
 
 
     # Access rights for TVB generated files/folders.
@@ -229,7 +233,7 @@ class BaseProfile():
     OPERATION_EXECUTION_PROCESS = False
 
     CLUSTER_SCHEDULE_COMMAND = 'oarsub ' \
-                               '-p "host>\'n07\' AND host<=\'n20\'" ' \
+                               '-p "host>\'n02\' AND host>\'n02\'" ' \
                                '-l walltime=%s ' \
                                '-q tvb ' \
                                '-S "/home/tvbadmin/clusterLauncher %s %s"'
@@ -302,6 +306,8 @@ class BaseProfile():
         """
         pass
 
+    FIRST_RUN_STORAGE = os.path.expanduser(os.path.join('~', '.tvb-temp'))
+    DEFAULT_STORAGE = os.path.expanduser(os.path.join('~', 'TVB'))
 
     # III. Attributes that can be overwritten from config file.
     #     Will have only default values in here.
@@ -310,8 +316,8 @@ class BaseProfile():
     @settings_loaded()
     def TVB_STORAGE():
         """Root folder for all projects and users."""
-        default = os.path.expanduser(os.path.join("~", "TVB" + os.sep))
-        return FrameworkSettings.get_attribute(FrameworkSettings.KEY_STORAGE, default)
+        default = FrameworkSettings.FIRST_RUN_STORAGE
+        return FrameworkSettings.get_attribute(FrameworkSettings.KEY_STORAGE, default, unicode)
 
 
     @ClassProperty
@@ -363,8 +369,10 @@ class BaseProfile():
     @staticmethod
     def ACEEPTED_DBS():
         """A dictionary with accepted db's and their default URLS"""
-        return {'postgres': FrameworkSettings.POSTGRES_URL,
-                'sqlite': ('sqlite:///' + os.path.join(FrameworkSettings.TVB_STORAGE, "tvb-database.db"))}
+        return {'postgres': FrameworkSettings.get_attribute(FrameworkSettings.KEY_DB_URL,
+                            'postgresql+psycopg2://postgres:root@127.0.0.1:5432/tvb?user=postgres&password=postgres'),
+                'sqlite': FrameworkSettings.get_attribute(FrameworkSettings.KEY_DB_URL,
+                            'sqlite:///' + os.path.join(FrameworkSettings.DEFAULT_STORAGE, "tvb-database.db"))}
 
 
     @ClassProperty
@@ -378,23 +386,11 @@ class BaseProfile():
 
     @ClassProperty
     @staticmethod
+    @settings_loaded()
     def DB_URL():
         """Used DB url: IP,PORT. The DB  needs to be created in advance."""
-        if FrameworkSettings.SELECTED_DB in FrameworkSettings.ACEEPTED_DBS:
-            return FrameworkSettings.ACEEPTED_DBS[FrameworkSettings.SELECTED_DB]
-        return 'sqlite:///' + os.path.join(FrameworkSettings.TVB_STORAGE, "tvb-database.db")
-
-
-    @ClassProperty
-    @staticmethod
-    @settings_loaded()
-    def POSTGRES_URL():
-        """Default URL for Postgres DB"""
-        default = 'postgresql+psycopg2://postgres:root@127.0.0.1:5432/tvb?user=postgres&password=postgres'
-        current_url = FrameworkSettings.get_attribute(FrameworkSettings.KEY_DB_URL, default)
-        if FrameworkSettings.SELECTED_DB == 'postgres' and current_url.startswith('postgresql'):
-            return current_url
-        return default
+        default = 'sqlite:///' + os.path.join(FrameworkSettings.TVB_STORAGE, "tvb-database.db")
+        return FrameworkSettings.get_attribute(FrameworkSettings.KEY_DB_URL, default)
 
 
     @ClassProperty
@@ -405,13 +401,6 @@ class BaseProfile():
 
 
     # IP and Ports
-    @ClassProperty
-    @staticmethod
-    @settings_loaded()
-    def SERVER_IP():
-        """Web server access IP/name"""
-        return FrameworkSettings.get_attribute(FrameworkSettings.KEY_IP, FrameworkSettings.LOCALHOST)
-
 
     # The maximum number of threads to allocate in case TVB is ran locally instead
     # of cluster. This represents the maximum number of operations that can be executed
@@ -473,9 +462,28 @@ class BaseProfile():
 
     @ClassProperty
     @staticmethod
+    def BASE_LOCAL_URL():
+        """PUBLIC WEB reference towards the web site TVB."""
+        server_IP = FrameworkSettings.get_attribute(FrameworkSettings.KEY_IP, FrameworkSettings.LOCALHOST)
+        return "http://%s:%s/" % (server_IP, str(FrameworkSettings.WEB_SERVER_PORT))
+
+
+    @ClassProperty
+    @staticmethod
     def BASE_URL():
-        """PUBLIC WEB reference towards the cluster."""
-        return 'http://' + FrameworkSettings.SERVER_IP + ':' + str(FrameworkSettings.WEB_SERVER_PORT) + '/'
+        """PUBLIC WEB reference towards the web site TVB."""
+        default = FrameworkSettings.BASE_LOCAL_URL
+        return FrameworkSettings.get_attribute(FrameworkSettings.KEY_URL_WEB, default)
+
+
+    @ClassProperty
+    @staticmethod
+    @settings_loaded()
+    def MPLH5_SERVER_URL():
+        """URL for accessing the Matplotlib HTML5 backend"""
+        server_IP = FrameworkSettings.get_attribute(FrameworkSettings.KEY_IP, FrameworkSettings.LOCALHOST)
+        default = "ws://%s:%s/" % (server_IP, str(FrameworkSettings.MPLH5_SERVER_PORT))
+        return FrameworkSettings.get_attribute(FrameworkSettings.KEY_URL_MPLH5, default)
 
 
     @ClassProperty
@@ -547,6 +555,7 @@ class BaseProfile():
                 'tools.sessions.on': True,
                 'tools.sessions.storage_type': 'ram',
                 'tools.sessions.timeout': 6000,  # 100 hours
+                'response.timeout': 1000000,
                 'tools.sessions.locking': 'explicit',
                 'tools.upload.on': True,    # Tool to check upload content size
                 'tools.cleanup.on': True    # Tool to clean up files on disk
@@ -578,10 +587,9 @@ class BaseProfile():
     def parse_svn_version(version_string):
         if ':' in version_string:
             version_string = version_string.split(':')[1]
-            number = ''.join([ch for ch in version_string if ch.isdigit()])
-            return int(number)
-        else:
-            return int(version_string)
+
+        number = ''.join([ch for ch in version_string if ch.isdigit()])
+        return int(number)
 
 
     @staticmethod
@@ -666,6 +674,8 @@ class BaseProfile():
     KEY_IP = 'SERVER_IP'
     KEY_PORT = 'WEB_SERVER_PORT'
     KEY_PORT_MPLH5 = 'MPLH5_SERVER_PORT'
+    KEY_URL_WEB = 'URL_WEB'
+    KEY_URL_MPLH5 = 'URL_MPLH5'
     KEY_SELECTED_DB = 'SELECTED_DB'
     KEY_DB_URL = 'URL_VALUE'
     KEY_URL_VERSION = 'URL_TVB_VERSION'
@@ -691,7 +701,7 @@ class BaseProfile():
         return (os.path.exists(os.path.join(tvb_root, 'AUTHORS'))
                 and os.path.exists(os.path.join(os.path.dirname(tvb_root), 'third_party_licenses'))
                 and os.path.exists(os.path.join(os.path.dirname(tvb_root), 'externals'))
-                and os.path.exists(os.path.join(os.path.dirname(tvb_root), 'documentor')))
+                and os.path.exists(os.path.join(os.path.dirname(tvb_root), 'tvb_documentation')))
 
 
     def is_windows(self):
@@ -739,24 +749,24 @@ class BaseProfile():
         """Get Python path, based on running options."""
 
         if self.is_development():
-            path =  'python'
-        if self.is_windows():
-            path =  os.path.join(os.path.dirname(FrameworkSettings.BIN_FOLDER), 'exe', self.get_python_exe_name())
-        if self.is_mac():
+            python_path = 'python'
+        elif self.is_windows():
+            python_path = os.path.join(os.path.dirname(FrameworkSettings.BIN_FOLDER), 'exe', self.get_python_exe_name())
+        elif self.is_mac():
             root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(FrameworkSettings.BIN_FOLDER))))
-            path =  os.path.join(root_dir, 'MacOS', self.get_python_exe_name())
-        if self.is_linux():
-            path =  os.path.join(os.path.dirname(FrameworkSettings.BIN_FOLDER), 'exe', self.get_python_exe_name())
+            python_path = os.path.join(root_dir, 'MacOS', self.get_python_exe_name())
+        elif self.is_linux():
+            python_path = os.path.join(os.path.dirname(FrameworkSettings.BIN_FOLDER), 'exe', self.get_python_exe_name())
+        else:
+            python_path = 'python'
 
         try:
             # check if file actually exists
-            os.stat(path)
-            return path
+            os.stat(python_path)
+            return python_path
         except:
             # otherwise best guess is the current interpreter!
             return sys.executable
-
-        # raise Exception("Invalid BUILD type found!!!")
 
 
 
@@ -779,6 +789,7 @@ class TestSQLiteProfile(BaseProfile):
 
     RENDER_HTML = False
     TRADE_CRASH_SAFETY_FOR_SPEED = True
+    DEFAULT_STORAGE = os.path.expanduser(os.path.join('~', 'TVB_TEST'))
 
 
     @ClassProperty
@@ -786,7 +797,7 @@ class TestSQLiteProfile(BaseProfile):
     @settings_loaded()
     def TVB_STORAGE():
         """Root folder for all projects and users."""
-        default = os.path.expanduser(os.path.join("~", "TVB_TEST" + os.sep))
+        default = FrameworkSettings.DEFAULT_STORAGE
         current_storage = FrameworkSettings.get_attribute(FrameworkSettings.KEY_STORAGE, default)
 
         if not os.path.exists(current_storage):

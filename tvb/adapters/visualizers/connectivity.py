@@ -57,6 +57,8 @@ class ConnectivityViewer(ABCDisplayer):
     The surface is only displayed as a shadow.
     """
 
+    _ui_name = "Connectivity Visualizer"
+
 
     def get_input_tree(self):
         """
@@ -73,9 +75,9 @@ class ConnectivityViewer(ABCDisplayer):
                  'description': 'A ConnectivityMeasure DataType that establishes a colormap for the nodes '
                                 'displayed in the 2D Connectivity tabs.'},
                 {'name': 'step', 'label': 'Color Threshold', 'type': 'float',
-                 'description': 'All nodes with a value greater than this threshold will be displayed as red discs, '
-                                'otherwise they will be yellow. (This applies to 2D Connectivity tabs and the '
-                                'threshold will depend on the metric used to set the Node Color)'},
+                 'description': 'All nodes with a value greater or equal (>=) than this threshold will be displayed '
+                                'as red discs, otherwise (<) they will be yellow. (This applies to 2D Connectivity  '
+                                'tabs and the threshold will depend on the metric used to set the Node Color)'},
                 {'name': 'rays', 'label': 'Shapes Dimensions', 'type': ConnectivityMeasure,
                  'conditions': FilterChain(fields=[FilterChain.datatype + '._nr_dimensions'],
                                            operations=["=="], values=[1]),
@@ -147,8 +149,12 @@ class ConnectivityViewer(ABCDisplayer):
         conn = self.load_entity_by_gid(original_connectivity)
         self.meta_data[DataTypeMetaData.KEY_SUBJECT] = conn.subject
 
-        result_connectivity = conn.generate_new_connectivity(new_weights, interest_area_indexes,
-                                                             self.storage_path, new_tracts)
+        new_weights = numpy.asarray(json.loads(new_weights))
+        new_tracts = numpy.asarray(json.loads(new_tracts))
+        interest_area_indexes = numpy.asarray(json.loads(interest_area_indexes))
+
+        result_connectivity = conn.generate_new_connectivity_from_ordered_arrays(new_weights, interest_area_indexes,
+                                                                                 self.storage_path, new_tracts)
         result.append(result_connectivity)
 
         linked_region_mappings = dao.get_generic_entity(RegionMapping, original_connectivity, '_connectivity')
@@ -159,6 +165,7 @@ class ConnectivityViewer(ABCDisplayer):
         for projection in linked_projection:
             result.append(projection.generate_new_projection(result_connectivity.gid, self.storage_path))
         return result
+
 
     @staticmethod
     def _compute_matrix_extrema(m):
@@ -189,6 +196,7 @@ class ConnectivityViewer(ABCDisplayer):
         path_pos = self.paths2url(input_data, 'ordered_centres')
         path_tracts = self.paths2url(input_data, 'ordered_tracts')
         path_labels = self.paths2url(input_data, 'ordered_labels')
+        path_hemisphere_order_indices = self.paths2url(input_data, 'hemisphere_order_indices')
 
         if surface_data:
             url_vertices, url_normals, _, url_triangles = surface_data.get_urls_for_rendering()
@@ -215,7 +223,8 @@ class ConnectivityViewer(ABCDisplayer):
                              connectivity_nose_correction=json.dumps(input_data.nose_correction),
                              connectivity_entity=input_data, surface_entity=surface_data,
                              algo_group=self.get_algo_group(),
-                             base_selection=input_data.saved_selection_labels)
+                             base_selection=input_data.saved_selection_labels,
+                             hemisphereOrderUrl=path_hemisphere_order_indices)
         global_params.update(self.build_template_params_for_subselectable_datatype(input_data))
         return global_params, global_pages
 
@@ -298,12 +307,12 @@ class Connectivity2DViewer(object):
         norm_rays, min_ray, max_ray = self._normalize_rays(rays, input_data.number_of_regions)
         colors, step = self._prepare_colors(colors, input_data.number_of_regions, step)
 
-        right_json = self._get_json(input_data.ordered_labels[half:], input_data.ordered_centres[half:], weights[1], math.pi,
-                                    1, 2, norm_rays[half:], colors[half:], X_CANVAS_SMALL, Y_CANVAS_SMALL)
-        left_json = self._get_json(input_data.ordered_labels[:half], input_data.ordered_centres[:half], weights[0], math.pi,
-                                   1, 2, norm_rays[:half], colors[:half], X_CANVAS_SMALL, Y_CANVAS_SMALL)
-        full_json = self._get_json(input_data.ordered_labels, input_data.ordered_centres, normalized_weights, math.pi,
-                                   0, 1, norm_rays, colors, X_CANVAS_FULL, Y_CANVAS_FULL)
+        right_json = self._get_json(input_data.ordered_labels[half:], input_data.ordered_centres[half:], weights[1],
+                                    math.pi, 1, 2, norm_rays[half:], colors[half:], X_CANVAS_SMALL, Y_CANVAS_SMALL)
+        left_json = self._get_json(input_data.ordered_labels[:half], input_data.ordered_centres[:half], weights[0],
+                                   math.pi, 1, 2, norm_rays[:half], colors[:half], X_CANVAS_SMALL, Y_CANVAS_SMALL)
+        full_json = self._get_json(input_data.ordered_labels, input_data.ordered_centres, normalized_weights,
+                                   math.pi, 0, 1, norm_rays, colors, X_CANVAS_FULL, Y_CANVAS_FULL)
 
         params = dict(bothHemisphereJson=full_json, rightHemisphereJson=right_json, leftHemisphereJson=left_json,
                       stepValue=step or max_ray, firstColor=self.DEFAULT_COLOR,
@@ -324,8 +333,8 @@ class Connectivity2DViewer(object):
             normalizer_size_coeficient = (height * 0.8) / 700.0
         x_size = X_CANVAS_FULL * normalizer_size_coeficient
         y_size = Y_CANVAS_FULL * normalizer_size_coeficient
-        full_json = self._get_json(input_data.ordered_labels, input_data.ordered_centres, input_data.ordered_weights, math.pi, 0, 1,
-                                   norm_rays, colors, x_size, y_size)
+        full_json = self._get_json(input_data.ordered_labels, input_data.ordered_centres, input_data.ordered_weights,
+                                   math.pi, 0, 1, norm_rays, colors, x_size, y_size)
         params = dict(bothHemisphereJson=full_json, stepValue=step or max_ray, firstColor=self.DEFAULT_COLOR,
                       secondColor=self.OTHER_COLOR, minRay=min_ray, maxRay=max_ray)
         return params, {}
@@ -388,7 +397,7 @@ class Connectivity2DViewer(object):
         return {
             "id": node_lbl, "name": node_lbl,
             "data": {
-                "$dim": default_dimension, "$type": form ,
+                "$dim": default_dimension, "$type": form,
                 "$color": self.DEFAULT_COLOR, "customShapeDimension": shape_dimension,
                 "customShapeColor": shape_color, "angle": angle,
                 "radius": radius
@@ -404,7 +413,7 @@ class Connectivity2DViewer(object):
         adjacencies = []
         for weight, label in zip(point_weights, points_labels):
             if weight:
-                adjacencies.append( { "nodeTo": label, "data": {"weight": weight} } )
+                adjacencies.append({"nodeTo": label, "data": {"weight": weight}})
         return adjacencies
 
 
@@ -433,7 +442,7 @@ class Connectivity2DViewer(object):
         """
         if rays is None:
             value = (self.MAX_RAY + self.MIN_RAY) / 2
-            return [value] * expected_size, value, value
+            return [value] * expected_size, 0.0, 0.0
         rays = rays.array_data.tolist()
         rays = ABCDisplayer.get_one_dimensional_list(rays, expected_size, "Invalid size for rays array.")
         min_x = min(rays)
@@ -510,8 +519,7 @@ class MPLH5Connectivity():
         axes.set_xticklabels(list(labels[order]), fontsize=8, rotation=90)
 
         figure.canvas.draw()
-        parameters = dict(serverIp=config.SERVER_IP, serverPort=config.MPLH5_SERVER_PORT,
-                          figureNumber=figure.number, showFullToolbar=False)
+        parameters = dict(mplh5ServerURL=config.MPLH5_SERVER_URL, figureNumber=figure.number, showFullToolbar=False)
         return parameters, {}
     
     

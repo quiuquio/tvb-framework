@@ -50,7 +50,6 @@ from tvb.core.entities.storage import dao, transactional
 from tvb.core.entities.model.model_burst import BURST_INFO_FILE, BURSTS_DICT_KEY, DT_BURST_MAP
 from tvb.core.services.exceptions import ProjectImportException
 from tvb.core.services.flow_service import FlowService
-from tvb.core.services.project_service import ProjectService
 from tvb.core.project_versions.project_update_manager import ProjectUpdateManager
 from tvb.core.entities.file.xml_metadata_handlers import XMLReader
 from tvb.core.entities.file.files_helper import FilesHelper
@@ -129,14 +128,20 @@ class ImportService():
 
         try:
             self._download_and_unpack_project_zip(uploaded, uq_file_name, temp_folder)
-            self._import_project_from_folder(temp_folder)
+            self._import_projects_from_folder(temp_folder)
+
         except Exception, excep:
             self.logger.exception("Error encountered during import. Deleting projects created during this operation.")
-            # Roll back projects created so far
-            project_service = ProjectService()
+            # Remove project folders created so far.
+            # Note that using the project service to remove the projects will not work,
+            # because we do not have support for nested transaction.
+            # Removing from DB is not necessary because in transactional env a simple exception throw
+            # will erase everything to be inserted.
             for project in self.created_projects:
-                project_service.remove_project(project.id)
+                project_path = os.path.join(cfg.TVB_STORAGE, FilesHelper.PROJECTS_FOLDER, project.name)
+                shutil.rmtree(project_path)
             raise ProjectImportException(str(excep))
+
         finally:
             # Now delete uploaded file
             if os.path.exists(uq_file_name):
@@ -177,7 +182,7 @@ class ImportService():
         return burst_ids_mapping
 
 
-    def _import_project_from_folder(self, temp_folder):
+    def _import_projects_from_folder(self, temp_folder):
         """
         Process each project from the uploaded pack, to extract names.
         """
@@ -331,6 +336,8 @@ class ImportService():
                 datatype = self.load_datatype_from_file(op_path, file_name, operation_entity.id, datatype_group)
                 all_datatypes.append(datatype)
         all_datatypes.sort(key=lambda dt: dt.create_date)
+        for dt in all_datatypes:
+            self.logger.debug("Import order %s: %s" % (dt.type, dt.gid))
         return all_datatypes
 
 
