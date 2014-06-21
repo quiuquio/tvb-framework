@@ -1,5 +1,5 @@
 // TODO: add legend, labels on axes, color scheme support
-var TsVol = { 
+var tsVol = { 
     ctx: null,                  // the context for drawing on current canvas.
     currentQuadrant: 0,         // the quadrant we're in.
     quadrants: [],              // the quadrants array.
@@ -17,7 +17,7 @@ var TsVol = {
     playerIntervalID: null,     // ID from the player's setInterval().
     bufferSize: 1,              // How many time points do we load each time?
     bufferL2Size: 1,            // How many sets of buffers can we keep at the same time?
-    lookAhead: 5,               // How many sets of buffers should be loaded ahead of us each time?
+    lookAhead: 4,               // How many sets of buffers should be loaded ahead of us each time?
     data: {},                   // The actual data to be drawn to canvas.
     bufferL2: {},               // Cotains all data loaded and preloaded, limited by memory.
     dataAddress: "",            // Used to contain the python URL for each time point.
@@ -50,72 +50,72 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
         return;
     }
 
-    TsVol.volumeOrigin = $.parseJSON(volOrigin)[0];
-    TsVol.voxelSize    = $.parseJSON(sizeOfVoxel);
+    tsVol.volumeOrigin = $.parseJSON(volOrigin)[0];
+    tsVol.voxelSize    = $.parseJSON(sizeOfVoxel);
 
     canvas.width  = $(canvas).parent().width();            // fill the screen on width
     canvas.height = canvas.width / 3;                      // three quadrants + some space for labeling
-    TsVol.quadrantHeight = canvas.width / 3;               // quadrants are squares
-    TsVol.quadrantWidth = TsVol.quadrantHeight
+    tsVol.quadrantHeight = canvas.width / 3;               // quadrants are squares
+    tsVol.quadrantWidth = tsVol.quadrantHeight
 
-    TsVol.ctx = canvas.getContext("2d");
-    TsVol.ctx.beginPath();
-    TsVol.ctx.rect(-2, -2, canvas.width, canvas.height);
-    TsVol.ctx.lineWidth = 2;
-    TsVol.ctx.strokeStyle = 'black';
-    TsVol.ctx.stroke();
+    tsVol.ctx = canvas.getContext("2d");
+    tsVol.ctx.beginPath();
+    tsVol.ctx.rect(-2, -2, canvas.width, canvas.height);
+    tsVol.ctx.lineWidth = 2;
+    tsVol.ctx.strokeStyle = 'black';
+    tsVol.ctx.stroke();
 
     dataUrls = $.parseJSON(dataUrls);
-    TsVol.dataAddress = dataUrls[0];
-    TsVol.dataSize = HLPR_readJSONfromFile(dataUrls[1]);
+    tsVol.dataAddress = dataUrls[0];
+    tsVol.dataSize = HLPR_readJSONfromFile(dataUrls[1]);
 
-    var query = TsVol.dataAddress+"from_idx="+(0)+";to_idx="+(1);
-    TsVol.data = HLPR_readJSONfromFile(query);
+    var query = tsVol.dataAddress+"from_idx="+(0)+";to_idx="+(1);
+    tsVol.data = HLPR_readJSONfromFile(query);
 
-    TsVol.minimumValue = minValue;
-    TsVol.maximumValue = maxValue;
-    TsVol.timeLength = TsVol.dataSize[0]; //Number of time points;
+    tsVol.minimumValue = minValue;
+    tsVol.maximumValue = maxValue;
+    tsVol.timeLength = tsVol.dataSize[0]; //Number of time points;
 
     _setupQuadrants();
 
-    TsVol.selectedEntity[0] = Math.floor(TsVol.data[0].length / 2);       // set the center entity as the selected one
-    TsVol.selectedEntity[1] = Math.floor(TsVol.data[0][0].length / 2);
-    TsVol.selectedEntity[2] = Math.floor(TsVol.data[0][0][0].length / 2);
+    tsVol.selectedEntity[0] = Math.floor(tsVol.data[0].length / 2);       // set the center entity as the selected one
+    tsVol.selectedEntity[1] = Math.floor(tsVol.data[0][0].length / 2);
+    tsVol.selectedEntity[2] = Math.floor(tsVol.data[0][0][0].length / 2);
 
-    TsVol.entitySize[0] = TsVol.dataSize[1];           // get entities number of voxels
-    TsVol.entitySize[1] = TsVol.dataSize[2];
-    TsVol.entitySize[2] = TsVol.dataSize[3];
-    TsVol.entitySize[3] = TsVol.dataSize[0];              // get entities number of time points
+    tsVol.entitySize[0] = tsVol.dataSize[1];           // get entities number of voxels
+    tsVol.entitySize[1] = tsVol.dataSize[2];
+    tsVol.entitySize[2] = tsVol.dataSize[3];
+    tsVol.entitySize[3] = tsVol.dataSize[0];              // get entities number of time points
 
     _setupBuffersSize();
 
     //'linear', 'rainbow', 'hotcold', 'TVB', 'sparse', 'light-hotcold', 'light-TVB'
     ColSch_setColorScheme("rainbow", false);
 
-    TsVol.data = getSliceAtTime(TsVol.currentTimePoint);
-    drawSceneFunctional(TsVol.currentTimePoint);
+    tsVol.data = getSliceAtTime(tsVol.currentTimePoint);
+    drawSceneFunctional(tsVol.currentTimePoint);
 
-    window.setInterval(streamToBuffer, TsVol.playbackRate);
-    window.setInterval(freeBuffer, TsVol.playbackRate*10);  
+    window.setInterval(streamToBuffer, tsVol.playbackRate);
+    window.setInterval(freeBuffer, tsVol.playbackRate*10);  
 }
 
 function asyncRequest(fileName, sect) {
     var fileData = null;
-    TsVol.requestQueue.push(sect);
-    console.log("TsVol.requestQueue push:", TsVol.requestQueue);
+    tsVol.requestQueue.push(sect);
+    //console.log("tsVol.requestQueue push:", tsVol.requestQueue);
     doAjaxCall({
         async:true,
         url:fileName,
         methos:"GET",
         mimeType:"text/plain",
         success:function(r){
-            TsVol.bufferL2[sect] = {};
+            tsVol.bufferL2[sect] = {};
             parseAsync(r, function(json){
-                TsVol.bufferL2[sect] = json;
-                var index = TsVol.requestQueue.indexOf(sect);
+                tsVol.bufferL2[sect] = json;
+                var index = tsVol.requestQueue.indexOf(sect);
                 if (index > -1) {
-                    TsVol.requestQueue.splice(index, 1);
-                    console.log("TsVol.requestQueue pop", TsVol.requestQueue);
+                    tsVol.requestQueue.splice(index, 1);
+                    //console.log("tsVol.requestQueue pop", tsVol.requestQueue);
                 }   
             });
         }
@@ -126,6 +126,10 @@ function asyncRequest(fileName, sect) {
     // We build a worker from an anonymous function body
     // TODO: Create a nice inline worker-wrapper function
     // that returns a blob.
+
+    /*
+    *  This worker is used to parse big JSON on other threds
+    */
     var blobURL = URL.createObjectURL( 
         new Blob([ 
             '(',
@@ -144,6 +148,9 @@ function asyncRequest(fileName, sect) {
     );
     /****END OF WEB WORKER****/
 
+/*
+*  Function that parses JSON data in a webworker.
+*/
 function parseAsync(data, callback){
     var worker;
     var json;
@@ -162,51 +169,80 @@ function parseAsync(data, callback){
     }
 }
 
+/*
+*  This function is called to erase some elements from bufferL2 array and avoid
+*  consuming too much memory. 
+*/
 function freeBuffer(){
-    var section = Math.floor(TsVol.currentTimePoint/TsVol.bufferSize);
-    var bufferedElements = Object.keys(TsVol.bufferL2).length;
-    if(bufferedElements > TsVol.bufferL2Size){
-        for(var idx in TsVol.bufferL2){
-            if (idx < (section-TsVol.bufferL2Size/2)%TsVol.TsVol.timeLength || idx > (section+TsVol.bufferL2Size/2)%TsVol.TsVol.timeLength){
+    var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
+    var bufferedElements = Object.keys(tsVol.bufferL2).length;
+    if(bufferedElements > tsVol.bufferL2Size){
+        for(var idx in tsVol.bufferL2){
+            if (idx < (section-tsVol.bufferL2Size/2)%tsVol.timeLength || idx > (section+tsVol.bufferL2Size/2)%tsVol.timeLength){
                 //console.log("erase:", idx)
-                delete TsVol.bufferL2[idx];
+                delete tsVol.bufferL2[idx];
             }
         }
     }
 }
 
+/*
+*  This function is called whenever we can, to load some data ahead of were we're looking.
+*/
 function streamToBuffer(){
-    var section = Math.floor(TsVol.currentTimePoint/TsVol.bufferSize);
-    var maxSections = Math.floor(TsVol.timeLength/TsVol.bufferSize);
-    var from = "from_idx="+TsVol.currentTimePoint;
-    var to = ";to_idx="+(TsVol.bufferSize+TsVol.currentTimePoint)%TsVol.timeLength;
-    var query = TsVol.dataAddress+from+to;
-    for(var i = 0; i <= TsVol.lookAhead; i++){
+    var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
+    var maxSections = Math.floor(tsVol.timeLength/tsVol.bufferSize);
+    var from = "from_idx="+tsVol.currentTimePoint;
+    var to = ";to_idx="+(tsVol.bufferSize+tsVol.currentTimePoint)%tsVol.timeLength;
+    var query = tsVol.dataAddress+from+to;
+    for( var i = 0; i <= tsVol.lookAhead; i++ ){
             var tmp = (section+i)%maxSections;
-            if(!TsVol.bufferL2[tmp] && TsVol.requestQueue.indexOf(tmp) < 0){
+            if(!tsVol.bufferL2[tmp] && tsVol.requestQueue.indexOf(tmp) < 0){
                 asyncRequest(query, tmp);
             }
         }
 }
 
+/*
+*  A helper function similar to python's range().
+* It takes an integer n and returns an array with all integers from 0 to n-1
+*/
+function range(len){
+    return Array.apply(null, Array(len)).map(function (_, i) {return i;});
+}
+
+/*
+*  This functions returns the X,Y,Z data from timepoint t.
+*/
 function getSliceAtTime(t){
     var buffer;
+    var maxSections = Math.floor(tsVol.timeLength/tsVol.bufferSize);
     var from = "from_idx="+t;
-    var to = ";to_idx="+(TsVol.bufferSize+t)%TsVol.timeLength;
-    var query = TsVol.dataAddress+from+to;
-    var section = Math.floor(t/TsVol.bufferSize);
-    for(var i in TsVol.requestQueue){
-        if( TsVol.requestQueue[i] < section ){
-            TsVol.requestQueue.splice(i, 1);
+    var to = ";to_idx="+(tsVol.bufferSize+t)%tsVol.timeLength;
+    var query = tsVol.dataAddress+from+to;
+    var section = Math.floor(t/tsVol.bufferSize);
+    /*
+     Here we erase failed requests from the request queue. 
+     TODO: This should happen on a fail handler.
+    */
+    for(var i in tsVol.requestQueue){
+        if( (tsVol.requestQueue[i] < section ||
+             tsVol.requestQueue[i] > section+tsVol.lookAhead) &&
+             !(tsVol.requestQueue[i] in range(tsVol.lookAhead))){
+            tsVol.requestQueue.splice(i, 1);
         }
-    }   
-    if(TsVol.bufferL2[section]){
-        buffer = TsVol.bufferL2[section];
+    } 
+
+    if(tsVol.bufferL2[section]){
+        buffer = tsVol.bufferL2[section];
+        console.log("asdasd1 ", section)
     }else{
         buffer = HLPR_readJSONfromFile(query);
-        TsVol.bufferL2[section] = buffer;
+        tsVol.bufferL2[section] = buffer;
+        tsVol.requestQueue.splice(section, 1);
+        console.log("asdasd2", section)
     }
-    return buffer[t%TsVol.bufferSize];
+    return buffer[t%tsVol.bufferSize];
 }
 
 
@@ -221,32 +257,32 @@ function drawSceneFunctional(tIndex) {
     var i, j, k, ii, jj, kk;
     
     // if we pass no tIndex the function will play
-    // from the TsVol.currentTimePoint and increment it
+    // from the tsVol.currentTimePoint and increment it
     if(tIndex == null){
-        tIndex = TsVol.currentTimePoint;
-        TsVol.currentTimePoint++;
-        TsVol.currentTimePoint = TsVol.currentTimePoint%TsVol.timeLength;
-        TsVol.data = getSliceAtTime(tIndex);
+        tIndex = tsVol.currentTimePoint;
+        tsVol.currentTimePoint++;
+        tsVol.currentTimePoint = tsVol.currentTimePoint%tsVol.timeLength;
+        tsVol.data = getSliceAtTime(tIndex);
     }
     _setCtxOnQuadrant(0);
-    TsVol.ctx.fillStyle = getGradientColorString(TsVol.minimumValue, TsVol.minimumValue, TsVol.maximumValue);
-    TsVol.ctx.fillRect(0, 0, TsVol.ctx.canvas.width, TsVol.ctx.canvas.height);
+    tsVol.ctx.fillStyle = getGradientColorString(tsVol.minimumValue, tsVol.minimumValue, tsVol.maximumValue);
+    tsVol.ctx.fillRect(0, 0, tsVol.ctx.canvas.width, tsVol.ctx.canvas.height);
     
-    for (j = 0; j < TsVol.data[0].length; ++j)
-        for (i = 0; i < TsVol.data.length; ++i)
-            drawVoxel(i, j, TsVol.data[i][j][TsVol.selectedEntity[2]]);
+    for (j = 0; j < tsVol.data[0].length; ++j)
+        for (i = 0; i < tsVol.data.length; ++i)
+            drawVoxel(i, j, tsVol.data[i][j][tsVol.selectedEntity[2]]);
     drawMargin();
 
     _setCtxOnQuadrant(1);
-    for (k = 0; k < TsVol.data[0][0].length; ++k)
-        for (jj = 0; jj < TsVol.data[0].length; ++jj)
-            drawVoxel(k, jj, TsVol.data[TsVol.selectedEntity[0]][jj][k]);
+    for (k = 0; k < tsVol.data[0][0].length; ++k)
+        for (jj = 0; jj < tsVol.data[0].length; ++jj)
+            drawVoxel(k, jj, tsVol.data[tsVol.selectedEntity[0]][jj][k]);
     drawMargin();
 
     _setCtxOnQuadrant(2);
-    for (kk = 0; kk < TsVol.data[0][0].length; ++kk)
-        for (ii = 0; ii < TsVol.data.length; ++ii)
-            drawVoxel(kk, ii, TsVol.data[ii][TsVol.selectedEntity[1]][kk]);
+    for (kk = 0; kk < tsVol.data[0][0].length; ++kk)
+        for (ii = 0; ii < tsVol.data.length; ++ii)
+            drawVoxel(kk, ii, tsVol.data[ii][tsVol.selectedEntity[1]][kk]);
     drawMargin();
     drawNavigator();
     updateMoviePlayerSlider();  
@@ -257,51 +293,51 @@ function drawSceneFunctional(tIndex) {
  * This function now nothing about the time point. 
  */
 function drawVoxel(line, col, value) {
-    TsVol.ctx.fillStyle = getGradientColorString(value, TsVol.minimumValue, TsVol.maximumValue);
+    tsVol.ctx.fillStyle = getGradientColorString(value, tsVol.minimumValue, tsVol.maximumValue);
     // col increases horizontally and line vertically, so col represents the X drawing axis, and line the Y
-	TsVol.ctx.fillRect(col * TsVol.currentQuadrant.entityWidth, line * TsVol.currentQuadrant.entityHeight,
-	                 TsVol.currentQuadrant.entityWidth+1, TsVol.currentQuadrant.entityHeight+1);
+	tsVol.ctx.fillRect(col * tsVol.currentQuadrant.entityWidth, line * tsVol.currentQuadrant.entityHeight,
+	                 tsVol.currentQuadrant.entityWidth+1, tsVol.currentQuadrant.entityHeight+1);
 }
 
 /**
- * Draws the cross-hair on each quadrant, on the <code>TsVol.selectedEntity</code>
+ * Draws the cross-hair on each quadrant, on the <code>tsVol.selectedEntity</code>
  */
 function drawNavigator() {
-    TsVol.ctx.save();
-    TsVol.ctx.beginPath();
+    tsVol.ctx.save();
+    tsVol.ctx.beginPath();
 
     for (var quadIdx = 0; quadIdx < 3; ++quadIdx) {
         _setCtxOnQuadrant(quadIdx);
-        var x = TsVol.selectedEntity[TsVol.currentQuadrant.axes.x] * TsVol.currentQuadrant.entityWidth + TsVol.currentQuadrant.entityWidth / 2;
-        var y = TsVol.selectedEntity[TsVol.currentQuadrant.axes.y] * TsVol.currentQuadrant.entityHeight + TsVol.currentQuadrant.entityHeight / 2;
+        var x = tsVol.selectedEntity[tsVol.currentQuadrant.axes.x] * tsVol.currentQuadrant.entityWidth + tsVol.currentQuadrant.entityWidth / 2;
+        var y = tsVol.selectedEntity[tsVol.currentQuadrant.axes.y] * tsVol.currentQuadrant.entityHeight + tsVol.currentQuadrant.entityHeight / 2;
         drawCrossHair(x, y);
     }
-    TsVol.ctx.strokeStyle = "red";
-    TsVol.ctx.lineWidth = 3;
-    TsVol.ctx.stroke();
-    TsVol.ctx.restore();
+    tsVol.ctx.strokeStyle = "red";
+    tsVol.ctx.lineWidth = 3;
+    tsVol.ctx.stroke();
+    tsVol.ctx.restore();
 }
 
 /**
- * Draws a 20px X 20px cross hair on the <code>TsVol.currentQuadrant</code>, at the specified x and y
+ * Draws a 20px X 20px cross hair on the <code>tsVol.currentQuadrant</code>, at the specified x and y
  */
 function drawCrossHair(x, y) {
-    TsVol.ctx.moveTo(Math.max(x - 20, 0), y);                              // the horizontal line
-    TsVol.ctx.lineTo(Math.min(x + 20, TsVol.quadrantWidth), y);
-    TsVol.ctx.moveTo(x, Math.max(y - 20, 0));                              // the vertical line
-    TsVol.ctx.lineTo(x, Math.min(y + 20, TsVol.quadrantHeight));
+    tsVol.ctx.moveTo(Math.max(x - 20, 0), y);                              // the horizontal line
+    tsVol.ctx.lineTo(Math.min(x + 20, tsVol.quadrantWidth), y);
+    tsVol.ctx.moveTo(x, Math.max(y - 20, 0));                              // the vertical line
+    tsVol.ctx.lineTo(x, Math.min(y + 20, tsVol.quadrantHeight));
 }
 
 /**
- * Draws a 5px rectangle around the <code>TsVol.currentQuadrant</code>
+ * Draws a 5px rectangle around the <code>tsVol.currentQuadrant</code>
  */
 function drawMargin(){
     //_setCtxOnQuadrant(0);
-    TsVol.ctx.beginPath();
-    TsVol.ctx.rect(2.5, 0, TsVol.quadrantWidth-2, TsVol.quadrantHeight);
-    TsVol.ctx.lineWidth = 5;
-    TsVol.ctx.strokeStyle = 'black';
-    TsVol.ctx.stroke();
+    tsVol.ctx.beginPath();
+    tsVol.ctx.rect(2.5, 0, tsVol.quadrantWidth-2, tsVol.quadrantHeight);
+    tsVol.ctx.lineWidth = 5;
+    tsVol.ctx.strokeStyle = 'black';
+    tsVol.ctx.stroke();
 }
 
 // ==================================== DRAWING FUNCTIONS  END  =============================================
@@ -309,19 +345,19 @@ function drawMargin(){
 // ==================================== PRIVATE FUNCTIONS START =============================================
 
 /**
- * Sets the <code>TsVol.currentQuadrant</code> and applies transformations on context depending on that
+ * Sets the <code>tsVol.currentQuadrant</code> and applies transformations on context depending on that
  *
  * @param quadIdx Specifies which of <code>quadrants</code> is selected
  * @private
  */
 /* TODO: make it use volumeOrigin; could be like this:
- * <code>TsVol.ctx.setTransform(1, 0, 0, 1, volumeOrigin[TsVol.currentQuadrant.axes.x], volumeOrigin[TsVol.currentQuadrant.axes.y])</code>
+ * <code>tsVol.ctx.setTransform(1, 0, 0, 1, volumeOrigin[tsVol.currentQuadrant.axes.x], volumeOrigin[tsVol.currentQuadrant.axes.y])</code>
  *       if implemented, also change the picking to take it into account
  */
 function _setCtxOnQuadrant(quadIdx) {
-    TsVol.currentQuadrant = TsVol.quadrants[quadIdx];
-    TsVol.ctx.setTransform(1, 0, 0, 1, 0, 0);                              // reset the transformation
-    TsVol.ctx.translate(quadIdx * TsVol.quadrantWidth + TsVol.currentQuadrant.offsetX, TsVol.currentQuadrant.offsetY)
+    tsVol.currentQuadrant = tsVol.quadrants[quadIdx];
+    tsVol.ctx.setTransform(1, 0, 0, 1, 0, 0);                              // reset the transformation
+    tsVol.ctx.translate(quadIdx * tsVol.quadrantWidth + tsVol.currentQuadrant.offsetX, tsVol.currentQuadrant.offsetY)
 }
 
 /**
@@ -332,9 +368,9 @@ function _setCtxOnQuadrant(quadIdx) {
  */
 function _getDataSize(axis) {
     switch (axis) {
-        case 0:     return TsVol.data[0].length;
-        case 1:     return TsVol.data[0][0].length;
-        case 2:     return TsVol.data[0][0][0].length;
+        case 0:     return tsVol.data[0].length;
+        case 1:     return tsVol.data[0][0].length;
+        case 2:     return tsVol.data[0][0][0].length;
     }
 }
 
@@ -345,44 +381,49 @@ function _getDataSize(axis) {
  * @returns {{width: number, height: number}} Entity width and height
  */
 function _getEntityDimensions(xAxis, yAxis) {
-    var scaleOnWidth  = TsVol.quadrantWidth  / (_getDataSize(xAxis) * TsVol.voxelSize[xAxis]);
-    var scaleOnHeight = TsVol.quadrantHeight / (_getDataSize(yAxis) * TsVol.voxelSize[yAxis]);
+    var scaleOnWidth  = tsVol.quadrantWidth  / (_getDataSize(xAxis) * tsVol.voxelSize[xAxis]);
+    var scaleOnHeight = tsVol.quadrantHeight / (_getDataSize(yAxis) * tsVol.voxelSize[yAxis]);
     var scale = Math.min(scaleOnHeight, scaleOnWidth);
-    return {width: TsVol.voxelSize[xAxis] * scale, height: TsVol.voxelSize[yAxis] * scale}
+    return {width: tsVol.voxelSize[xAxis] * scale, height: tsVol.voxelSize[yAxis] * scale}
 }
 
 /**
- * Initializes the <code>TsVol.quadrants</code> with some default axes and sets their properties
+ * Initializes the <code>tsVol.quadrants</code> with some default axes and sets their properties
  */
 function _setupQuadrants() {
-    TsVol.quadrants.push(new Quadrant({ index: 0, axes: {x: 1, y: 0} }));
-    TsVol.quadrants.push(new Quadrant({ index: 1, axes: {x: 1, y: 2} }));
-    TsVol.quadrants.push(new Quadrant({ index: 2, axes: {x: 0, y: 2} }));
+    tsVol.quadrants.push(new Quadrant({ index: 0, axes: {x: 1, y: 0} }));
+    tsVol.quadrants.push(new Quadrant({ index: 1, axes: {x: 1, y: 2} }));
+    tsVol.quadrants.push(new Quadrant({ index: 2, axes: {x: 0, y: 2} }));
 
-    for (var quadIdx = 0; quadIdx < TsVol.quadrants.length; quadIdx++) {
-        var entityDimensions = _getEntityDimensions(TsVol.quadrants[quadIdx].axes.x, TsVol.quadrants[quadIdx].axes.y);
-        TsVol.quadrants[quadIdx].entityHeight = entityDimensions.height;
-        TsVol.quadrants[quadIdx].entityWidth  = entityDimensions.width;
-        var drawingHeight = _getDataSize(TsVol.quadrants[quadIdx].axes.y) * TsVol.quadrants[quadIdx].entityHeight;
-        var drawingWidth  = _getDataSize(TsVol.quadrants[quadIdx].axes.x) * TsVol.quadrants[quadIdx].entityWidth;
-        //TsVol.quadrants[quadIdx].offsetY = (TsVol.quadrantHeight - drawingHeight) / 2;
-        //TsVol.quadrants[quadIdx].offsetX = (TsVol.quadrantWidth  - drawingWidth)  / 2;
-        TsVol.quadrants[quadIdx].offsetY = 0;
-        TsVol.quadrants[quadIdx].offsetX = 0;
+    for (var quadIdx = 0; quadIdx < tsVol.quadrants.length; quadIdx++) {
+        var entityDimensions = _getEntityDimensions(tsVol.quadrants[quadIdx].axes.x, tsVol.quadrants[quadIdx].axes.y);
+        tsVol.quadrants[quadIdx].entityHeight = entityDimensions.height;
+        tsVol.quadrants[quadIdx].entityWidth  = entityDimensions.width;
+        var drawingHeight = _getDataSize(tsVol.quadrants[quadIdx].axes.y) * tsVol.quadrants[quadIdx].entityHeight;
+        var drawingWidth  = _getDataSize(tsVol.quadrants[quadIdx].axes.x) * tsVol.quadrants[quadIdx].entityWidth;
+        //tsVol.quadrants[quadIdx].offsetY = (tsVol.quadrantHeight - drawingHeight) / 2;
+        //tsVol.quadrants[quadIdx].offsetX = (tsVol.quadrantWidth  - drawingWidth)  / 2;
+        tsVol.quadrants[quadIdx].offsetY = 0;
+        tsVol.quadrants[quadIdx].offsetX = 0;
     }
 }
 
+/**
+ * Values here are usually around 10 or less for <code>bufferSize</code>
+ * and less than 200 for <code>bufferL2Size</code>. 
+ * TODO: have modifiable limits while suggesting an optimal, safe setup.
+ */
 function _setupBuffersSize() {
-    var tpSize = TsVol.entitySize[0]*TsVol.entitySize[1]*TsVol.entitySize[2];
+    var tpSize = tsVol.entitySize[0]*tsVol.entitySize[1]*tsVol.entitySize[2];
     //enough to be avoid waisting bandwidth and to parse the json smoothly
-    while(TsVol.bufferSize*tpSize <= 1000000){ 
-        TsVol.bufferSize++;
+    while(tsVol.bufferSize*tpSize <= 1000000){ 
+        tsVol.bufferSize++;
     }
     //Very safe measure to avoid crashes. Tested on Chrome.
-    while(TsVol.bufferSize*tpSize*TsVol.bufferL2Size <= 157286400){ 
-        TsVol.bufferL2Size++;
+    while(tsVol.bufferSize*tpSize*tsVol.bufferL2Size <= 157286400){ 
+        tsVol.bufferL2Size*= 2;
     }
-    console.log(TsVol.bufferSize,TsVol.bufferL2Size);
+    tsVol.bufferL2Size/= 2
 }
 
 // ==================================== PRIVATE FUNCTIONS  END  =============================================
@@ -407,18 +448,18 @@ function customMouseMove(e) {
     //fix for Firefox
     var xpos = e.pageX-$('#volumetric-ts-canvas').offset().left;
     var ypos = e.pageY-$('#volumetric-ts-canvas').offset().top;
-    var selectedQuad = TsVol.quadrants[Math.floor(xpos / TsVol.quadrantWidth)];
+    var selectedQuad = tsVol.quadrants[Math.floor(xpos / tsVol.quadrantWidth)];
     // check if it's inside the quadrant but outside the drawing
-    if (ypos < selectedQuad.offsetY || ypos >= TsVol.quadrantHeight - selectedQuad.offsetY ||
-        xpos < TsVol.quadrantWidth * selectedQuad.index + selectedQuad.offsetX ||
-        xpos >= TsVol.quadrantWidth * (selectedQuad.index + 1) - selectedQuad.offsetX)
+    if (ypos < selectedQuad.offsetY || ypos >= tsVol.quadrantHeight - selectedQuad.offsetY ||
+        xpos < tsVol.quadrantWidth * selectedQuad.index + selectedQuad.offsetX ||
+        xpos >= tsVol.quadrantWidth * (selectedQuad.index + 1) - selectedQuad.offsetX)
         return;
-    var selectedEntityOnX = Math.floor((xpos % TsVol.quadrantWidth) / selectedQuad.entityWidth);
+    var selectedEntityOnX = Math.floor((xpos % tsVol.quadrantWidth) / selectedQuad.entityWidth);
     var selectedEntityOnY = Math.floor((ypos - selectedQuad.offsetY) / selectedQuad.entityHeight);
-    TsVol.selectedEntity[selectedQuad.axes.x] = selectedEntityOnX;
-    TsVol.selectedEntity[selectedQuad.axes.y] = selectedEntityOnY;
+    tsVol.selectedEntity[selectedQuad.axes.x] = selectedEntityOnX;
+    tsVol.selectedEntity[selectedQuad.axes.y] = selectedEntityOnY;
     updateSliders();
-    drawSceneFunctional(TsVol.currentTimePoint)
+    drawSceneFunctional(tsVol.currentTimePoint)
 }
 
 // ==================================== PICKING RELATED CODE  END  ==========================================
@@ -475,11 +516,11 @@ function startPositionSliders(){
     var axArray = ["X", "Y", "Z"];
     // We loop trough every slider
     $( "#sliders > span" ).each(function(){
-        var value = TsVol.selectedEntity[i];
+        var value = tsVol.selectedEntity[i];
         var opts = {
                         value: value,
                         min: 0,
-                        max: TsVol.entitySize[i]-1, // yeah.. if we start from zero we need to subtract 1
+                        max: tsVol.entitySize[i]-1, // yeah.. if we start from zero we need to subtract 1
                         animate: true,
                         orientation: "horizontal",
                         change: slideMove, // call this function *after* the slide is moved OR the value changes
@@ -512,7 +553,7 @@ function startMovieSlider(){
         var opts = {
                         value: value,
                         min: 0,
-                        max: TsVol.timeLength,
+                        max: tsVol.timeLength,
                         animate: true,
                         orientation: "horizontal",
                         range: "min",
@@ -524,7 +565,7 @@ function startMovieSlider(){
             var el = $('<label id="time-slider-min">'+opts.min+'</label>');
             $(this).append(el);
             // The actual time point we are seeing
-            el = $('<label id="time-slider-value">'+value+'/'+TsVol.timeLength+'</label>');
+            el = $('<label id="time-slider-value">'+value+'/'+tsVol.timeLength+'</label>');
             $(this).append(el);
         });
     });
@@ -533,35 +574,35 @@ function startMovieSlider(){
 // ==================================== CALLBACK FUCTIONS START ===============================================
 
 function playBack(){
-    if(!TsVol.playerIntervalID)
-        TsVol.playerIntervalID = window.setInterval(drawSceneFunctional, TsVol.playbackRate);
+    if(!tsVol.playerIntervalID)
+        tsVol.playerIntervalID = window.setInterval(drawSceneFunctional, tsVol.playbackRate);
 }
 
 function stopPlayback(){
-    window.clearInterval(TsVol.playerIntervalID);
-    TsVol.playerIntervalID = null;
+    window.clearInterval(tsVol.playerIntervalID);
+    tsVol.playerIntervalID = null;
 }
 
 function playNextTimePoint(){
-    TsVol.currentTimePoint++;
-    TsVol.currentTimePoint = TsVol.currentTimePoint%(TsVol.timeLength+1)
-    drawSceneFunctional(TsVol.currentTimePoint)
+    tsVol.currentTimePoint++;
+    tsVol.currentTimePoint = tsVol.currentTimePoint%(tsVol.timeLength+1)
+    drawSceneFunctional(tsVol.currentTimePoint)
 }
 
 function playPreviousTimePoint(){
-    if(TsVol.currentTimePoint === 0)
-        TsVol.currentTimePoint = TsVol.timeLength+1
-    drawSceneFunctional(--TsVol.currentTimePoint)
+    if(tsVol.currentTimePoint === 0)
+        tsVol.currentTimePoint = tsVol.timeLength+1
+    drawSceneFunctional(--tsVol.currentTimePoint)
 }
 
 function seekFirst(){
-    TsVol.currentTimePoint = 0
-    drawSceneFunctional(TsVol.currentTimePoint);
+    tsVol.currentTimePoint = 0
+    drawSceneFunctional(tsVol.currentTimePoint);
 }
 
 function seekEnd(){
-    TsVol.currentTimePoint = TsVol.timeLength;
-    drawSceneFunctional(TsVol.currentTimePoint-1);
+    tsVol.currentTimePoint = tsVol.timeLength;
+    drawSceneFunctional(tsVol.currentTimePoint-1);
 }
 
 // Updates the position and values of the x,y,z navigation sliders when we click the canvas.
@@ -569,8 +610,8 @@ function updateSliders(){
     var axArray = ["X", "Y", "Z"];
     var i = 0;
     $( "#sliders > span" ).each(function(){
-        $(this).slider("option", "value", TsVol.selectedEntity[i]); //update the handle
-        $('slider-'+axArray[i]+'-value').empty().text( '['+TsVol.selectedEntity[i]+']' ); //update the label
+        $(this).slider("option", "value", tsVol.selectedEntity[i]); //update the handle
+        $('slider-'+axArray[i]+'-value').empty().text( '['+tsVol.selectedEntity[i]+']' ); //update the label
         i += 1;
     });
 }
@@ -578,30 +619,30 @@ function updateSliders(){
 // Updated the player slider bar while playback is on.
 function updateMoviePlayerSlider(){
     $("#time-position > span").each(function(){
-        $(this).slider("option", "value", TsVol.currentTimePoint);
-        $('#time-slider-value').empty().text( TsVol.currentTimePoint+'/'+TsVol.timeLength );
+        $(this).slider("option", "value", tsVol.currentTimePoint);
+        $('#time-slider-value').empty().text( tsVol.currentTimePoint+'/'+tsVol.timeLength );
     })
 }
 
 // When the navigation sliders are moved, this redraws the scene accordingly.
 function slideMove(event, ui){
     var quadID = ["x-slider", "y-slider", "z-slider"].indexOf(event.target.id)
-    var selectedQuad = TsVol.quadrants[quadID];
+    var selectedQuad = tsVol.quadrants[quadID];
 
     //  Updates the label value on the slider.
     $(event.target.children[3]).empty().text( '['+ui.value+']' );
     //  Setup things to draw the scene pointing to the right voxel and redraw it.
     if(quadID == 1)
-        TsVol.selectedEntity[selectedQuad.axes.x] = ui.value;
+        tsVol.selectedEntity[selectedQuad.axes.x] = ui.value;
     else
-        TsVol.selectedEntity[selectedQuad.axes.y] = ui.value;
-    drawSceneFunctional(TsVol.currentTimePoint);
+        tsVol.selectedEntity[selectedQuad.axes.y] = ui.value;
+    drawSceneFunctional(tsVol.currentTimePoint);
 }
 
 // Updates the value at the end of the player bar when we move the handle.
 function moviePlayerMove(event, ui){
     $("#time-position > span").each(function(){
-        $('#time-slider-value').empty().text( ui.value+'/'+TsVol.timeLength );
+        $('#time-slider-value').empty().text( ui.value+'/'+tsVol.timeLength );
     })
 }
 
@@ -611,8 +652,8 @@ function moviePlayerMove(event, ui){
 * Thus, the new timepoint is drawn only when the user releases the click from the handler
 */
 function moviePlayerMoveEnd(event, ui){
-    TsVol.currentTimePoint = ui.value;
-    drawSceneFunctional(TsVol.currentTimePoint);
+    tsVol.currentTimePoint = ui.value;
+    drawSceneFunctional(tsVol.currentTimePoint);
 }
 
 // ==================================== CALLBACK FUCTIONS END ===============================================
