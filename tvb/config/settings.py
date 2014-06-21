@@ -587,16 +587,12 @@ class BaseProfile():
     def parse_svn_version(version_string):
         if ':' in version_string:
             version_string = version_string.split(':')[1]
-<<<<<<< HEAD
             number = ''.join([ch for ch in version_string if ch.isdigit()])
             return int(number)
         else:
             return int(version_string)
-=======
-
         number = ''.join([ch for ch in version_string if ch.isdigit()])
         return int(number)
->>>>>>> upstream/trunk
 
 
     @staticmethod

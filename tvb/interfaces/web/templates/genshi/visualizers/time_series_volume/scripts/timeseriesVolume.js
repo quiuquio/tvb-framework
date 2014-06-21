@@ -1,25 +1,27 @@
 // TODO: add legend, labels on axes, color scheme support
 var TsVol = { 
-    ctx: null,                  // the context for drawing on current canvas
-    currentQuadrant: 0,         // the quadrant we're in
-    quadrants: [],              // the quadrants array
-    minimumValue: null,         // minimum value of the dataset
-    maximumValue: null,         // maximum value of the dataset
+    ctx: null,                  // the context for drawing on current canvas.
+    currentQuadrant: 0,         // the quadrant we're in.
+    quadrants: [],              // the quadrants array.
+    minimumValue: null,         // minimum value of the dataset.
+    maximumValue: null,         // maximum value of the dataset.
     voxelSize: null,
-    volumeOrigin: null,         // volumeOrigin is not used for now                                                       // is irrelevant; if needed, use it _setQuadrant
-    selectedEntity: [0, 0, 0],  // the selected voxel; [i, j, k]
+    volumeOrigin: null,         // volumeOrigin is not used for now.                                                       // is irrelevant; if needed, use it _setQuadrant
+    selectedEntity: [0, 0, 0],  // the selected voxel; [i, j, k].
     entitySize: [0, 0, 0],
     quadrantHeight: null,
     quadrantWidth: null,
+    timeLength: 0,              // number of timepoints in the Volume.
     currentTimePoint: 0,
-    playbackRate: 99,           // This is a not acurate lower limit for playback speed.
+    playbackRate: 100,          // This is a not acurate lower limit for playback speed.
     playerIntervalID: null,     // ID from the player's setInterval().
     bufferSize: 1,              // How many time points do we load each time?
     bufferL2Size: 1,            // How many sets of buffers can we keep at the same time?
     lookAhead: 5,               // How many sets of buffers should be loaded ahead of us each time?
-    data: {},                   // The actual data to be drawn to canvas
-    bufferL2: {},               // Cotains all data loaded and preloaded, limited by memory
+    data: {},                   // The actual data to be drawn to canvas.
+    bufferL2: {},               // Cotains all data loaded and preloaded, limited by memory.
     dataAddress: "",            // Used to contain the python URL for each time point.
+    dataSize: "",               // Used first to contain the file ID and then it's dimension.
     requestQueue: []            // Used to avoid requesting a time point set while we are waiting for it.
 };
 
@@ -65,14 +67,14 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
 
     dataUrls = $.parseJSON(dataUrls);
     TsVol.dataAddress = dataUrls[0];
-    dataSize = dataUrls[1];
+    TsVol.dataSize = HLPR_readJSONfromFile(dataUrls[1]);
 
     var query = TsVol.dataAddress+"from_idx="+(0)+";to_idx="+(1);
     TsVol.data = HLPR_readJSONfromFile(query);
 
     TsVol.minimumValue = minValue;
     TsVol.maximumValue = maxValue;
-    timeLength = 1452; //timeLength = TsVol.data.length-1;
+    TsVol.timeLength = TsVol.dataSize[0]; //Number of time points;
 
     _setupQuadrants();
 
@@ -80,10 +82,10 @@ function startVisualiser(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel, v
     TsVol.selectedEntity[1] = Math.floor(TsVol.data[0][0].length / 2);
     TsVol.selectedEntity[2] = Math.floor(TsVol.data[0][0][0].length / 2);
 
-    TsVol.entitySize[0] = Math.floor(TsVol.data[0].length);           // get entities number of voxels
-    TsVol.entitySize[1] = Math.floor(TsVol.data[0][0].length);
-    TsVol.entitySize[2] = Math.floor(TsVol.data[0][0][0].length);
-    TsVol.entitySize[3] = Math.floor(TsVol.data.length);              // get entities number of time points
+    TsVol.entitySize[0] = TsVol.dataSize[1];           // get entities number of voxels
+    TsVol.entitySize[1] = TsVol.dataSize[2];
+    TsVol.entitySize[2] = TsVol.dataSize[3];
+    TsVol.entitySize[3] = TsVol.dataSize[0];              // get entities number of time points
 
     _setupBuffersSize();
 
@@ -165,7 +167,7 @@ function freeBuffer(){
     var bufferedElements = Object.keys(TsVol.bufferL2).length;
     if(bufferedElements > TsVol.bufferL2Size){
         for(var idx in TsVol.bufferL2){
-            if (idx < (section-TsVol.bufferL2Size/2)%timeLength || idx > (section+TsVol.bufferL2Size/2)%timeLength){
+            if (idx < (section-TsVol.bufferL2Size/2)%TsVol.TsVol.timeLength || idx > (section+TsVol.bufferL2Size/2)%TsVol.TsVol.timeLength){
                 //console.log("erase:", idx)
                 delete TsVol.bufferL2[idx];
             }
@@ -175,9 +177,9 @@ function freeBuffer(){
 
 function streamToBuffer(){
     var section = Math.floor(TsVol.currentTimePoint/TsVol.bufferSize);
-    var maxSections = Math.floor(timeLength/TsVol.bufferSize);
+    var maxSections = Math.floor(TsVol.timeLength/TsVol.bufferSize);
     var from = "from_idx="+TsVol.currentTimePoint;
-    var to = ";to_idx="+(TsVol.bufferSize+TsVol.currentTimePoint)%timeLength;
+    var to = ";to_idx="+(TsVol.bufferSize+TsVol.currentTimePoint)%TsVol.timeLength;
     var query = TsVol.dataAddress+from+to;
     for(var i = 0; i <= TsVol.lookAhead; i++){
             var tmp = (section+i)%maxSections;
@@ -190,7 +192,7 @@ function streamToBuffer(){
 function getSliceAtTime(t){
     var buffer;
     var from = "from_idx="+t;
-    var to = ";to_idx="+(TsVol.bufferSize+t)%timeLength;
+    var to = ";to_idx="+(TsVol.bufferSize+t)%TsVol.timeLength;
     var query = TsVol.dataAddress+from+to;
     var section = Math.floor(t/TsVol.bufferSize);
     for(var i in TsVol.requestQueue){
@@ -223,7 +225,7 @@ function drawSceneFunctional(tIndex) {
     if(tIndex == null){
         tIndex = TsVol.currentTimePoint;
         TsVol.currentTimePoint++;
-        TsVol.currentTimePoint = TsVol.currentTimePoint%timeLength;
+        TsVol.currentTimePoint = TsVol.currentTimePoint%TsVol.timeLength;
         TsVol.data = getSliceAtTime(tIndex);
     }
     _setCtxOnQuadrant(0);
@@ -409,8 +411,7 @@ function customMouseMove(e) {
     // check if it's inside the quadrant but outside the drawing
     if (ypos < selectedQuad.offsetY || ypos >= TsVol.quadrantHeight - selectedQuad.offsetY ||
         xpos < TsVol.quadrantWidth * selectedQuad.index + selectedQuad.offsetX ||
-        xpos >= TsVol.quadrantWidth * (sele
-            ctedQuad.index + 1) - selectedQuad.offsetX)
+        xpos >= TsVol.quadrantWidth * (selectedQuad.index + 1) - selectedQuad.offsetX)
         return;
     var selectedEntityOnX = Math.floor((xpos % TsVol.quadrantWidth) / selectedQuad.entityWidth);
     var selectedEntityOnY = Math.floor((ypos - selectedQuad.offsetY) / selectedQuad.entityHeight);
@@ -511,7 +512,7 @@ function startMovieSlider(){
         var opts = {
                         value: value,
                         min: 0,
-                        max: timeLength,
+                        max: TsVol.timeLength,
                         animate: true,
                         orientation: "horizontal",
                         range: "min",
@@ -523,7 +524,7 @@ function startMovieSlider(){
             var el = $('<label id="time-slider-min">'+opts.min+'</label>');
             $(this).append(el);
             // The actual time point we are seeing
-            el = $('<label id="time-slider-value">'+value+'/'+timeLength+'</label>');
+            el = $('<label id="time-slider-value">'+value+'/'+TsVol.timeLength+'</label>');
             $(this).append(el);
         });
     });
@@ -543,13 +544,13 @@ function stopPlayback(){
 
 function playNextTimePoint(){
     TsVol.currentTimePoint++;
-    TsVol.currentTimePoint = TsVol.currentTimePoint%(timeLength+1)
+    TsVol.currentTimePoint = TsVol.currentTimePoint%(TsVol.timeLength+1)
     drawSceneFunctional(TsVol.currentTimePoint)
 }
 
 function playPreviousTimePoint(){
     if(TsVol.currentTimePoint === 0)
-        TsVol.currentTimePoint = timeLength+1
+        TsVol.currentTimePoint = TsVol.timeLength+1
     drawSceneFunctional(--TsVol.currentTimePoint)
 }
 
@@ -559,7 +560,7 @@ function seekFirst(){
 }
 
 function seekEnd(){
-    TsVol.currentTimePoint = timeLength;
+    TsVol.currentTimePoint = TsVol.timeLength;
     drawSceneFunctional(TsVol.currentTimePoint-1);
 }
 
@@ -578,7 +579,7 @@ function updateSliders(){
 function updateMoviePlayerSlider(){
     $("#time-position > span").each(function(){
         $(this).slider("option", "value", TsVol.currentTimePoint);
-        $('#time-slider-value').empty().text( TsVol.currentTimePoint+'/'+timeLength );
+        $('#time-slider-value').empty().text( TsVol.currentTimePoint+'/'+TsVol.timeLength );
     })
 }
 
@@ -600,7 +601,7 @@ function slideMove(event, ui){
 // Updates the value at the end of the player bar when we move the handle.
 function moviePlayerMove(event, ui){
     $("#time-position > span").each(function(){
-        $('#time-slider-value').empty().text( ui.value+'/'+timeLength );
+        $('#time-slider-value').empty().text( ui.value+'/'+TsVol.timeLength );
     })
 }
 
