@@ -22,7 +22,8 @@ var tsVol = {
     bufferL2: {},               // Cotains all data loaded and preloaded, limited by memory.
     dataAddress: "",            // Used to contain the python URL for each time point.
     dataSize: "",               // Used first to contain the file ID and then it's dimension.
-    requestQueue: []            // Used to avoid requesting a time point set while we are waiting for it.
+    requestQueue: [],           // Used to avoid requesting a time point set while we are waiting for it.
+    parserBlob: null            // Used to store the JSON Parser Blob for web-workers.
 };
 
 var Quadrant = function (params) {                // this keeps all necessary data for drawing
@@ -48,6 +49,17 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
         displayMessage('You need a browser with canvas capabilities, to see this demo fully!', "errorMessage");
         return;
     }
+
+    // This will be our JSON parser web-worker blob
+    tsVol.parserBlob = inlineWebWorkerWrapper( 
+            function(){
+                self.addEventListener( 'message', function (e){
+                    // Parse JSON, send it to main thread, close the worker
+                    self.postMessage(JSON.parse(e.data));
+                    self.close();
+                }, false );
+            }
+        );
 
     tsVol.volumeOrigin = $.parseJSON(volOrigin)[0];
     tsVol.voxelSize    = $.parseJSON(sizeOfVoxel);
@@ -98,6 +110,9 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
     window.setInterval(freeBuffer, tsVol.playbackRate*10);  
 }
 
+/**
+ * Requests file data not blocking the main thread if possible.
+ */
 function asyncRequest(fileName, sect) {
 
     tsVol.requestQueue.push(sect);
@@ -121,6 +136,9 @@ function asyncRequest(fileName, sect) {
     });
 }
 
+/**
+ * Build a worker from an anonymous function body. Returns and URL Blob
+ */
 function inlineWebWorkerWrapper(workerBody){
     var retBlob = URL.createObjectURL(
         new Blob([
@@ -133,47 +151,14 @@ function inlineWebWorkerWrapper(workerBody){
     return retBlob;
 }
 
-var blobURL = inlineWebWorkerWrapper( function(){
-            self.addEventListener( 'message', function (e){
-                //Parse the JSON, send it to the main thread, close the worker
-                self.postMessage(JSON.parse(e.data));
-                self.close();
-            }, false );
-        });
-
-/****WEB WORKER****/
-// We build a worker from an anonymous function body
-// TODO: Create a nice inline worker-wrapper function that returns a blob.
-
-/*
-*  This worker is used to parse big JSON on other threads
-*/
-// var blobURL = URL.createObjectURL(
-//     new Blob([
-//         '(',
-//         // our worker goes inside this function
-//         function(){
-//             self.addEventListener( 'message', function (e){
-//                 var data = e.data;
-//                 var json = JSON.parse(data);
-//                 self.postMessage(json);
-//                 self.close();
-//             }, false );
-//         }.toString(),
-//         ')()' ],
-//     { type: 'application/javascript' }
-//     )
-// );
-/****END OF WEB WORKER****/
-
-/*
-*  Function that parses JSON data in a web-worker.
-*/
+/**
+ *  Function that parses JSON data in a web-worker if possible.
+ */
 function parseAsync(data, callback){
     var worker;
     var json;
     if( window.Worker ){
-        worker = new Worker( blobURL );
+        worker = new Worker( tsVol.parserBlob );
         worker.addEventListener( 'message', function (e){
             json = e.data;
             callback( json );
@@ -186,16 +171,17 @@ function parseAsync(data, callback){
     }
 }
 
-/*
-*  This function is called to erase some elements from bufferL2 array and avoid
-*  consuming too much memory. 
-*/
+/**
+ *  This function is called to erase some elements from bufferL2 array and avoid
+ *  consuming too much memory. 
+ */
 function freeBuffer(){
     var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
     var bufferedElements = Object.keys(tsVol.bufferL2).length;
     if(bufferedElements > tsVol.bufferL2Size){
         for(var idx in tsVol.bufferL2){
-            if (idx < (section-tsVol.bufferL2Size/2)%tsVol.timeLength || idx > (section+tsVol.bufferL2Size/2)%tsVol.timeLength){
+            if ( idx < (section-tsVol.bufferL2Size/2)%tsVol.timeLength ||
+                 idx > (section+tsVol.bufferL2Size/2)%tsVol.timeLength){
                 //console.log("erase:", idx)
                 delete tsVol.bufferL2[idx];
             }
@@ -203,9 +189,9 @@ function freeBuffer(){
     }
 }
 
-/*
-*  This function is called whenever we can, to load some data ahead of were we're looking.
-*/
+/**
+ *  This function is called whenever we can, to load some data ahead of were we're looking.
+ */
 function streamToBuffer(){
     var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
     var maxSections = Math.floor(tsVol.timeLength/tsVol.bufferSize);
@@ -220,17 +206,17 @@ function streamToBuffer(){
     }
 }
 
-/*
-*  A helper function similar to python's range().
-* It takes an integer n and returns an array with all integers from 0 to n-1
-*/
+/**
+ *  A helper function similar to python's range().
+ * It takes an integer n and returns an array with all integers from 0 to n-1
+ */
 function range(len){
     return Array.apply(null, new Array(len)).map(function (_, i) {return i;});
 }
 
-/*
-*  This functions returns the X,Y,Z data from time-point t.
-*/
+/**
+ *  This functions returns the X,Y,Z data from time-point t.
+ */
 function getSliceAtTime(t){
     var buffer;
     var from = "from_idx=" + t;
