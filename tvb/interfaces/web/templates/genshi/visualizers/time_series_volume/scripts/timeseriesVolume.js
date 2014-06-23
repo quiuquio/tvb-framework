@@ -121,6 +121,26 @@ function asyncRequest(fileName, sect) {
     });
 }
 
+function inlineWebWorkerWrapper(workerBody){
+    var retBlob = URL.createObjectURL(
+        new Blob([
+            '(',
+                workerBody.toString(),
+            ')()' ],
+        { type: 'application/javascript' }
+        )
+    );
+    return retBlob;
+}
+
+var blobURL = inlineWebWorkerWrapper( function(){
+            self.addEventListener( 'message', function (e){
+                //Parse the JSON, send it to the main thread, close the worker
+                self.postMessage(JSON.parse(e.data));
+                self.close();
+            }, false );
+        });
+
 /****WEB WORKER****/
 // We build a worker from an anonymous function body
 // TODO: Create a nice inline worker-wrapper function that returns a blob.
@@ -128,22 +148,22 @@ function asyncRequest(fileName, sect) {
 /*
 *  This worker is used to parse big JSON on other threads
 */
-var blobURL = URL.createObjectURL(
-    new Blob([
-        '(',
-        // our worker goes inside this function
-        function(){
-            self.addEventListener( 'message', function (e){
-                var data = e.data;
-                var json = JSON.parse(data);
-                self.postMessage(json);
-                self.close();
-            }, false );
-        }.toString(),
-        ')()' ],
-    { type: 'application/javascript' }
-    )
-);
+// var blobURL = URL.createObjectURL(
+//     new Blob([
+//         '(',
+//         // our worker goes inside this function
+//         function(){
+//             self.addEventListener( 'message', function (e){
+//                 var data = e.data;
+//                 var json = JSON.parse(data);
+//                 self.postMessage(json);
+//                 self.close();
+//             }, false );
+//         }.toString(),
+//         ')()' ],
+//     { type: 'application/javascript' }
+//     )
+// );
 /****END OF WEB WORKER****/
 
 /*
@@ -231,12 +251,12 @@ function getSliceAtTime(t){
 
     if(tsVol.bufferL2[section]){
         buffer = tsVol.bufferL2[section];
-        console.log("Found in buffer L2: ", section)
+        //console.log("Found in buffer L2: ", section)
     }else{
         buffer = HLPR_readJSONfromFile(query);
         tsVol.bufferL2[section] = buffer;
         tsVol.requestQueue.splice(section, 1);
-        console.log("Not found in buffer L2:", section)
+        //console.log("Not found in buffer L2:", section)
     }
     return buffer[t%tsVol.bufferSize];
 }
