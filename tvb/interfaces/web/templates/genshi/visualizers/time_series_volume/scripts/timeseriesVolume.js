@@ -116,20 +116,19 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
 function asyncRequest(fileName, sect) {
 
     tsVol.requestQueue.push(sect);
-    //console.log("tsVol.requestQueue push:", tsVol.requestQueue);
+    console.log("tsVol.requestQueue push:", tsVol.requestQueue);
     doAjaxCall({
         async:true,
         url:fileName,
         methos:"GET",
         mimeType:"text/plain",
         success:function(r){
-            tsVol.bufferL2[sect] = {};
             parseAsync(r, function(json){
                 tsVol.bufferL2[sect] = json;
                 var index = tsVol.requestQueue.indexOf(sect);
                 if (index > -1) {
                     tsVol.requestQueue.splice(index, 1);
-                    //console.log("tsVol.requestQueue pop", tsVol.requestQueue);
+                    console.log("tsVol.requestQueue pop", tsVol.requestQueue);
                 }   
             });
         }
@@ -229,8 +228,8 @@ function getSliceAtTime(t){
     */
     for(var i in tsVol.requestQueue){
         var currentStep = tsVol.requestQueue[i];
-        if( (currentStep < section ||currentStep > section + tsVol.lookAhead) &&
-             !(currentStep in range(tsVol.lookAhead))){
+        if(  ( currentStep < section || currentStep > section + tsVol.lookAhead ) &&
+             !( currentStep in range(tsVol.lookAhead) )) {
             tsVol.requestQueue.splice(i, 1);
         }
     } 
@@ -428,21 +427,26 @@ function _setupBuffersSize() {
 
 // ==================================== PICKING RELATED CODE START ==========================================
 
-function customMouseDown() {
-    this.mouseDown = true;                                           // `this` is the canvas
+function customMouseDown(e) {
+    this.mouseDown = true;            // `this` is the canvas
+    TSV_pick(e)
 }
 
-function customMouseUp() {
+function customMouseUp(e) {
     this.mouseDown = false;
+}
+
+function customMouseMove(e) {
+    if (!this.mouseDown){
+        return;
+    }
+    TSV_pick(e);
 }
 
 /**
  * Implements picking and redraws the scene. Updates sliders too.
  */
-function customMouseMove(e) {
-    if (!this.mouseDown){
-        return;
-    }
+function TSV_pick(e){
     //fix for Firefox
     var offset = $('#volumetric-ts-canvas').offset();
     var xpos = e.pageX - offset.left;
@@ -458,7 +462,7 @@ function customMouseMove(e) {
     tsVol.selectedEntity[selectedQuad.axes.x] = selectedEntityOnX;
     tsVol.selectedEntity[selectedQuad.axes.y] = selectedEntityOnY;
     updateSliders();
-    drawSceneFunctional(tsVol.currentTimePoint)
+    drawSceneFunctional(tsVol.currentTimePoint);
 }
 
 // ==================================== PICKING RELATED CODE  END  ==========================================
