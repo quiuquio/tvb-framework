@@ -114,7 +114,7 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
  * Requests file data not blocking the main thread if possible.
  */
 function asyncRequest(fileName, sect) {
-
+    var start = new Date().getTime();
     tsVol.requestQueue.push(sect);
     console.log("tsVol.requestQueue push:", tsVol.requestQueue);
     doAjaxCall({
@@ -129,8 +129,34 @@ function asyncRequest(fileName, sect) {
                 if (index > -1) {
                     tsVol.requestQueue.splice(index, 1);
                     console.log("tsVol.requestQueue pop", tsVol.requestQueue);
+                    var end = new Date().getTime();
+                    var time = end - start;
+                    console.log("ASYNC took:", time);
                 }   
             });
+        }
+    });
+}
+
+function asyncRequest(fileName, sect) {
+    var start = new Date().getTime();
+    tsVol.requestQueue.push(sect);
+    console.log("tsVol.requestQueue push:", tsVol.requestQueue);
+    doAjaxCall({
+        async:true,
+        url:fileName,
+        methos:"GET",
+        mimeType:"text/plain",
+        success:function(r){
+            tsVol.bufferL2[sect] = $.parseJSON(r);
+            var index = tsVol.requestQueue.indexOf(sect);
+                if (index > -1) {
+                    tsVol.requestQueue.splice(index, 1);
+                    console.log("tsVol.requestQueue pop", tsVol.requestQueue);
+                    var end = new Date().getTime();
+                    var time = end - start;
+                    console.log("ASYNC took:", time);
+                }
         }
     });
 }
