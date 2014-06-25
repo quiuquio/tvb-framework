@@ -442,7 +442,7 @@ function _setupQuadrants() {
 function _setupBuffersSize() {
     var tpSize = tsVol.entitySize[0] * tsVol.entitySize[1] * tsVol.entitySize[2];
     //enough to be avoid waisting bandwidth and to parse the json smoothly
-    while(tsVol.bufferSize * tpSize <= 2000000){
+    while(tsVol.bufferSize * tpSize <= 1000000){
         tsVol.bufferSize++;
     }
     //Very safe measure to avoid crashes. Tested on Chrome.
