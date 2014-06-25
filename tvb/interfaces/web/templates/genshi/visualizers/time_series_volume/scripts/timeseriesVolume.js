@@ -17,7 +17,7 @@ var tsVol = {
     playerIntervalID: null,     // ID from the player's setInterval().
     bufferSize: 1,              // How many time points do we load each time?
     bufferL2Size: 1,            // How many sets of buffers can we keep at the same time?
-    lookAhead: 4,               // How many sets of buffers should be loaded ahead of us each time?
+    lookAhead: 5,              // How many sets of buffers should be loaded ahead of us each time?
     data: {},                   // The actual data to be drawn to canvas.
     bufferL2: {},               // Cotains all data loaded and preloaded, limited by memory.
     dataAddress: "",            // Used to contain the python URL for each time point.
@@ -218,15 +218,18 @@ function freeBuffer(){
  *  This function is called whenever we can, to load some data ahead of were we're looking.
  */
 function streamToBuffer(){
-    var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
-    var maxSections = Math.floor(tsVol.timeLength/tsVol.bufferSize);
-    var from = "from_idx="+tsVol.currentTimePoint;
-    var to = ";to_idx=" + Math.min(tsVol.bufferSize + tsVol.currentTimePoint, tsVol.timeLength);
-    var query = tsVol.dataAddress+from+to;
-    for( var i = 0; i <= tsVol.lookAhead; i++ ){
-        var tmp = (section+i)%maxSections;
-        if(!tsVol.bufferL2[tmp] && tsVol.requestQueue.indexOf(tmp) < 0) {
-            asyncRequest(query, tmp);
+    if(tsVol.requestQueue.length < 2){
+        var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
+        var maxSections = Math.floor(tsVol.timeLength/tsVol.bufferSize);
+        var from = "from_idx="+tsVol.currentTimePoint;
+        var to = ";to_idx=" + Math.min(tsVol.bufferSize + tsVol.currentTimePoint, tsVol.timeLength);
+        var query = tsVol.dataAddress+from+to;
+        for( var i = 0; i <= tsVol.lookAhead; i++ ){
+            var tmp = (section+i)%maxSections;
+            if(!tsVol.bufferL2[tmp] && tsVol.requestQueue.indexOf(tmp) < 0) {
+                asyncRequest(query, tmp);
+                return;
+            }
         }
     }
 }
@@ -439,7 +442,7 @@ function _setupQuadrants() {
 function _setupBuffersSize() {
     var tpSize = tsVol.entitySize[0] * tsVol.entitySize[1] * tsVol.entitySize[2];
     //enough to be avoid waisting bandwidth and to parse the json smoothly
-    while(tsVol.bufferSize * tpSize <= 1000000){
+    while(tsVol.bufferSize * tpSize <= 2000000){
         tsVol.bufferSize++;
     }
     //Very safe measure to avoid crashes. Tested on Chrome.
