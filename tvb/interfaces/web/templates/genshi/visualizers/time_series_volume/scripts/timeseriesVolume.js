@@ -92,9 +92,9 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
 
     _setupQuadrants();
 
-    tsVol.selectedEntity[0] = Math.floor(tsVol.data[0].length / 2);       // set the center entity as the selected one
-    tsVol.selectedEntity[1] = Math.floor(tsVol.data[0][0].length / 2);
-    tsVol.selectedEntity[2] = Math.floor(tsVol.data[0][0][0].length / 2);
+    tsVol.selectedEntity[0] = Math.floor(tsVol.dataSize[1] / 2);       // set the center entity as the selected one
+    tsVol.selectedEntity[1] = Math.floor(tsVol.dataSize[2] / 2);
+    tsVol.selectedEntity[2] = Math.floor(tsVol.dataSize[3] / 2);
 
     tsVol.entitySize[0] = tsVol.dataSize[1];           // get entities number of voxels
     tsVol.entitySize[1] = tsVol.dataSize[2];
@@ -275,20 +275,20 @@ function drawSceneFunctionalFromCube(tIndex) {
     tsVol.ctx.fillStyle = getGradientColorString(tsVol.minimumValue, tsVol.minimumValue, tsVol.maximumValue);
     tsVol.ctx.fillRect(0, 0, tsVol.ctx.canvas.width, tsVol.ctx.canvas.height);
 
-    for (j = 0; j < tsVol.data[0].length; ++j)
-        for (i = 0; i < tsVol.data.length; ++i)
+    for (j = 0; j < tsVol.dataSize[2]; ++j)
+        for (i = 0; i < tsVol.dataSize[1]; ++i)
             drawVoxel(i, j, tsVol.data[i][j][tsVol.selectedEntity[2]]);
     drawMargin();
 
     _setCtxOnQuadrant(1);
-    for (k = 0; k < tsVol.data[0][0].length; ++k)
-        for (jj = 0; jj < tsVol.data[0].length; ++jj)
+    for (k = 0; k < tsVol.dataSize[3]; ++k)
+        for (jj = 0; jj < tsVol.dataSize[2]; ++jj)
             drawVoxel(k, jj, tsVol.data[tsVol.selectedEntity[0]][jj][k]);
     drawMargin();
 
     _setCtxOnQuadrant(2);
-    for (kk = 0; kk < tsVol.data[0][0].length; ++kk)
-        for (ii = 0; ii < tsVol.data.length; ++ii)
+    for (kk = 0; kk < tsVol.dataSize[3]; ++kk)
+        for (ii = 0; ii < tsVol.dataSize[1]; ++ii)
             drawVoxel(kk, ii, tsVol.data[ii][tsVol.selectedEntity[1]][kk]);
     drawMargin();
     drawNavigator();
@@ -430,9 +430,9 @@ function _setCtxOnQuadrant(quadIdx) {
  */
 function _getDataSize(axis) {
     switch (axis) {
-        case 0:     return tsVol.data[0].length;
-        case 1:     return tsVol.data[0][0].length;
-        case 2:     return tsVol.data[0][0][0].length;
+        case 0:     return tsVol.dataSize[1];
+        case 1:     return tsVol.dataSize[2];
+        case 2:     return tsVol.dataSize[3];
     }
 }
 
