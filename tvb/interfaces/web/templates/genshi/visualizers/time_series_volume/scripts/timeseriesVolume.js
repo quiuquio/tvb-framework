@@ -32,7 +32,7 @@ var tsVol = {
     firstTime: true             // Fix for the first drawing call.
 };
 
-var Quadrant = function (params) {                // this keeps all necessary data for drawing
+var Quadrant = function (params){                // this keeps all necessary data for drawing
     this.index = params.index || 0;                // in a quadrant
     this.axes = params.axes || {x: 0, y: 1};       // axes represented in current quad; i=0, j=1, k=2
     this.entityWidth = params.entityWidth || 0;    // width and height of one voxel in current quad
@@ -49,9 +49,9 @@ var Quadrant = function (params) {                // this keeps all necessary da
  * @param volOrigin The origin of the rendering; irrelevant in 2D, for now
  * @param sizeOfVoxel   How the voxel is sized on each axis; [xScale, yScale, zScale]
  */
-function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel) {
+function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel){
     var canvas = document.getElementById("volumetric-ts-canvas");
-    if (!canvas.getContext) {
+    if (!canvas.getContext){
         displayMessage('You need a browser with canvas capabilities, to see this demo fully!', "errorMessage");
         return;
     }
@@ -88,33 +88,26 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
     tsVol.dataView = dataUrls[2];
     tsVol.dataSize = HLPR_readJSONfromFile(dataUrls[1]);
 
-    //var query = tsVol.dataAddress+"from_idx="+(0)+";to_idx="+(1);
-    //tsVol.data = HLPR_readJSONfromFile(query);
-
     tsVol.minimumValue = minValue;
     tsVol.maximumValue = maxValue;
     tsVol.timeLength = tsVol.dataSize[0]; //Number of time points;
 
     _setupQuadrants();
 
-    tsVol.selectedEntity[0] = Math.floor(tsVol.dataSize[1] / 2);       // set the center entity as the selected one
+    tsVol.selectedEntity[0] = Math.floor(tsVol.dataSize[1] / 2); // set the center entity as the selected one
     tsVol.selectedEntity[1] = Math.floor(tsVol.dataSize[2] / 2);
     tsVol.selectedEntity[2] = Math.floor(tsVol.dataSize[3] / 2);
 
-    tsVol.entitySize[0] = tsVol.dataSize[1];           // get entities number of voxels
+    tsVol.entitySize[0] = tsVol.dataSize[1];    // get entities number of voxels
     tsVol.entitySize[1] = tsVol.dataSize[2];
     tsVol.entitySize[2] = tsVol.dataSize[3];
-    tsVol.entitySize[3] = tsVol.dataSize[0];           // get entities number of time points
+    tsVol.entitySize[3] = tsVol.dataSize[0];    // get entities number of time points
 
     _setupBuffersSize();
 
     ColSch_initColorSchemeParams(minValue, maxValue, drawSceneFunctional);
     tsVol.currentTimePoint = 0;
 
-    //tsVol.data = getSliceAtTime(tsVol.currentTimePoint);
-    //drawSceneFunctional(tsVol.currentTimePoint);
-
-    //tsVol.streamToBufferID = window.setInterval(streamToBuffer, tsVol.playbackRate);
     startBuffering();
     window.setInterval(freeBuffer, tsVol.playbackRate*10);
 }
@@ -122,11 +115,10 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
 /**
  * Requests file data not blocking the main thread if possible.
  */
-function asyncRequest(fileName, sect) {
-    var start = new Date().getTime();
+function asyncRequest(fileName, sect){
     var index = tsVol.requestQueue.indexOf(sect);
     var privateID = tsVol.batchID;
-    if (index < 0) {
+    if (index < 0){
         tsVol.requestQueue.push(sect);
         //console.log("tsVol.requestQueue push:", tsVol.requestQueue);
         doAjaxCall({
@@ -138,15 +130,9 @@ function asyncRequest(fileName, sect) {
                 if(privateID == tsVol.batchID){
                     parseAsync(r, function(json){
                         tsVol.bufferL3[sect] = json;
-                        var index = tsVol.requestQueue.indexOf(sect);
-                        if (index > -1) {
-                            tsVol.requestQueue.splice(index, 1);
-                            //console.log("tsVol.requestQueue pop", tsVol.requestQueue);
-                            var end = new Date().getTime();
-                            var time = end - start;
-                            // console.log(fileName, sect);
-                            // console.log(tsVol.bufferL3[sect]);
-                            // console.log("ASYNC took:", time);
+                        idx = tsVol.requestQueue.indexOf(sect);
+                        if (idx > -1){
+                            tsVol.requestQueue.splice(idx, 1);
                         }   
                     });
                 }
@@ -198,6 +184,7 @@ function freeBuffer(){
     var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
     var bufferedElements = Object.keys(tsVol.bufferL3).length;
     if(bufferedElements > tsVol.bufferL2Size){
+        tsVol.bufferL2 = {};
         for(var idx in tsVol.bufferL3){
             if ( idx < (section-tsVol.bufferL2Size/2)%tsVol.timeLength ||
                  idx > (section+tsVol.bufferL2Size/2)%tsVol.timeLength){
@@ -220,7 +207,7 @@ function streamToBuffer(){
         
         for( var i = 0; i <= tsVol.lookAhead; i++ ){
             var toBufferSection = Math.min( currentSection+i, maxSections );
-            if(!tsVol.bufferL3[toBufferSection] && tsVol.requestQueue.indexOf(toBufferSection) < 0) {
+            if(!tsVol.bufferL3[toBufferSection] && tsVol.requestQueue.indexOf(toBufferSection) < 0){
                 var from = toBufferSection*tsVol.bufferSize;
                 var to = from+tsVol.bufferSize;
                 from = "from_idx=" + from;
@@ -234,33 +221,27 @@ function streamToBuffer(){
 }
 
 /**
- *  A helper function similar to python's range().
+ * A helper function similar to python's range().
  * It takes an integer n and returns an array with all integers from 0 to n-1
  */
 function range(len){
-    return Array.apply(null, new Array(len)).map(function (_, i) {return i;});
+    return Array.apply(null, new Array(len)).map(function (_, i){return i;});
 }
 
 /**
- *  This functions returns the all the x,y,z data at time-point t.
+ *  This functions returns the whole x,y,z cube data at time-point t.
  */
 function getSliceAtTime(t){
     var buffer;
     var from = "from_idx=" + t;
     var to = ";to_idx=" + (t+1);
-    var query = tsVol.dataAddress + from + to;
-    //var section = Math.floor(t/tsVol.bufferSize); 
+    var query = tsVol.dataAddress + from + to; 
 
     if(tsVol.bufferL2[t]){
-        console.log("qweqweqwe");
         buffer = tsVol.bufferL2[t];
     }else{
-        console.log("asdasdasd");
         tsVol.bufferL2[t] = HLPR_readJSONfromFile(query);
         buffer = tsVol.bufferL2[t];
-        console.log("SYNC:");
-        console.log(from, to, t);
-        console.log(tsVol.bufferL2[t]);
     }
     return buffer[0];
 }
@@ -290,7 +271,8 @@ function getViewAtTime(t){
         buffer = HLPR_readJSONfromFile(query);
         return [buffer[0][0],buffer[1][0],buffer[2][0]];
     }
-    return [buffer[0][t%tsVol.bufferSize],buffer[1][t%tsVol.bufferSize],buffer[2][t%tsVol.bufferSize]];
+    t = t%tsVol.bufferSize;
+    return [buffer[0][t],buffer[1][t],buffer[2][t]];
 }
 
 
@@ -311,7 +293,7 @@ function drawSceneFunctional(tIndex){
 /**
  * Draws the current scene from the whole loaded cube data
  */
-function drawSceneFunctionalFromCube(tIndex) {
+function drawSceneFunctionalFromCube(tIndex){
     var i, j, k, ii, jj, kk;
 
     // if we pass no tIndex the function will play
@@ -319,15 +301,14 @@ function drawSceneFunctionalFromCube(tIndex) {
     if(tIndex == null){
         tIndex = tsVol.currentTimePoint;
         tsVol.currentTimePoint++;
-        console.log("1", tsVol.currentTimePoint);
         tsVol.currentTimePoint = tsVol.currentTimePoint%tsVol.timeLength;
-        console.log("4", tsVol.currentTimePoint, tIndex);
-        //tsVol.data = getSliceAtTime(tIndex);
     }
-    if(tsVol.firstTime){
+
+    if(tsVol.firstTime){ 
         tsVol.firstTime = false;
         tsVol.currentTimePoint = 0;
     }
+
     tsVol.data = getSliceAtTime(tIndex);
     _setCtxOnQuadrant(0);
     tsVol.ctx.fillStyle = getGradientColorString(tsVol.minimumValue, tsVol.minimumValue, tsVol.maximumValue);
@@ -356,7 +337,7 @@ function drawSceneFunctionalFromCube(tIndex) {
 /**
  * Draws the current scene only from the three visible planes data.
  */
-function drawSceneFunctionalFromView(tIndex) {
+function drawSceneFunctionalFromView(tIndex){
     var i, j, k, ii, jj, kk, sliceArray;
     
     // if we pass no tIndex the function will play
@@ -364,7 +345,6 @@ function drawSceneFunctionalFromView(tIndex) {
     if(tIndex == null){
         tIndex = tsVol.currentTimePoint;
         tsVol.currentTimePoint++;
-        console.log("2");
         tsVol.currentTimePoint = tsVol.currentTimePoint%tsVol.timeLength;
     }
     // An array containing the view for each plane.
@@ -399,7 +379,7 @@ function drawSceneFunctionalFromView(tIndex) {
  * Draws the voxel set at (line, col) in the current quadrant, and colors it according to its value.
  * This function now nothing about the time point. 
  */
-function drawVoxel(line, col, value) {
+function drawVoxel(line, col, value){
     tsVol.ctx.fillStyle = getGradientColorString(value, tsVol.minimumValue, tsVol.maximumValue);
     // col increases horizontally and line vertically, so col represents the X drawing axis, and line the Y
 	tsVol.ctx.fillRect(col * tsVol.currentQuadrant.entityWidth, line * tsVol.currentQuadrant.entityHeight,
@@ -409,11 +389,11 @@ function drawVoxel(line, col, value) {
 /**
  * Draws the cross-hair on each quadrant, on the <code>tsVol.selectedEntity</code>
  */
-function drawNavigator() {
+function drawNavigator(){
     tsVol.ctx.save();
     tsVol.ctx.beginPath();
 
-    for (var quadIdx = 0; quadIdx < 3; ++quadIdx) {
+    for (var quadIdx = 0; quadIdx < 3; ++quadIdx){
         _setCtxOnQuadrant(quadIdx);
         var x = tsVol.selectedEntity[tsVol.currentQuadrant.axes.x] * tsVol.currentQuadrant.entityWidth + tsVol.currentQuadrant.entityWidth / 2;
         var y = tsVol.selectedEntity[tsVol.currentQuadrant.axes.y] * tsVol.currentQuadrant.entityHeight + tsVol.currentQuadrant.entityHeight / 2;
@@ -428,7 +408,7 @@ function drawNavigator() {
 /**
  * Draws a 20px X 20px cross hair on the <code>tsVol.currentQuadrant</code>, at the specified x and y
  */
-function drawCrossHair(x, y) {
+function drawCrossHair(x, y){
     tsVol.ctx.moveTo(Math.max(x - 20, 0), y);                              // the horizontal line
     tsVol.ctx.lineTo(Math.min(x + 20, tsVol.quadrantWidth), y);
     tsVol.ctx.moveTo(x, Math.max(y - 20, 0));                              // the vertical line
@@ -461,7 +441,7 @@ function drawMargin(){
  * <code>tsVol.ctx.setTransform(1, 0, 0, 1, volumeOrigin[tsVol.currentQuadrant.axes.x], volumeOrigin[tsVol.currentQuadrant.axes.y])</code>
  *       if implemented, also change the picking to take it into account
  */
-function _setCtxOnQuadrant(quadIdx) {
+function _setCtxOnQuadrant(quadIdx){
     tsVol.currentQuadrant = tsVol.quadrants[quadIdx];
     tsVol.ctx.setTransform(1, 0, 0, 1, 0, 0);                              // reset the transformation
     tsVol.ctx.translate(quadIdx * tsVol.quadrantWidth + tsVol.currentQuadrant.offsetX, tsVol.currentQuadrant.offsetY)
@@ -473,8 +453,8 @@ function _setCtxOnQuadrant(quadIdx) {
  * @returns {*}
  * @private
  */
-function _getDataSize(axis) {
-    switch (axis) {
+function _getDataSize(axis){
+    switch (axis){
         case 0:     return tsVol.dataSize[1];
         case 1:     return tsVol.dataSize[2];
         case 2:     return tsVol.dataSize[3];
@@ -487,7 +467,7 @@ function _getDataSize(axis) {
  * @param yAxis The axis to be represented on Y (i=0, j=1, k=2)
  * @returns {{width: number, height: number}} Entity width and height
  */
-function _getEntityDimensions(xAxis, yAxis) {
+function _getEntityDimensions(xAxis, yAxis){
     var scaleOnWidth  = tsVol.quadrantWidth  / (_getDataSize(xAxis) * tsVol.voxelSize[xAxis]);
     var scaleOnHeight = tsVol.quadrantHeight / (_getDataSize(yAxis) * tsVol.voxelSize[yAxis]);
     var scale = Math.min(scaleOnHeight, scaleOnWidth);
@@ -497,12 +477,12 @@ function _getEntityDimensions(xAxis, yAxis) {
 /**
  * Initializes the <code>tsVol.quadrants</code> with some default axes and sets their properties
  */
-function _setupQuadrants() {
+function _setupQuadrants(){
     tsVol.quadrants.push(new Quadrant({ index: 0, axes: {x: 1, y: 0} }));
     tsVol.quadrants.push(new Quadrant({ index: 1, axes: {x: 1, y: 2} }));
     tsVol.quadrants.push(new Quadrant({ index: 2, axes: {x: 0, y: 2} }));
 
-    for (var quadIdx = 0; quadIdx < tsVol.quadrants.length; quadIdx++) {
+    for (var quadIdx = 0; quadIdx < tsVol.quadrants.length; quadIdx++){
         var entityDimensions = _getEntityDimensions(tsVol.quadrants[quadIdx].axes.x, tsVol.quadrants[quadIdx].axes.y);
         tsVol.quadrants[quadIdx].entityHeight = entityDimensions.height;
         tsVol.quadrants[quadIdx].entityWidth  = entityDimensions.width;
@@ -514,7 +494,7 @@ function _setupQuadrants() {
 /** 
  * Automathically determine uptimal bufferSizer, depending on data dimensions.
  */
-function _setupBuffersSize() {
+function _setupBuffersSize(){
     var tpSize = Math.max(tsVol.entitySize[0], tsVol.entitySize[1], tsVol.entitySize[2]);
     var tpSize = tpSize*tpSize;
     //enough to avoid waisting bandwidth and to parse the json smoothly
@@ -532,21 +512,21 @@ function _setupBuffersSize() {
 
 // ==================================== PICKING RELATED CODE START ==========================================
 
-function customMouseDown(e) {
+function customMouseDown(e){
     this.mouseDown = true;            // `this` is the canvas
     TSV_pick(e)
 }
 
-function customMouseUp(e) {
+function customMouseUp(e){
     this.mouseDown = false;
     startBuffering();
     if(tsVol.resumePlayer){
-        window.setTimeout(playBack, tsVol.playbackRate*7);
+        window.setTimeout(playBack, tsVol.playbackRate*5);
         tsVol.resumePlayer = false;
     }
 }
 
-function customMouseMove(e) {
+function customMouseMove(e){
     if (!this.mouseDown){
         return;
     }
@@ -571,8 +551,10 @@ function TSV_pick(e){
     // check if it's inside the quadrant but outside the drawing
     if (ypos < selectedQuad.offsetY || ypos >= tsVol.quadrantHeight - selectedQuad.offsetY ||
         xpos < tsVol.quadrantWidth * selectedQuad.index + selectedQuad.offsetX ||
-        xpos >= tsVol.quadrantWidth * (selectedQuad.index + 1) - selectedQuad.offsetX)
+        xpos >= tsVol.quadrantWidth * (selectedQuad.index + 1) - selectedQuad.offsetX){
+        console.log("OMGGGG")
         return;
+    }
     var selectedEntityOnX = Math.floor((xpos % tsVol.quadrantWidth) / selectedQuad.entityWidth);
     var selectedEntityOnY = Math.floor((ypos - selectedQuad.offsetY) / selectedQuad.entityHeight);
     tsVol.selectedEntity[selectedQuad.axes.x] = selectedEntityOnX;
@@ -705,21 +687,23 @@ function stopPlayback(){
 function startBuffering(){
     if(!tsVol.streamToBufferID){
         tsVol.batchID++;
-        tsVol.streamToBufferID = window.setInterval(streamToBuffer, tsVol.playbackRate);
+        tsVol.requestQueue = [];
+        tsVol.bufferL3 = {};
+        tsVol.streamToBufferID = window.setInterval(streamToBuffer, 0);
     }
 }
 
 function stopBuffering(){
     window.clearInterval(tsVol.streamToBufferID);
     tsVol.streamToBufferID = null;
+    tsVol.batchID++;
     tsVol.requestQueue = [];
+    tsVol.bufferL3 = {};
 }
 
 function playNextTimePoint(){
     tsVol.currentTimePoint++;
-    console.log("3");
     tsVol.currentTimePoint = tsVol.currentTimePoint%(tsVol.timeLength);
-    //tsVol.currentTimePoint = Math.min(tsVol.currentTimePoint, tsVol.timeLength);
     drawSceneFunctionalFromView(tsVol.currentTimePoint)
 }
 
@@ -787,7 +771,7 @@ function slideMoved(event, ui){
         tsVol.slidersClicked = false;
     
         if(tsVol.resumePlayer){
-            window.setTimeout(playBack, tsVol.playbackRate*7);
+            window.setTimeout(playBack, tsVol.playbackRate*5);
             tsVol.resumePlayer = false;
         }
     }
