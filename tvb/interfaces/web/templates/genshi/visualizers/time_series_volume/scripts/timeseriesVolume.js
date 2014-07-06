@@ -13,7 +13,7 @@ var tsVol = {
     quadrantWidth: null,
     timeLength: 0,              // number of timepoints in the Volume.
     currentTimePoint: 0,
-    playbackRate: 100,          // This is a not acurate lower limit for playback speed.
+    playbackRate: 66,          // This is a not acurate lower limit for playback speed.
     playerIntervalID: null,     // ID from the player's setInterval().
     streamToBufferID: null,     // ID from the buffering system's setInterval().
     bufferSize: 1,              // How many time points do we load each time?
@@ -28,7 +28,8 @@ var tsVol = {
     requestQueue: [],           // Used to avoid requesting a time point set while we are waiting for it.
     parserBlob: null,           // Used to store the JSON Parser Blob for web-workers.
     slidersClicked: false,      // Used to handle the status of the sliders.
-    batchID: 0                  // Used to ignore useless incoming ajax responses.
+    batchID: 0,                 // Used to ignore useless incoming ajax responses.
+    firstTime: true             // Fix for the first drawing call.
 };
 
 var Quadrant = function (params) {                // this keeps all necessary data for drawing
@@ -71,7 +72,7 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
 
     var canvasWidth = $(canvas).parent().width();
     canvas.width  = canvasWidth;                          // fill the screen on width
-    canvas.height = canvasWidth / 3;                      // three quadrants + some space for labeling
+    canvas.height = canvasWidth / 3;                      // three quadrants
     tsVol.quadrantHeight = canvasWidth / 3;               // quadrants are squares
     tsVol.quadrantWidth = canvasWidth/ 3;
 
@@ -87,8 +88,8 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
     tsVol.dataView = dataUrls[2];
     tsVol.dataSize = HLPR_readJSONfromFile(dataUrls[1]);
 
-    var query = tsVol.dataAddress+"from_idx="+(0)+";to_idx="+(1);
-    tsVol.data = HLPR_readJSONfromFile(query);
+    //var query = tsVol.dataAddress+"from_idx="+(0)+";to_idx="+(1);
+    //tsVol.data = HLPR_readJSONfromFile(query);
 
     tsVol.minimumValue = minValue;
     tsVol.maximumValue = maxValue;
@@ -108,7 +109,7 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
     _setupBuffersSize();
 
     ColSch_initColorSchemeParams(minValue, maxValue, drawSceneFunctional);
-    //tsVol.currentTimePoint = 0;
+    tsVol.currentTimePoint = 0;
 
     //tsVol.data = getSliceAtTime(tsVol.currentTimePoint);
     //drawSceneFunctional(tsVol.currentTimePoint);
@@ -116,34 +117,6 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
     //tsVol.streamToBufferID = window.setInterval(streamToBuffer, tsVol.playbackRate);
     startBuffering();
     window.setInterval(freeBuffer, tsVol.playbackRate*10);
-}
-
-/**
- * Requests file data not blocking the main thread if possible.
- */
-function asyncRequest_old(fileName, sect) {
-    var start = new Date().getTime();
-    tsVol.requestQueue.push(sect);
-    //console.log("tsVol.requestQueue push:", tsVol.requestQueue);
-    doAjaxCall({
-        async:true,
-        url:fileName,
-        methos:"GET",
-        mimeType:"text/plain",
-        success:function(r){
-            parseAsync(r, function(json){
-                tsVol.bufferL2[sect] = json;
-                var index = tsVol.requestQueue.indexOf(sect);
-                if (index > -1) {
-                    tsVol.requestQueue.splice(index, 1);
-                    //console.log("tsVol.requestQueue pop", tsVol.requestQueue);
-                    var end = new Date().getTime();
-                    var time = end - start;
-                    console.log("ASYNC took:", time);
-                }   
-            });
-        }
-    });
 }
 
 /**
@@ -165,16 +138,15 @@ function asyncRequest(fileName, sect) {
                 if(privateID == tsVol.batchID){
                     parseAsync(r, function(json){
                         tsVol.bufferL3[sect] = json;
-                        //console.log(tsVol.bufferL3);
                         var index = tsVol.requestQueue.indexOf(sect);
                         if (index > -1) {
                             tsVol.requestQueue.splice(index, 1);
                             //console.log("tsVol.requestQueue pop", tsVol.requestQueue);
                             var end = new Date().getTime();
                             var time = end - start;
-                            console.log(fileName, sect);
-                            console.log(tsVol.bufferL3[sect]);
-                            console.log("ASYNC took:", time);
+                            // console.log(fileName, sect);
+                            // console.log(tsVol.bufferL3[sect]);
+                            // console.log("ASYNC took:", time);
                         }   
                     });
                 }
@@ -219,35 +191,16 @@ function parseAsync(data, callback){
 }
 
 /**
- *  This function is called to erase some elements from bufferL2 array and avoid
- *  consuming too much memory. 
- */
-function freeBuffer_old(){
-    var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
-    var bufferedElements = Object.keys(tsVol.bufferL2).length;
-    if(bufferedElements > tsVol.bufferL2Size){
-        for(var idx in tsVol.bufferL2){
-            if ( idx < (section-tsVol.bufferL2Size/2)%tsVol.timeLength ||
-                 idx > (section+tsVol.bufferL2Size/2)%tsVol.timeLength){
-                //console.log("erase:", idx)
-                delete tsVol.bufferL2[idx];
-            }
-        }
-    }
-}
-
-/**
- *  This function is called to erase some elements from bufferL2 array and avoid
+ *  This function is called to erase some elements from bufferL3 array and avoid
  *  consuming too much memory. 
  */
 function freeBuffer(){
     var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
     var bufferedElements = Object.keys(tsVol.bufferL3).length;
     if(bufferedElements > tsVol.bufferL2Size){
-        for(var idx in tsVol.bufferL2){
+        for(var idx in tsVol.bufferL3){
             if ( idx < (section-tsVol.bufferL2Size/2)%tsVol.timeLength ||
                  idx > (section+tsVol.bufferL2Size/2)%tsVol.timeLength){
-                //console.log("erase:", idx)
                 delete tsVol.bufferL3[idx];
             }
         }
@@ -257,41 +210,16 @@ function freeBuffer(){
 /**
  *  This function is called whenever we can, to load some data ahead of were we're looking.
  */
-function streamToBuffer_old(){
-    if(tsVol.requestQueue.length < 2){
-        var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
-        var maxSections = Math.floor(tsVol.timeLength/tsVol.bufferSize);
-        var from = "from_idx="+tsVol.currentTimePoint;
-        var to = ";to_idx=" + Math.min(tsVol.bufferSize + tsVol.currentTimePoint, tsVol.timeLength);
-        var query = tsVol.dataAddress+from+to;
-        for( var i = 0; i <= tsVol.lookAhead; i++ ){
-            var tmp = (section+i)%maxSections;
-            if(!tsVol.bufferL2[tmp] && tsVol.requestQueue.indexOf(tmp) < 0) {
-                asyncRequest(query, tmp);
-                return;
-            }
-        }
-    }
-}
-/**
- *  This function is called whenever we can, to load some data ahead of were we're looking.
- */
 function streamToBuffer(){
-    if(tsVol.requestQueue.length < 2){
-        //var section = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
+    if(tsVol.requestQueue.length < 2){ //avoid having too many requests at the same time
         var currentSection = Math.floor(tsVol.currentTimePoint/tsVol.bufferSize);
         var maxSections = Math.floor(tsVol.timeLength/tsVol.bufferSize);
-        //var from = "from_idx="+tsVol.currentTimePoint;
-        //var to = ";to_idx=" + Math.min(tsVol.bufferSize + tsVol.currentTimePoint, tsVol.timeLength);
         var xPlane = ";x_plane="+(tsVol.selectedEntity[0]);
         var yPlane = ";y_plane="+(tsVol.selectedEntity[1]);
         var zPlane = ";z_plane="+(tsVol.selectedEntity[2]);
-
-        //var query = tsVol.dataView+from+to+xPlane+yPlane+zPlane;
         
         for( var i = 0; i <= tsVol.lookAhead; i++ ){
             var toBufferSection = Math.min( currentSection+i, maxSections );
-            //console.log("streamToBuffer", toBufferSection);
             if(!tsVol.bufferL3[toBufferSection] && tsVol.requestQueue.indexOf(toBufferSection) < 0) {
                 var from = toBufferSection*tsVol.bufferSize;
                 var to = from+tsVol.bufferSize;
@@ -314,36 +242,27 @@ function range(len){
 }
 
 /**
- *  This functions returns the X,Y,Z data from time-point t.
+ *  This functions returns the all the x,y,z data at time-point t.
  */
 function getSliceAtTime(t){
     var buffer;
     var from = "from_idx=" + t;
-    //var to = ";to_idx=" + Math.min(tsVol.bufferSize + t, tsVol.timeLength);
     var to = ";to_idx=" + (t+1);
     var query = tsVol.dataAddress + from + to;
-    var section = Math.floor(t/tsVol.bufferSize);
-    /*
-     Here we erase failed requests from the request queue. 
-     TODO: This should happen on a fail handler.
-    */
-    for(var i in tsVol.requestQueue){
-        var currentStep = tsVol.requestQueue[i];
-        if(  ( currentStep < section || currentStep > section + tsVol.lookAhead ) &&
-             !( currentStep in range(tsVol.lookAhead) )) {
-            console.log("cleaned old:",tsVol.requestQueue[i]);
-            tsVol.requestQueue.splice(i, 1);  
-        }
-    } 
+    //var section = Math.floor(t/tsVol.bufferSize); 
 
-    if(tsVol.bufferL2[section]){
-        buffer = tsVol.bufferL2[section];
+    if(tsVol.bufferL2[t]){
+        console.log("qweqweqwe");
+        buffer = tsVol.bufferL2[t];
     }else{
-        buffer = HLPR_readJSONfromFile(query);
-        //tsVol.bufferL2[section] = buffer;
-        //tsVol.requestQueue.splice(section, 1);
+        console.log("asdasdasd");
+        tsVol.bufferL2[t] = HLPR_readJSONfromFile(query);
+        buffer = tsVol.bufferL2[t];
+        console.log("SYNC:");
+        console.log(from, to, t);
+        console.log(tsVol.bufferL2[t]);
     }
-    return buffer[t%tsVol.bufferSize];
+    return buffer[0];
 }
 
 /**
@@ -351,44 +270,26 @@ function getSliceAtTime(t){
  */
 function getViewAtTime(t){
     var buffer;
-    var from = "from_idx=" + t;
-    var to = ";to_idx=" + Math.min(tsVol.bufferSize + t, tsVol.timeLength);
+    var from;
+    var to;
     var xPlane = ";x_plane="+(tsVol.selectedEntity[0]);
     var yPlane = ";y_plane="+(tsVol.selectedEntity[1]);
     var zPlane = ";z_plane="+(tsVol.selectedEntity[2]);
 
-    var query = tsVol.dataView+from+to+xPlane+yPlane+zPlane;
+    var query;
 
-    var section = Math.floor(t/tsVol.bufferSize);
-    /*
-     Here we erase failed requests from the request queue. 
-     TODO: This should happen on a fail handler.
-    */
-    for(var i in tsVol.requestQueue){
-        var currentStep = tsVol.requestQueue[i];
-        if(  ( currentStep < section || currentStep > section + tsVol.lookAhead ) &&
-             !( currentStep in range(tsVol.lookAhead) )) {
-            console.log("cleaned new:",tsVol.requestQueue[i]);
-            tsVol.requestQueue.splice(i, 1);
-        }
-    } 
+    var section = Math.floor(t/tsVol.bufferSize); 
 
-    if(tsVol.bufferL3[section]){
+    if(tsVol.bufferL3[section]){ //We have that slice in memory
         buffer = tsVol.bufferL3[section];
-    }else{
-
+    }else{ // We need to load that slice from
         from = "from_idx=" + t;
         to = ";to_idx=" + Math.min(1 + t, tsVol.timeLength);
         query = tsVol.dataView+from+to+xPlane+yPlane+zPlane;
 
         buffer = HLPR_readJSONfromFile(query);
-        //tsVol.bufferL3[section] = buffer;
-        //tsVol.requestQueue.splice(section, 1);
         return [buffer[0][0],buffer[1][0],buffer[2][0]];
     }
-    // console.log("pure buffer:", buffer);
-    // console.log("[t%buffersize]", buffer[t%tsVol.bufferSize]);
-    // console.log("testArray:", [buffer[0][t%tsVol.bufferSize],buffer[1][t%tsVol.bufferSize],buffer[2][t%tsVol.bufferSize]]);
     return [buffer[0][t%tsVol.bufferSize],buffer[1][t%tsVol.bufferSize],buffer[2][t%tsVol.bufferSize]];
 }
 
@@ -398,8 +299,18 @@ function getViewAtTime(t){
 /**
  * Draws the current view depending on the selected entity
  */
-// TODO: since only two dimensions change at every time, redraw just those quadrants
-// NOTE: this is true only when we navigate, not when we play the time-series
+function drawSceneFunctional(tIndex){
+    if(tsVol.playerIntervalID){
+        drawSceneFunctionalFromView(tIndex)
+    }
+    else{
+        drawSceneFunctionalFromCube(tIndex)
+    }
+}
+
+/**
+ * Draws the current scene from the whole loaded cube data
+ */
 function drawSceneFunctionalFromCube(tIndex) {
     var i, j, k, ii, jj, kk;
 
@@ -408,9 +319,16 @@ function drawSceneFunctionalFromCube(tIndex) {
     if(tIndex == null){
         tIndex = tsVol.currentTimePoint;
         tsVol.currentTimePoint++;
+        console.log("1", tsVol.currentTimePoint);
         tsVol.currentTimePoint = tsVol.currentTimePoint%tsVol.timeLength;
-        tsVol.data = getSliceAtTime(tIndex);
+        console.log("4", tsVol.currentTimePoint, tIndex);
+        //tsVol.data = getSliceAtTime(tIndex);
     }
+    if(tsVol.firstTime){
+        tsVol.firstTime = false;
+        tsVol.currentTimePoint = 0;
+    }
+    tsVol.data = getSliceAtTime(tIndex);
     _setCtxOnQuadrant(0);
     tsVol.ctx.fillStyle = getGradientColorString(tsVol.minimumValue, tsVol.minimumValue, tsVol.maximumValue);
     tsVol.ctx.fillRect(0, 0, tsVol.ctx.canvas.width, tsVol.ctx.canvas.height);
@@ -435,31 +353,22 @@ function drawSceneFunctionalFromCube(tIndex) {
     updateMoviePlayerSlider();
 }
 
+/**
+ * Draws the current scene only from the three visible planes data.
+ */
 function drawSceneFunctionalFromView(tIndex) {
-    var i, j, k, ii, jj, kk;
-    sliceArray = 0;
+    var i, j, k, ii, jj, kk, sliceArray;
     
     // if we pass no tIndex the function will play
     // from the tsVol.currentTimePoint and increment it
     if(tIndex == null){
         tIndex = tsVol.currentTimePoint;
         tsVol.currentTimePoint++;
+        console.log("2");
         tsVol.currentTimePoint = tsVol.currentTimePoint%tsVol.timeLength;
-        //sliceArray = getViewAtTime(tIndex);
-        // console.log("test:", sliceArray);
     }
-    sliceArray = getViewAtTime(tIndex);
-    // query preparation
-    // var from = "from_idx="+(tIndex);
-    // var to = ";to_idx="+(tIndex+1);
-    // var xPlane = ";x_plane="+(tsVol.selectedEntity[0]);
-    // var yPlane = ";y_plane="+(tsVol.selectedEntity[1]);
-    // var zPlane = ";z_plane="+(tsVol.selectedEntity[2]);
-
-    // var query = tsVol.dataView+from+to+xPlane+yPlane+zPlane;
-
     // An array containing the view for each plane.
-    // var sliceArray = HLPR_readJSONfromFile(query);
+    sliceArray = getViewAtTime(tIndex);
 
     _setCtxOnQuadrant(0);
     tsVol.ctx.fillStyle = getGradientColorString(tsVol.minimumValue, tsVol.minimumValue, tsVol.maximumValue);
@@ -480,18 +389,10 @@ function drawSceneFunctionalFromView(tIndex) {
     for (kk = 0; kk < tsVol.dataSize[3]; ++kk)
         for (ii = 0; ii < tsVol.dataSize[1]; ++ii)
             drawVoxel(kk, ii, sliceArray[2][ii][kk])
+
     drawMargin();
     drawNavigator();
     updateMoviePlayerSlider();  
-}
-
-function drawSceneFunctional(tIndex){
-    if(tsVol.playerIntervalID){
-        drawSceneFunctionalFromView(tIndex)
-    }
-    else{
-        drawSceneFunctionalFromCube(tIndex)
-    }
 }
 
 /**
@@ -610,28 +511,8 @@ function _setupQuadrants() {
     }
 }
 
-/**
- * Values here are usually around 10 or less for <code>bufferSize</code>
- * and less than 200 for <code>bufferL2Size</code>. 
- * TODO: have modifiable limits while suggesting an optimal, safe setup.
- */
-function _setupBuffersSize_old() {
-    var tpSize = tsVol.entitySize[0] * tsVol.entitySize[1] * tsVol.entitySize[2];
-    //enough to avoid waisting bandwidth and to parse the json smoothly
-    while(tsVol.bufferSize * tpSize <= 1000000){
-        tsVol.bufferSize++;
-    }
-    //Very safe measure to avoid crashes. Tested on Chrome.
-    while(tsVol.bufferSize * tpSize * tsVol.bufferL2Size <= 157286400){
-        tsVol.bufferL2Size *= 2;
-    }
-    tsVol.bufferL2Size/= 2
-}
-
-/**
- * Values here are usually around 10 or less for <code>bufferSize</code>
- * and less than 200 for <code>bufferL2Size</code>. 
- * TODO: have modifiable limits while suggesting an optimal, safe setup.
+/** 
+ * Automathically determine uptimal bufferSizer, depending on data dimensions.
  */
 function _setupBuffersSize() {
     var tpSize = Math.max(tsVol.entitySize[0], tsVol.entitySize[1], tsVol.entitySize[2]);
@@ -660,7 +541,7 @@ function customMouseUp(e) {
     this.mouseDown = false;
     startBuffering();
     if(tsVol.resumePlayer){
-        window.setTimeout(playBack, tsVol.playbackRate*5);
+        window.setTimeout(playBack, tsVol.playbackRate*7);
         tsVol.resumePlayer = false;
     }
 }
@@ -836,6 +717,7 @@ function stopBuffering(){
 
 function playNextTimePoint(){
     tsVol.currentTimePoint++;
+    console.log("3");
     tsVol.currentTimePoint = tsVol.currentTimePoint%(tsVol.timeLength);
     //tsVol.currentTimePoint = Math.min(tsVol.currentTimePoint, tsVol.timeLength);
     drawSceneFunctionalFromView(tsVol.currentTimePoint)
@@ -853,7 +735,7 @@ function seekFirst(){
 }
 
 function seekEnd(){
-    tsVol.currentTimePoint = tsVol.timeLength;
+    tsVol.currentTimePoint = tsVol.timeLength-1;
     drawSceneFunctionalFromView(tsVol.currentTimePoint-1);
 }
 
@@ -905,7 +787,7 @@ function slideMoved(event, ui){
         tsVol.slidersClicked = false;
     
         if(tsVol.resumePlayer){
-            window.setTimeout(playBack, tsVol.playbackRate*5);
+            window.setTimeout(playBack, tsVol.playbackRate*7);
             tsVol.resumePlayer = false;
         }
     }
