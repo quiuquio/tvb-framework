@@ -29,7 +29,8 @@ var tsVol = {
     parserBlob: null,           // Used to store the JSON Parser Blob for web-workers.
     slidersClicked: false,      // Used to handle the status of the sliders.
     batchID: 0,                 // Used to ignore useless incoming ajax responses.
-    firstTime: true             // Fix for the first drawing call.
+    firstTime: true,            // Fix for the first drawing call.
+    dataTimeSeries: ""          // Contains the address to query the time series of a voxel.
 };
 
 var Quadrant = function (params){                // this keeps all necessary data for drawing
@@ -87,6 +88,7 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
     tsVol.dataAddress = dataUrls[0];
     tsVol.dataView = dataUrls[2];
     tsVol.dataSize = HLPR_readJSONfromFile(dataUrls[1]);
+    tsVol.dataTimeSeries = dataUrls[3];
 
     tsVol.minimumValue = minValue;
     tsVol.maximumValue = maxValue;
@@ -802,9 +804,18 @@ function moviePlayerMove(event, ui){
 */
 function moviePlayerMoveEnd(event, ui){
     tsVol.currentTimePoint = ui.value;
-    //drawSceneFunctional(tsVol.currentTimePoint);
     drawSceneFunctionalFromView(tsVol.currentTimePoint)
 }
 
 // ==================================== CALLBACK FUNCTIONS END ===============================================
-// ==================================== UI RELATED CODE END =================================================
+// ==================================== UI RELATED CODE END ==================================================
+
+// ==================================== PER VOXEL TIMESERIES START ===========================================
+function getPerVoxelTimeSeries(x,y,z){
+    x = "x="+x;
+    y = ";y="+y;
+    z = ";z="+z;
+    var query = tsVol.dataTimeSeries+x+y+z;
+    return HLPR_readJSONfromFile(query);;
+}
+// ==================================== PER VOXEL TIMESERIES END =============================================
