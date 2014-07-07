@@ -29,7 +29,6 @@ var tsVol = {
     parserBlob: null,           // Used to store the JSON Parser Blob for web-workers.
     slidersClicked: false,      // Used to handle the status of the sliders.
     batchID: 0,                 // Used to ignore useless incoming ajax responses.
-    firstTime: true,            // Fix for the first drawing call.
     dataTimeSeries: ""          // Contains the address to query the time series of a voxel.
 };
 
@@ -107,7 +106,7 @@ function TSV_initVisualizer(dataUrls, minValue, maxValue, volOrigin, sizeOfVoxel
 
     _setupBuffersSize();
 
-    ColSch_initColorSchemeParams(minValue, maxValue, drawSceneFunctional);
+    ColSch_initColorSchemeParams(minValue, maxValue, colorRedraw);
     tsVol.currentTimePoint = 0;
 
     startBuffering();
@@ -291,6 +290,12 @@ function drawSceneFunctional(tIndex){
         drawSceneFunctionalFromCube(tIndex)
     }
 }
+/**
+ * Necessary for the color picking function
+ */
+function colorRedraw(){
+    drawSceneFunctional(tsVol.currentTimePoint);
+}
 
 /**
  * Draws the current scene from the whole loaded cube data
@@ -304,11 +309,6 @@ function drawSceneFunctionalFromCube(tIndex){
         tIndex = tsVol.currentTimePoint;
         tsVol.currentTimePoint++;
         tsVol.currentTimePoint = tsVol.currentTimePoint%tsVol.timeLength;
-    }
-
-    if(tsVol.firstTime){ 
-        tsVol.firstTime = false;
-        tsVol.currentTimePoint = 0;
     }
 
     tsVol.data = getSliceAtTime(tIndex);
