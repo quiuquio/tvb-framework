@@ -241,7 +241,9 @@ function getSliceAtTime(t){
     if(tsVol.bufferL2[t]){
         buffer = tsVol.bufferL2[t];
     }else{
+        //window.setTimeout(function(){showBlockerOverlay(2000);},0);
         tsVol.bufferL2[t] = HLPR_readJSONfromFile(query);
+        //window.setTimeout(function(){closeBlockerOverlay();},0);
         buffer = tsVol.bufferL2[t];
     }
     return buffer[0];
