@@ -29,12 +29,15 @@
 #
 
 """
-Find a TS in current project (by Subject) and later run an analyzer on it
+Find a Connectivity in current project (by Subject) and later run a simulation on it.
+
+__main__ will contain the code.
 
 .. moduleauthor:: Lia Domide <lia.domide@codemart.ro>
 """
 
 import tvb.interfaces.command.prepare
+import sys
 from time import sleep
 from tvb.basic.logger.builder import get_logger
 from tvb.core.adapters.abcadapter import ABCAdapter
@@ -71,6 +74,9 @@ if __name__ == "__main__":
         launch_args[f["name"]] = str(f["default"]) if 'default' in f else None
     launch_args["connectivity"] = connectivity.gid
     launch_args["model_parameters_option_Generic2dOscillator_variables_of_interest"] = 'V'
+
+    if len(sys.argv) > 1:
+        launch_args["model_parameters_option_Generic2dOscillator_tau"] = sys.argv[1]
 
     ## launch an operation and have the results stored both in DB and on disk
     launched_operation = flow_service.fire_operation(adapter_instance, project.administrator,

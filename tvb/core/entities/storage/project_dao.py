@@ -35,7 +35,7 @@ DAO operation related to Users and Projects are defined here.
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 """
 
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.expression import desc
 from sqlalchemy.orm.exc import NoResultFound
@@ -171,6 +171,20 @@ class CaseDAO(RootDAO):
         for user in linked_users:
             user.selected_project = None
         self.session.commit()
+
+
+    def get_project_disk_size(self, project_id):
+        """
+        Do a SUM on DATA_TYPES table column DISK_SIZE, for the current project.
+        :returns 0 when no DT are found, or SUM from DB.
+        """
+        try:
+            total_size = self.session.query(func.sum(model.DataType.disk_size)).join(model.Operation
+                                        ).filter(model.Operation.fk_launched_in == project_id).scalar()
+            return total_size or 0
+        except SQLAlchemyError, excep:
+            self.logger.exception(excep)
+            return -1
 
 
     def count_projects_for_name(self, name, different_id):

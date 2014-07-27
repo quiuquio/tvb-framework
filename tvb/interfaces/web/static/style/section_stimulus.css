@@ -42,6 +42,7 @@ overflow: auto;
 .regionSelector{
 width: 100%;
 padding: 0 10px 10px 10px;
+box-sizing: border-box;
 -webkit-box-sizing: border-box;
 -moz-box-sizing: border-box;
 }
@@ -60,12 +61,14 @@ display: none;
 }
 
 .regionSelector .submatrix label{
-width: 120px;
-
+width: 46%;
+position: relative;
 border-right: 5px solid #bbb;
 background: #ccc;
 cursor: pointer;
 padding: 2px 2px 2px 2px;
+margin: 0 4px 1px 0;
+
 -webkit-transition: border-color .5s ease;
 -moz-transition: color .5s ease;
 }
@@ -78,6 +81,10 @@ border-color: #41921f;
 
 .regionSelector .node-scale{
 font-weight: normal;
+margin-left: 4px;
+position: absolute;
+top:8px;
+right:8px;
 }
 
 .regionSelector .node-scale-selected{
@@ -242,21 +249,36 @@ margin-left: 5%;
     max-width: 1000px;
 }
 
+#div_spatial_model_params button{
+    margin: 0 10px 5px 0;
+    float:right;
+}
+
 .paramSlidersTable {
     width: 100%;
 }
 
+.paramSlidersTable td{
+    padding: 0 5px;
+}
+
 .paramName {
-    width: 15%;
+    width: 8%;
+    text-align: right;
 }
 
 .paramSlider {
-    width: 75%
+    width: 32%
 }
 
 .paramValue {
-    width: 10%;
+    width: 8%;
     text-align: center;
+}
+
+.paramSlidersTable td.paramHelp{
+    width:16px;
+    padding:0;
 }
 
 /* !------------------------------------------------ */

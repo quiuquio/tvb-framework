@@ -15,14 +15,14 @@
     <script type="text/javascript" src="/static_view/commons/scripts/regionSelector.js?$currentVersionJS"></script>
     <script type="text/javascript" src="/static/colorScheme/js/colorSchemeComponent.js?$currentVersionJS"></script>
 
-	<xi:include href="../visualizers/connectivity/connectivity_view.html"/>
+	<xi:include href="connectivity_view.html"/>
 	${drawConnectivityViewer(False)}
     <br/>
 
     <script type="text/javascript">
         $(document).ready(function() {
             prepareConnectivity('$urlWeights', '$urlTracts', '$urlPositions', '$urlVertices', '$urlTriangles',
-                                '$urlNormals', '$urlLabels', '$connectivity_nose_correction', true, '$conductionSpeed');
+                                '$urlNormals', '$urlLabels', true, '$conductionSpeed');
 
             $('#GLcanvas').mousewheel(function(event, delta) {
                 GL_handleMouseWeel(delta);
@@ -30,7 +30,7 @@
                 return false; // prevent default
             });
 
-            $("#GLcanvas").click(function() { BS_displayNameForPickedNode(); });
+            $("#GLcanvas").click(displayNameForPickedNode);
         });
     </script>
 </div>

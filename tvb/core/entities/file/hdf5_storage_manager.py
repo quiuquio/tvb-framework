@@ -113,13 +113,27 @@ class HDF5StorageManager(object):
             dataset_name = ''
         if where is None:
             where = self.ROOT_NODE_PATH
+
         data_to_store = self._check_data(data_list)
+
         try:
             LOG.debug("Saving data into data set: %s" % dataset_name)
-            # Open file in append mode ('a') to allow adding multiple data sets in the same file
             chunk_shape = self.__compute_chunk_shape(data_to_store.shape)
+
+            # Open file in append mode ('a') to allow adding multiple data sets in the same file
             hdf5File = self._open_h5_file(chunk_shape=chunk_shape)
-            hdf5File[where + dataset_name] = data_to_store
+
+            full_dataset_name = where + dataset_name
+            if full_dataset_name not in hdf5File:
+                hdf5File.create_dataset(full_dataset_name, data=data_to_store)
+
+            elif hdf5File[full_dataset_name].shape == data_to_store.shape:
+                hdf5File[full_dataset_name][...] = data_to_store[...]
+
+            else:
+                raise IncompatibleFileManagerException("Cannot update existing H5 DataSet %s with a different shape. "
+                                                       "Try defining it as chunked!" % full_dataset_name)
+
         finally:
             # Now close file
             self.close_file()

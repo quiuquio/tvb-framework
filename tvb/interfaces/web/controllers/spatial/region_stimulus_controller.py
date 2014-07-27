@@ -36,6 +36,7 @@
 import json
 
 import cherrypy
+from tvb.adapters.visualizers.connectivity import ConnectivityViewer
 
 from tvb.core.adapters.abcadapter import ABCAdapter
 from tvb.core.entities.transient.structure_entities import DataTypeMetaData
@@ -160,7 +161,7 @@ class RegionStimulusController(SpatioTemporalController):
         Generates the html for displaying the connectivity matrix.
         """
         connectivity = ABCAdapter.load_entity_by_gid(connectivity_gid)
-        connectivity_viewer_params = self.get_connectivity_parameters(connectivity)
+        connectivity_viewer_params = ConnectivityViewer.get_connectivity_parameters(connectivity)
 
         template_specification = dict()
         template_specification['isSingleMode'] = True
@@ -178,7 +179,7 @@ class RegionStimulusController(SpatioTemporalController):
         context.equation_kwargs.update({'weight': json.dumps(context.get_weights())})
         self.flow_service.fire_operation(local_connectivity_creator, common.get_logged_user(),
                                          common.get_current_project().id, **context.equation_kwargs)
-        common.set_info_message("The operation for creating the stimulus was successfully launched.")
+        common.set_important_message("The operation for creating the stimulus was successfully launched.")
 
 
     def _get_stimulus_interface(self, default_connectivity_gid=None):

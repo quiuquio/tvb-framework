@@ -31,7 +31,7 @@
 """
 .. moduleauthor:: Bogdan Neacsa <bogdan.neacsa@codemart.ro>
 """
-
+import tvb_data
 import os
 import unittest
 import shutil
@@ -288,8 +288,38 @@ class ProjectServiceTest(TransactionalTestCase):
         projects, pages = self.project_service.retrieve_projects_for_user(self.test_user.id, 1)
         self.assertEqual(len(projects), PROJECTS_PAGE_SIZE, "Pagination improper.")
         self.assertEqual(pages, 1, 'Wrong number of pages retrieved.')
-            
-    
+
+
+    def test_empty_project_has_zero_disk_size(self):
+        TestFactory.create_project(self.test_user, 'test_proj')
+        projects, pages = self.project_service.retrieve_projects_for_user(self.test_user.id)
+        self.assertEqual(0, projects[0].disk_size)
+        self.assertEqual('0.0 KiB', projects[0].disk_size_human)
+
+
+    def test_project_disk_size(self):
+        project1 = TestFactory.create_project(self.test_user, 'test_proj1')
+        zip_path = os.path.join(os.path.dirname(tvb_data.__file__), 'connectivity', 'connectivity_66.zip')
+        TestFactory.import_zip_connectivity(self.test_user, project1, 'testSubject', zip_path)
+
+        project2 = TestFactory.create_project(self.test_user, 'test_proj2')
+        TestFactory.import_cff(test_user=self.test_user, test_project=project2)
+
+        projects = self.project_service.retrieve_projects_for_user(self.test_user.id)[0]
+        self.assertNotEqual(projects[0].disk_size, projects[1].disk_size, "projects should have different size")
+
+        for project in projects:
+            self.assertNotEqual(0, project.disk_size)
+            self.assertNotEqual('0.0 KiB', project.disk_size_human)
+
+            prj_folder = self.structure_helper.get_project_folder(project)
+            actual_disk_size = self.compute_recursive_h5_disk_usage(prj_folder)[0]
+
+            ratio = float(actual_disk_size) / project.disk_size
+            msg = "Real disk usage: %s The one recorded in the db : %s" % (actual_disk_size, project.disk_size)
+            self.assertTrue(ratio < 1.4, msg)
+
+
     def test_get_linkable_projects(self):
         """
         Test for retrieving the projects for a given user.

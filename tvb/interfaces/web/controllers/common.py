@@ -45,6 +45,7 @@ from tvb.basic.traits.exceptions import TVBException
 TYPE_ERROR = "ERROR"
 TYPE_WARNING = "WARNING"
 TYPE_INFO = "INFO"
+TYPE_IMPORTANT = "IMPORTANT"
 
 KEY_CURRENT_VERSION = "currentVersion"
 KEY_CURRENT_JS_VERSION = "currentVersionJS"
@@ -144,6 +145,11 @@ def set_info_message(msg):
     set_message(msg, TYPE_INFO)
 
 
+def set_important_message(msg):
+    """ Set info message in session"""
+    set_message(msg, TYPE_IMPORTANT)
+
+
 def get_from_session(attribute):
     """ check if something exists in session and return"""
     return cherrypy.session.get(attribute)
@@ -159,6 +165,19 @@ def remove_from_session(key):
         return result
     cherrypy.session.release_lock()
     return None
+
+def expire_session():
+    """
+    Expires and cleans current session.
+    """
+    # remove all session items
+    cherrypy.session.acquire_lock()
+    cherrypy.session.clear()
+    # clear any caches held by cherrypy
+    cherrypy.session.clean_up()
+    # expire client side cookie
+    cherrypy.lib.sessions.expire()
+    cherrypy.session.release_lock()
 
 
 def add2session(key, value):

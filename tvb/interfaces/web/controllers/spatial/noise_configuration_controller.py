@@ -35,6 +35,7 @@
 
 import json
 import cherrypy
+from tvb.adapters.visualizers.connectivity import ConnectivityViewer
 from tvb.config import SIMULATOR_MODULE, SIMULATOR_CLASS
 from tvb.core.adapters.abcadapter import ABCAdapter
 from tvb.core.services.flow_service import FlowService
@@ -65,9 +66,16 @@ class NoiseConfigurationController(SpatioTemporalController):
         """
         model, integrator, connectivity, _ = self.get_data_from_burst_configuration()
 
-        connectivity_viewer_params = self.get_connectivity_parameters(connectivity)
+        connectivity_viewer_params = ConnectivityViewer.get_connectivity_parameters(connectivity)
         context_noise_config = ContextNoiseParameters(connectivity, model, integrator)
-        param_names, param_data = self.get_data_for_param_sliders('0', context_noise_config)
+
+        try:
+            param_names, param_data = context_noise_config.get_data_for_param_sliders('0')
+        except ValueError:
+            self.logger.exception("All the model parameters that are configurable should be valid arrays or numbers.")
+            common.set_error_message("All the model parameters that are configurable should be valid arrays or numbers")
+            raise cherrypy.HTTPRedirect("/burst/")
+
         common.add2session(KEY_CONTEXT_NC, context_noise_config)
 
         template_specification = dict(title="Simulation - Noise configuration")

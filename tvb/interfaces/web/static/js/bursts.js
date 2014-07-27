@@ -155,6 +155,7 @@ function updateBurstHistoryStatus() {
                         }
                     }
                 }
+                _updateBurstHistoryElapsedTime(result);
                 scheduleNewUpdate(finalStatusReceived, changedStatusOnCurrentBurst);
             },
             error: function() {
@@ -162,6 +163,22 @@ function updateBurstHistoryStatus() {
                 scheduleNewUpdate(false);
             }
         });
+    }
+}
+
+/**
+ * Update the burst detail pop-up of running simulations with the elapsed processing time.
+ */
+function _updateBurstHistoryElapsedTime(result){
+    for (var i = 0; i < result.length; i++) {
+        if (result[i][1] === 'running') {
+            var el = $('#burst-history').find(' li .burst-prop-processtime span')[i];
+            var elapsed_since_burst_start = result[i][4];
+            var seconds = Math.floor(elapsed_since_burst_start % 60);
+            var minutes = Math.floor(elapsed_since_burst_start / 60);
+            var hours = Math.floor(minutes / 60);
+            $(el).text(' ~ '  + hours + 'h:' + minutes + 'm.' + seconds +'s');
+        }
     }
 }
 
@@ -316,6 +333,8 @@ function _fillSimulatorParametersArea(htmlContent, isConfigure) {
     _toggleLaunchButtons(!isConfigure && sessionStoredBurst.id=='', !isConfigure && sessionStoredBurst.id!='' && sessionStoredBurst.isFinished && !sessionStoredBurst.isRange);
 
     MathJax.Hub.Queue(["Typeset", MathJax.Hub, "div-simulator-parameters"]);
+    // Bind the menu events for the online help pop-ups. Needed for the new dom created
+    setupMenuEvents(simParamElem);
 }
 
 /*
@@ -446,7 +465,7 @@ function configureModel(actionUrl) {
 }
 
 function configureModelParamsOnRegions() {
-    configureModel("/spatial/modelparameters/regions/edit_model_parameters/");
+    configureModel("/burst/modelparameters/regions/");
 }
 
 function configureModelParamsOnSurface() {

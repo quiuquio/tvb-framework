@@ -220,13 +220,24 @@ class ConnectivityViewer(ABCDisplayer):
                              pointsLabels=input_data.ordered_labels, conductionSpeed=input_data.speed or 1,
                              urlVertices=json.dumps(url_vertices), urlTriangles=json.dumps(url_triangles),
                              urlNormals=json.dumps(url_normals),
-                             connectivity_nose_correction=json.dumps(input_data.nose_correction),
                              connectivity_entity=input_data, surface_entity=surface_data,
                              algo_group=self.get_algo_group(),
                              base_selection=input_data.saved_selection_labels,
                              hemisphereOrderUrl=path_hemisphere_order_indices)
         global_params.update(self.build_template_params_for_subselectable_datatype(input_data))
         return global_params, global_pages
+
+
+    @staticmethod
+    def get_connectivity_parameters(input_connectivity, surface_data=None):
+        """
+        Returns a dictionary which contains all the needed data for drawing a connectivity.
+        """
+        viewer = ConnectivityViewer()
+        global_params, global_pages = viewer.compute_connectivity_global_params(input_connectivity, surface_data)
+        global_params.update(global_pages)
+        global_params['selectedConnectivityGid'] = input_connectivity.gid
+        return global_params
 
 #    
 # -------------------- Connectivity 3D code starting -------------------

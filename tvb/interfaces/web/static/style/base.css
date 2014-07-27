@@ -489,6 +489,12 @@ background-image: url("./img/nav/img_ss_generic6.png");
 header nav li#nav-burst-viewwavelet {
 background-image: url("./img/nav/img_ss_generic7.png");
 }
+header nav li#nav-burst-burst {
+background-image: url("./img/nav/img_ss_generic5.png");
+}
+header nav li#nav-burst-dynamic {
+background-image: url("./img/nav/img_ss_generic1.png");
+}
 
 /* TODO: Real nav images for section STIMULUS */
 header nav li#nav-stimulus-regionstim {
@@ -1891,6 +1897,14 @@ nav.inline-menu .dropdown-pane p {
 margin-bottom: 10px;
 }
 
+nav.inline-menu .dropdown-pane table {
+color: #000;
+}
+
+/* inline description boxes */
+nav.inline-description{
+max-width: 600px;
+}
 /* !-------------------------------------------- */
 /* !COMPONENT: Tab switcher */
 /* !-------------------------------------------- */
@@ -2409,6 +2423,10 @@ background-position: 0 -1991px;
 
 .infoMessage {
   color: green;
+}
+
+.importantMessage {
+  color: purple;
 }
 
 .inputField {
