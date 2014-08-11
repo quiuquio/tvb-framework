@@ -533,29 +533,26 @@ class FlowController(BaseController):
         :param kwargs: extra parameters to be passed when dataset_name is method.
 
         """
-        try:
-            self.logger.debug("Starting to read HDF5: " + entity_gid + "/" + dataset_name + "/" + str(kwargs))
-            entity = ABCAdapter.load_entity_by_gid(entity_gid)
-            datatype_kwargs = json.loads(datatype_kwargs)
-            if datatype_kwargs:
-                for key, value in datatype_kwargs.iteritems():
-                    kwargs[key] = ABCAdapter.load_entity_by_gid(value)
-            dataset = getattr(entity, dataset_name)
-            if not kwargs:
-                # why the deep copy?
-                result = copy.deepcopy(dataset)
-            else:
-                result = dataset(**kwargs)
+        self.logger.debug("Starting to read HDF5: " + entity_gid + "/" + dataset_name + "/" + str(kwargs))
+        entity = ABCAdapter.load_entity_by_gid(entity_gid)
+        datatype_kwargs = json.loads(datatype_kwargs)
+        if datatype_kwargs:
+            for key, value in datatype_kwargs.iteritems():
+                kwargs[key] = ABCAdapter.load_entity_by_gid(value)
+        dataset = getattr(entity, dataset_name)
+        if not kwargs:
+            # why the deep copy?
+            result = copy.deepcopy(dataset)
+        else:
+            result = dataset(**kwargs)
 
-            if isinstance(result, numpy.ndarray):
-                # for ndarrays honor the flatten kwarg and convert to lists as ndarrs are not json-able
-                if flatten is True or flatten == "True":
-                    result = result.flatten()
-                return result.tolist()
-            else:
-                return result
-        except Exception:
-            self.logger.exception("Could not retrieve complex entity field: %s / %s" % (entity_gid, dataset_name))
+        if isinstance(result, numpy.ndarray):
+            # for ndarrays honor the flatten kwarg and convert to lists as ndarrs are not json-able
+            if flatten is True or flatten == "True":
+                result = result.flatten()
+            return result.tolist()
+        else:
+            return result
 
 
     @expose_page
@@ -767,30 +764,6 @@ class FlowController(BaseController):
         return names, sel_values
 
 
-    # todo: deprecated. try to replace this, the template and the SEL_ functions with the channel selection component
-    @expose_fragment('visualizers/connectivity/connectivity_selections_display')
-    def get_available_selections_connectivity(self, **data):
-        """
-        Get all the saved selections for the current project and Connectivity
-        """
-        connectivity_gid = data['datatype_gid']
-        connectivity = self.flow_service.get_generic_entity("tvb.datatypes.connectivity.Connectivity",
-                                                            connectivity_gid, "gid")[0]
-        current_connectivity_labels = connectivity.region_labels
-
-        selection_name_list, selected_nodes_list = self._get_available_selections(connectivity_gid)
-        selected_labels_list = []
-
-        for selected_nodes in selected_nodes_list:
-            selected_labels = []
-            for idx in json.loads(selected_nodes):
-                selected_labels.append(current_connectivity_labels[idx])
-            selected_labels_list.append(','.join(selected_labels))
-
-        return dict(namedSelections=zip(selection_name_list, selected_labels_list),
-                    noneSelectionVal=','.join(current_connectivity_labels))
-
-
     @expose_fragment('visualizers/commons/channel_selector_opts')
     def get_available_selections(self, **data):
         sel_names, sel_values = self._get_available_selections(data['datatype_gid'])
@@ -813,7 +786,3 @@ class FlowController(BaseController):
         else:
             error_msg = self.NEW_SELECTION_NAME + " or empty name are not  valid as selection names."
             return [False, error_msg]
-        
-        
- 
-    
