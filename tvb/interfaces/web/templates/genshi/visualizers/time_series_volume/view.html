@@ -1,24 +1,86 @@
 <div>
-    <script type="text/javascript" src="/static_view/time_series_volume/scripts/timeseriesVolume.js?$currentVersionJS"></script>
-    <script type="text/javascript" src="/static/js/webGL_Connectivity.js?$currentVersionJS"></script>
-    <script type="text/javascript" src="/static/colorScheme/js/colorSchemeComponent.js?$currentVersionJS"></script>
+    <script src="/static_view/time_series_volume/scripts/timeseriesVolume.js?$currentVersionJS"></script>
+    <script src="/static_view/time_series_volume/scripts/timeseriesFragment.js?$currentVersionJS"></script>
+    <script src="/static/js/webGL_Connectivity.js?$currentVersionJS"></script>
+    <script src="/static/js/d3.v3.min.js?$currentVersionJS"></script>
+    <script src="/static/colorScheme/js/colorSchemeComponent.js?$currentVersionJS"></script>
     <link rel="stylesheet" type="text/css" href="/static/style/subsection_timeseries.css?$currentVersionJS"/>
-
-    <div class="volumetric-ts-ui">
-        <div id="buttons"></div>
-        <div id="sliders" title="space in $voxelUnit">
-            <span id="x-slider"></span>
-            <span id="y-slider"></span>
-            <span id="z-slider"></span>
-            (in $voxelUnit)
+    <section class="view-column">
+        <div id="volumetric-ts-parent">
+            <ul class="toolbar-inline">
+                <div class="volumetric-ts-ui">
+                    <div id="sliders" title="space in $voxelUnit">
+                        <span id="x-slider"></span>
+                        <span id="y-slider"></span>
+                        <span id="z-slider"></span>
+                        (in $voxelUnit)
+                    </div>
+                    <div id="buttons"></div>
+                </div>
+            </ul>
+            <div id="volumetric-ts-canvas-parent">
+                <canvas id="volumetric-ts-canvas"></canvas>
+            </div>
+            <div class="volumetric-ts-ui">
+                <div id="time-position">
+                    <span id="time-slider"></span>
+                </div>
+            </div>
         </div>
-    </div>
-    <canvas id="volumetric-ts-canvas"></canvas>
-    <div class="volumetric-ts-ui">
-        <div id="time-position">
-            <span id="time-slider"></span>
+    </section>
+    <section class="view-column">
+        <div id="ts-trash-can" class="trash-hidden">
+            <h1>Drop the time series here to remove it</h1>
         </div>
-    </div>
+        <ul class="toolbar-inline sortable" id="sortable-delete">
+            <fieldset class="pin">
+                <dl class="ui-half-left">
+                    <dt>
+                        <label for="sortingSelector">Sorting Order:</label>
+                    </dt>
+                    <dd>
+                        <select id="sortingSelector" name="sortingSelector">
+                            <option value="ascending">Ascending</option>
+                            <option value="descending" selected="selected">Descending</option>
+                            <option value="manhattan">Manhattan Distance</option>
+                            <option value="manual">Manual</option>
+                        </select>
+                    </dd>
+                </dl>
+                <dl class="ui-half-right longTitle">
+                    <dt>
+                        <label for="relevantFeatureSelector">Relevant Sorting Feature:</label>
+                    </dt>
+                    <dd>
+                        <select id="relevantFeatureSelector" name="relevantFeatureSelector">
+                            <option value="mean" selected="selected">Mean</option>
+                            <option value="median">Median</option>
+                            <option value="max">Maximun</option>
+                            <option value="min">Minimun</option>
+                            <option value="variance">Variance</option>
+                            <option value="deviation">Standard Deviation</option>
+                        </select>
+                    </dd>
+                </dl>
+                <dl class="ui-half-left">
+                    <dt>
+                        <label for="colorBy">Color Lines by:</label>
+                    </dt>
+                    <dd>
+                        <select id="colorBySelector" name="colorBySelector">
+                            <option value="mean" selected="selected">Mean</option>
+                            <option value="median">Median</option>
+                            <option value="min">Minimun</option>
+                            <option value="max">Maximun</option>
+                        </select>
+                    </dd>
+                </dl>
+            </fieldset>
+        </ul>
+        <div id="ts-graph-parent">
+            <div id="graph" class="aGraph"></div>
+        </div>
+    </section>
 
     <script type="text/javascript">
         $().ready(function() {
