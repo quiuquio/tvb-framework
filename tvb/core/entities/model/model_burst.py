@@ -72,7 +72,8 @@ class BurstConfiguration(Base, Exportable):
     already launched.
     
     - simulator_configuration - hold a dictionary with what entries were displayed in the simulator part
-    
+    - dynamic_ids - A list of dynamic id's associated with the connectivity nodes. Used by the region parameters page
+
     """
     __tablename__ = "BURST_CONFIGURATIONS"
 
@@ -94,6 +95,7 @@ class BurstConfiguration(Base, Exportable):
     disk_size = Column(Integer)
 
     _simulator_configuration = Column(String)
+    _dynamic_ids = Column(String, default='[]', nullable=False)
 
     ### Transient attributes start from bellow
     simulator_configuration = {}
@@ -119,6 +121,8 @@ class BurstConfiguration(Base, Exportable):
         self.name = name
         self.selected_tab = 0
         self.status = status
+        self._dynamic_ids = '[]'
+        self.dynamic_ids = []
 
 
     def from_dict(self, dictionary):
@@ -139,6 +143,7 @@ class BurstConfiguration(Base, Exportable):
         """
         self.tabs = [TabConfiguration() for _ in range(self.nr_of_tabs)]
         self.simulator_configuration = parse_json_parameters(self._simulator_configuration)
+        self.dynamic_ids = json.loads(self._dynamic_ids)
 
 
     def prepare_before_save(self):
@@ -146,6 +151,7 @@ class BurstConfiguration(Base, Exportable):
         From dictionary, compose JSON string for DB storage of burst configuration parameters.
         """
         self._simulator_configuration = json.dumps(self.simulator_configuration, cls=MapAsJson.MapAsJsonEncoder)
+        self._dynamic_ids = json.dumps(self.dynamic_ids)
         self.start_time = datetime.now()
 
 
@@ -249,11 +255,15 @@ class BurstConfiguration(Base, Exportable):
         Return an exact copy of the entity with the exception than none of it's
         sub-entities (tabs, portlets, workflow steps) are persisted in db.
         """
+        # todo - mh: should this return a deep copy?
+        # The simulator_configuration assignment suggests not, the tabs suggest yes.
+        # why are these clone's used (tab portlet etc)?
         new_burst = BurstConfiguration(self.fk_project)
         new_burst.name = self.name
         new_burst.simulator_configuration = self.simulator_configuration
         new_burst.selected_tab = self.selected_tab
         new_burst.status = self.BURST_RUNNING
+        new_burst.dynamic_ids = self.dynamic_ids[:]
         new_tabs = []
         for tab in self.tabs:
             if tab is not None:

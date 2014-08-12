@@ -26,49 +26,28 @@
  * .. moduleauthor:: Mihai Andrei <mihai.andrei@codemart.ro>
  **/
 
-/* globals doAjaxCall, displayMessage, TVBUI, GVAR_interestAreaNodeIndexes*/
-
+/* globals TVBUI, doAjaxCall, displayMessage */
 
 var modelParam = {
-    selector: null,
     dynamics: {}, // a constant collection of available dynamics indexed by id
     modelsInNodes: [] // a list of dynamics placed in nodes. This is the data model of the viewer.
 };
 
 
-(function(){
+(function(TVBUI, doAjaxCall, displayMessage){
 
-function initSelector(selectionGID){
-    var selector = TVBUI.textGridRegionSelector("#channelSelector", {filterGid: selectionGID, emptyValue:''});
-    TVBUI.quickSelector(selector, "#selection-text-area", "#loadSelectionFromTextBtn");
-
-    selector.change(function (value) {
-        GVAR_interestAreaNodeIndexes = [];
-        for (var i = 0; i < value.length; i++) {
-            GVAR_interestAreaNodeIndexes.push(parseInt(value[i], 10));
-        }
-    });
-
-    selector.checkAll();
-    modelParam.selector = selector;
-}
-
-
-function putModelInSelectedNodes(){
+function putModelInSelectedNodes(selected){
     var dynamic_id = $('#current_dynamic').val();
     var dynamic = modelParam.dynamics[dynamic_id];
-    var selected = modelParam.selector.val();
 
     for (var i = 0; i < selected.length; i++) {
         var nodeId = selected[i];
         modelParam.modelsInNodes[nodeId] = dynamic;
     }
-
-    modelParam.selector.setTextForSelection(dynamic.name);
-    modelParam.selector.clearAll();
+    return dynamic.name;
 }
 
-function validate(){
+function prepareSubmitData(){
     var dyn_ids = [];
     var first = modelParam.modelsInNodes[0];
 
@@ -76,33 +55,15 @@ function validate(){
         var dyn = modelParam.modelsInNodes[i];
         if (dyn == null){
             displayMessage("node " + i + " is empty", "warningMessage");
-            return false;
+            return null;
         }
-
         if (dyn.model_class !== first.model_class){
             displayMessage("all nodes must contain the same model type", "warningMessage");
-            return false;
+            return null;
         }
         dyn_ids.push(dyn.id);
     }
     return dyn_ids;
-}
-
-function onSubmit(event){
-    var dyn_ids = validate();
-    if (! dyn_ids){
-        event.preventDefault();
-        return false;
-    }
-    $(this).find('input[name=dynamic_ids]').val(JSON.stringify(dyn_ids));
-}
-
-
-function onCanvasPick(){
-    if (CONN_pickedIndex >= 0) {
-        GFUNC_toggleNodeInInterestArea(CONN_pickedIndex);
-        modelParam.selector.val(GVAR_interestAreaNodeIndexes);
-    }
 }
 
 function onShowDynamicDetails(){
@@ -115,25 +76,40 @@ function onShowDynamicDetails(){
     });
 }
 
-function main(dynamics, selectionGID){
-    initSelector(selectionGID);
+function _setInitialDynamics(initialDynamicIds){
+    var texts = [];
 
-    var nodeIds = modelParam.selector._allValues;
-
-    for (var i = 0; i < nodeIds.length; i++){
-        var nodeId = nodeIds[i];
-        modelParam.modelsInNodes[nodeId] = null;
+    for(var i = 0; i < initialDynamicIds.length; i++){
+        var dynamic_id = initialDynamicIds[i];
+        var dynamic = modelParam.dynamics[dynamic_id];
+        modelParam.modelsInNodes[i] = dynamic;
+        texts.push(dynamic.name);
     }
-    modelParam.dynamics = dynamics;
+    modelParam.view.setGridText(texts);
+}
 
-    $('#put-model').click(putModelInSelectedNodes);
-    $('#base_spatio_temporal_form').submit(onSubmit);
-    $("#GLcanvas").click(onCanvasPick);
+function main(dynamics, initialDynamicIds, selectionGID){
+    modelParam.view = new TVBUI.RegionAssociatorView({
+        selectionGID: selectionGID,
+        onPut: putModelInSelectedNodes,
+        prepareSubmitData: prepareSubmitData
+    });
+
+    // it might be better to send the node labels array to main
+    var number_of_nodes = modelParam.view.selector._allValues.length;
+
+    for(var i = 0; i < number_of_nodes; i++){
+        modelParam.modelsInNodes[i] = null;
+    }
+
+    modelParam.dynamics = dynamics;
+    _setInitialDynamics(initialDynamicIds);
+
     $('#dynamic-detail').find('button').click(onShowDynamicDetails);
 }
 
 modelParam.main = main;
 
-})();
+})(TVBUI, doAjaxCall, displayMessage);
 
 

@@ -24,13 +24,23 @@ var STEP_INPUT_SUFFIX = "_stepInput";
 var RANGE_LABELS_TD_SUFFIX = "_rangeLabelsTd";
 var HIDDEN_SUFFIX = "_hidden";
 var BUTTON_EXPAND_SUFFIX = "_buttonExpand";
-var BUTTON_COLLAPSE_SUFFIX = "_buttonCollapse";
 var INPUT_FROM_RANGE = "_FromIdx";
 var INPUT_TO_RANGE = "_ToIdx";
-var RANGE_VALUES_SPAN = "_interval_span";
 
 var ONE_HUNDRED = 1000;
 var NORMALIZATION_VALUES = {};
+
+function toggleRange(containerTableId, minValue, maxValue, stepValue, inputName){
+    var first_ranger = document.getElementById(RANGE_PARAMETER_1);
+    var second_ranger = document.getElementById(RANGE_PARAMETER_2);
+    var notActive =  [first_ranger.value, second_ranger.value].indexOf(inputName) === -1;
+
+    if (notActive){
+        initRangeComponent(containerTableId, minValue, maxValue, stepValue, inputName);
+    }else{
+        disableRangeComponent(containerTableId, inputName);
+    }
+}
 
 /**
  * The maxValue and the minValue will be normalized when we create the slider. All the time when we want to display the
@@ -64,12 +74,13 @@ function initRangeComponent(containerTableId, minValue, maxValue, stepValue, inp
     document.getElementById(containerTableId).style.display = 'block';
     document.getElementById(rangeComponentId).style.display = 'block';
 
+    $('#' + containerTableId + BUTTON_EXPAND_SUFFIX).val('Collapse Range');
     $('#' + containerTableId + HIDDEN_SUFFIX).removeAttr('disabled');
-    $("#" + containerTableId + BUTTON_EXPAND_SUFFIX).attr('disabled', 'disabled');
-    $("#" + containerTableId + BUTTON_COLLAPSE_SUFFIX).removeAttr('disabled');
     $('#' + containerTableId + INPUT_FROM_RANGE).removeAttr('disabled');
     $('#' + containerTableId + INPUT_TO_RANGE).removeAttr('disabled');
     $('#' + containerTableId + STEP_INPUT_SUFFIX).removeAttr('disabled');
+
+    $("#" + containerTableId).find('input[type=number]').on('blur', function(){updateRangeInterval(containerTableId);});
 
     //create the slider
     var rangerComponentRef = $("#" + rangeComponentId);
@@ -122,6 +133,7 @@ function _validateInput(htmlComponent, minValue, maxValue) {
  */
 function updateRangeInterval(containerDivId) {
     var fromComponent = document.getElementById(containerDivId + INPUT_FROM_RANGE);
+    // mark
     var minMax = [parseFloat(fromComponent.min), parseFloat(fromComponent.max)];
     var fromValue = _validateInput(fromComponent, minMax[0], minMax[1]);
 
@@ -162,37 +174,37 @@ function updateRangeValues(rangeValues) {
             var topContainerId = topDiv[0].id;
             $("input[id$='"+ rangeValue + "_RANGER_buttonExpand'][type='button']").click();
             $("input[name='"  + rangeValue + "'][type='text']").each(function () {
-                    var previous_json = $.parseJSON(this.value);
-                    var minValue = previous_json.minValue;
-                    var maxValue = previous_json.maxValue;
-                    var step = previous_json.step;
-                    var normalMin = _getNormalizedValue(minValue, topContainerId);
-                    var normalMax = _getNormalizedValue(maxValue, topContainerId);
+                var previous_json = $.parseJSON(this.value);
+                var minValue = previous_json.minValue;
+                var maxValue = previous_json.maxValue;
+                var step = previous_json.step;
+                var normalMin = _getNormalizedValue(minValue, topContainerId);
+                var normalMax = _getNormalizedValue(maxValue, topContainerId);
 
-                    this.value = minValue;
-                    this.defaultValue = minValue;
+                this.value = minValue;
+                this.defaultValue = minValue;
 
-                    var rangeSliderRef = $("div[id$='"+ rangeValue + "_RANGER_slider']");
-                    rangeSliderRef.slider("option", "step", _getNormalizedValue(step, topContainerId));
-                    rangeSliderRef.slider("option", "values", [normalMin, normalMax]);
+                var rangeSliderRef = $("div[id$='"+ rangeValue + "_RANGER_slider']");
+                rangeSliderRef.slider("option", "step", _getNormalizedValue(step, topContainerId));
+                rangeSliderRef.slider("option", "values", [normalMin, normalMax]);
 
-                    var spinner_component = $("input[id$='"+ rangeValue + "_RANGER" + STEP_INPUT_SUFFIX + "']")[0];
-                    var fromInputField = $("input[id$='"+ rangeValue + "_RANGER" + INPUT_FROM_RANGE + "']")[0];
-                    var toInputField = $("input[id$='"+ rangeValue + "_RANGER" + INPUT_TO_RANGE + "']")[0];
-                    fromInputField.value = minValue;
-                    toInputField.value = maxValue;
-                    spinner_component.value = step;
+                var spinner_component = $("input[id$='"+ rangeValue + "_RANGER" + STEP_INPUT_SUFFIX + "']")[0];
+                var fromInputField = $("input[id$='"+ rangeValue + "_RANGER" + INPUT_FROM_RANGE + "']")[0];
+                var toInputField = $("input[id$='"+ rangeValue + "_RANGER" + INPUT_TO_RANGE + "']")[0];
+                fromInputField.value = minValue;
+                toInputField.value = maxValue;
+                spinner_component.value = step;
 
-                    _displayRangeLabels(parseFloat(fromInputField.min), parseFloat(fromInputField.max),
-                        topContainerId, [normalMin, normalMax], topContainerId + RANGE_LABELS_TD_SUFFIX);
+                _displayRangeLabels(parseFloat(fromInputField.min), parseFloat(fromInputField.max),
+                    topContainerId, [normalMin, normalMax], topContainerId + RANGE_LABELS_TD_SUFFIX);
 
-                    var sliderValues = $("#" + topContainerId + SLIDER_SUFFIX).slider("option", "values");
-                    _prepareDataForSubmit(topContainerId, sliderValues);
+                var sliderValues = $("#" + topContainerId + SLIDER_SUFFIX).slider("option", "values");
+                _prepareDataForSubmit(topContainerId, sliderValues);
             });
         }
     }
     var first_ranger = document.getElementById(RANGE_PARAMETER_1);
-    if (first_ranger != null && first_ranger != undefined) {
+    if (first_ranger != null) {
         //TODO: fix for chrome back problem. Should be removed after permanent fix.
         first_ranger.value = rangeValues[0];
         var second_ranger = document.getElementById(RANGE_PARAMETER_2);
@@ -201,38 +213,11 @@ function updateRangeValues(rangeValues) {
 }
 
 
-function prepareSelectRangeComponent(containerTableId, inputName){
-    //At every change of a checkbox, modify the contents of the hidden
-    //field holding the actual inputs
-    $("#" + containerTableId).change(function(){  _getDataSelectRangeComponent(containerTableId); });
-
-    var first_ranger = document.getElementById(RANGE_PARAMETER_1);
-    var second_ranger = document.getElementById(RANGE_PARAMETER_2);
-    if (first_ranger.value == '0'){
-        first_ranger.value = inputName;
-    } else if (second_ranger.value == '0'){
-        second_ranger.value = inputName;
-    } else {
-        displayMessage("TVB has reached the maximum number of supported parameters for Parameter Space Exploration!", 'warningMessage');
-        return;
-    }
-
-    $("input[name='"+ inputName + "']").each(function() {
-        this.style.display = 'none';
-        this.disabled = true;
-    });
-    document.getElementById(containerTableId).style.display = 'block';
-    $('#' + containerTableId + HIDDEN_SUFFIX).removeAttr('disabled');
-    $("#" + containerTableId + BUTTON_EXPAND_SUFFIX).attr('disabled', 'disabled');
-    $("#" + containerTableId + BUTTON_COLLAPSE_SUFFIX).removeAttr('disabled');
-}
-
-
 function _getDataSelectRangeComponent(containerDivId){
     //Get actual data from the checkboxes.
     var allOptions = $('div[id^="' + containerDivId + '"] input').filter(function() {
-                return (this.id.indexOf("check") != -1);
-            });
+        return (this.id.indexOf("check") !== -1);
+    });
     var data ={};
     for (var i=0; i<allOptions.length; ++i){
          data[allOptions[i].value] = allOptions[i].checked;
@@ -271,16 +256,16 @@ function _getValues(minValue, maxValue, stepSpinnerId) {
 function _displayRangeLabels(minValue, maxValue, containerTableId, sliderValues, rangeLabelsTdId) {
     var stepSpinnerId = containerTableId + STEP_INPUT_SUFFIX;
     var rangeValues = _getValues(minValue, maxValue, stepSpinnerId);
-    var step = parseFloat($("#" + stepSpinnerId).val());
-    var rest = (maxValue - minValue) % step;
     var row =   "<table width='100%'><tr>";
     var cellWidth = parseFloat(100 / rangeValues.length);
-    for (var i in rangeValues) {
+
+    for (var i = 0; i < rangeValues.length; i++) {
         row = row +  "<td style='width:" + cellWidth + "%;";
-        if ((rangeValues[i] >= _getUnnormalizedValue(sliderValues[0], containerTableId)) && (rangeValues[i] <= _getUnnormalizedValue(sliderValues[1], containerTableId))) {
-            row = row + " background-color:orange;"
+        if ((rangeValues[i] >= _getUnnormalizedValue(sliderValues[0], containerTableId)) &&
+            (rangeValues[i] <= _getUnnormalizedValue(sliderValues[1], containerTableId))) {
+            row = row + " background-color:orange;";
         }
-        if (i == 0) {
+        if (i === 0) {
             row = row + "' align='left'>" + rangeValues[i] + "</td>";
         } else {
             row = row + "' align='center'>" + rangeValues[i] + "</td>";
@@ -288,9 +273,7 @@ function _displayRangeLabels(minValue, maxValue, containerTableId, sliderValues,
     }
     row += "</tr></table>";
 
-    var container = $("#" + rangeLabelsTdId);
-    container.html("");
-    container.append(row);
+    $("#" + rangeLabelsTdId).empty().append(row);
 }
 
 function _prepareDataForSubmit(containerDivId, sliderValues) {
@@ -308,10 +291,11 @@ function _prepareDataForSubmit(containerDivId, sliderValues) {
 function _getUnnormalizedValue(number, containerRangeId) {
     var val = parseFloat(number / NORMALIZATION_VALUES[containerRangeId]);
     var nrDecimals = ('' + val).split('.');
-    if (nrDecimals.length == 1)
+    if (nrDecimals.length === 1) {
         return parseFloat(val.toFixed(2));
-    else
+    }else {
         return parseFloat(val.toFixed(nrDecimals[1].length));
+    }
 }
 
 function _getNormalizedValue(number, containerTableId) {
@@ -338,14 +322,9 @@ function disableRangeComponent(containerTableId, inputName) {
     // Disable all input fields in the ranger
     topTable.find('input').attr('disabled', 'disabled');
 
-    $('#' + containerTableId + STEP_INPUT_SUFFIX).spinner('disable');
-    $('#' + containerTableId + SLIDER_SUFFIX).attr('disabled', 'disabled');
-
     $("#" + inputName).removeAttr('disabled').css('display', 'block');
-
-    $('#' + containerTableId + BUTTON_COLLAPSE_SUFFIX).attr('disabled', 'disabled');
-    $('#' + containerTableId + BUTTON_EXPAND_SUFFIX).removeAttr('disabled');
-
+    $('#' + containerTableId + BUTTON_EXPAND_SUFFIX).val('Expand Range');
+    $("#" + containerTableId).find('input[type=number]').off('blur');
     _computeNrOfOps();
 }
 
@@ -369,14 +348,15 @@ function _getOpsForRanger(rangerValue) {
         var toVal = parseFloat($("[id$='" + toSelect + "']").val());
         var stepVal = parseFloat($("[id$='" + stepValue + "']").val());
         var nrOps = Math.ceil((toVal - fromVal) / stepVal);
-        if ((toVal - fromVal) % stepVal == 0)
+        if ((toVal - fromVal) % stepVal === 0) {
             nrOps += 1;
+        }
         return nrOps;
     }
 }
 
-THREASHOLD_WARNING = 500;
-THREASHOLD_ERROR = 50000;
+var THREASHOLD_WARNING = 500;
+var THREASHOLD_ERROR = 50000;
 
 function _computeNrOfOps() {
     /*
@@ -402,4 +382,5 @@ function _computeNrOfOps() {
     displayMessage(msg, className);
 }
 
-
+// this script is loaded dynamically. The comment below is a source map. This is to see the file in js tools
+//@ sourceURL=range.js

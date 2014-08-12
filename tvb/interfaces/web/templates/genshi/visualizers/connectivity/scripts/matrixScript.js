@@ -17,6 +17,16 @@
  *
  **/
 
+/* globals  GVAR_connectivityMatrix, GVAR_interestAreaVariables, GVAR_selectedAreaType,
+            GVAR_pointsLabels, GVAR_interestAreaNodeIndexes, HLPR_removeByElement,
+            GFUNC_updateLeftSideVisualization, GFUNC_isNodeAddedToInterestArea,
+            GFUN_updateSelectionComponent, GFUNC_toggleNodeInInterestArea,
+            displayMessage,
+            CONN_getLineWidthValue, CONN_lineWidthsBins, CONN_comingInLinesIndices, CONN_comingOutLinesIndices, CONN_initLinesHistorgram,
+            NO_POSITIONS, highlightedPointIndex1, highlightedPointIndex2,
+            ColSch_updateLegendColors, ColSch_updateLegendLabels
+*/
+
 /*
  * This file handles the display and functionality of the 2d table view
  */
@@ -100,7 +110,7 @@ function changeSingleCell(table_elem, i, j) {
     }
     lastEditedElement = table_elem;
     lastElementClass = table_elem.className;
-    table_elem.className = "node edited";
+    table_elem.className = "edited";
     var element_position = getMenuPosition(table_elem, inputDiv);
     inputDiv.style.position = 'fixed';
     inputDiv.style.left = element_position.x + 'px';
@@ -217,31 +227,37 @@ function hideNodeDetails() {
     }
 }
 
+function _getIndexes(){
+    var prefix = GVAR_interestAreaVariables[GVAR_selectedAreaType].prefix;
+    var hiddenNodeField = document.getElementById('currentlyEditedNode');
+    return hiddenNodeField.value.split("td_" + prefix + '_')[1].split("_");
+}
+
+function _toggleCell(values, i, j){
+    if (values[i][j] > 0) {
+        if (GVAR_connectivityMatrix[i][j] === 1) {
+            GVAR_connectivityMatrix[i][j] = 0;
+        } else {
+            GVAR_connectivityMatrix[i][j] = 1;
+        }
+    } else {
+        GVAR_connectivityMatrix[i][j] = 0;
+    }
+}
+
 /**
  * Method used to toggle between show/hide in-going lines. Used from the details context menu 
  * aside a edited element.
  * 
  * @param index - specified which of the two nodes is the one for which to make the toggle,
- * 				  0 = source node, 1 = destination node
+ *              0 = source node, 1 = destination node
  */
 function toggleIngoingLines(index) {
     var values = GVAR_interestAreaVariables[GVAR_selectedAreaType].values;
-    var prefix = GVAR_interestAreaVariables[GVAR_selectedAreaType].prefix;
-
-    var hiddenNodeField = document.getElementById('currentlyEditedNode');
-    var indexes = hiddenNodeField.value.split("td_" + prefix + '_')[1].split("_");
-    var idx = indexes[index];
+    var idx = _getIndexes()[index];
 
     for (var i=0; i < NO_POSITIONS; i++) {
-        if (values[i][indexes[index]] > 0) {
-            if (GVAR_connectivityMatrix[i][idx] === 1) {
-                GVAR_connectivityMatrix[i][idx] = 0;
-            } else {
-                GVAR_connectivityMatrix[i][idx] = 1;
-            }
-        } else {
-            GVAR_connectivityMatrix[i][idx] = 0;
-        }
+        _toggleCell(values, i, idx);
     }
     GFUNC_updateLeftSideVisualization();
 }
@@ -251,26 +267,14 @@ function toggleIngoingLines(index) {
  * aside a edited element.
  * 
  * @param index - specified which of the two nodes is the one for which to make the toggle,
- * 				  0 = source node, 1 = destination node
+ *        0 = source node, 1 = destination node
  */
 function toggleOutgoingLines(index) {
     var values = GVAR_interestAreaVariables[GVAR_selectedAreaType].values;
-    var prefix = GVAR_interestAreaVariables[GVAR_selectedAreaType].prefix;
-
-    var hiddenNodeField = document.getElementById('currentlyEditedNode');
-    var indexes = hiddenNodeField.value.split("td_" + prefix + '_')[1].split("_");
-    var idx = indexes[index];
+    var idx = _getIndexes()[index];
 
     for (var i=0; i<NO_POSITIONS; i++) {
-        if (values[idx][i] > 0 ) {
-            if (GVAR_connectivityMatrix[idx][i] === 1) {
-                GVAR_connectivityMatrix[idx][i] = 0;
-            } else {
-                GVAR_connectivityMatrix[idx][i] = 1;
-            }
-        } else {
-            GVAR_connectivityMatrix[idx][i] = 0;
-        }
+        _toggleCell(values, idx, i);
     }
     GFUNC_updateLeftSideVisualization();
 }
@@ -284,11 +288,7 @@ function toggleOutgoingLines(index) {
  */
 function cutIngoingLines(index) {
     var values = GVAR_interestAreaVariables[GVAR_selectedAreaType].values;
-    var prefix = GVAR_interestAreaVariables[GVAR_selectedAreaType].prefix;
-
-    var hiddenNodeField = document.getElementById('currentlyEditedNode');
-    var indexes = hiddenNodeField.value.split("td_" + prefix + '_')[1].split("_");
-    var idx = indexes[index];
+    var idx = _getIndexes()[index];
     var i;
 
     for (i=0; i<NO_POSITIONS; i++) {
@@ -310,15 +310,11 @@ function cutIngoingLines(index) {
  * aside a edited element.
  * 
  * @param index - specified which of the two nodes is the one for which to make the cut,
- * 				  0 = source node, 1 = destination node
+ *                0 = source node, 1 = destination node
  */
 function cutOutgoingLines(index) {
     var values = GVAR_interestAreaVariables[GVAR_selectedAreaType].values;
-    var prefix = GVAR_interestAreaVariables[GVAR_selectedAreaType].prefix;
-
-    var hiddenNodeField = document.getElementById('currentlyEditedNode');
-    var indexes = hiddenNodeField.value.split("td_" + prefix + '_')[1].split("_");
-    var idx = indexes[index];
+    var idx = _getIndexes()[index];
 
     for (var i=0; i<NO_POSITIONS; i++) {
         if (values[idx][i] > 0){
@@ -335,26 +331,57 @@ function cutOutgoingLines(index) {
 
 
 function refreshTableInterestArea() {
-    if ($('#div-matrix-tracts').length > 0) {
+    if ($('#div-matrix-tracts').length > 0) {  // why this check?
         for (var i = 0; i < NO_POSITIONS; i++) {
-            updateNodeInterest(i);
+            _updateNodeInterest(i);
         }
     }
 }
 
 /**
- * For a given node index update the style of the table correspondingly.
+ * Efficiently get header buttons by constructing their id's instead of searching the dom
+ * This replaces $("th[id^='upper_change_" + nodeIdx + "_']"); $("td[id^='left_change_" + nodeIdx + "_']");
  */
-function updateNodeInterest(nodeIdx) {
+function _get_header_buttons(nodeIdx){
+    function addExistingEl(list, id){
+        var el = document.getElementById(id);
+        if (el != null){
+            list.push(el);
+        }
+    }
+
+    var hemisphereSuffixes = ['leftHemisphere', 'leftRightQuarter', 'rightLeftQuarter', 'rightHemisphere'];
+    var upperSideButtons = [];
+    var leftSideButtons = [];
+
+    for (var i = 0; i < hemisphereSuffixes.length; i++){
+        var wuBtnId = 'upper_change_' + nodeIdx + '_' + hemisphereSuffixes[i];
+        var wlBtnId = 'left_change_' + nodeIdx + '_' + hemisphereSuffixes[i];
+
+        addExistingEl(upperSideButtons, wuBtnId);
+        addExistingEl(leftSideButtons, wlBtnId);
+        addExistingEl(upperSideButtons, wuBtnId + 'Tracts');
+        addExistingEl(leftSideButtons, wlBtnId + 'Tracts');
+    }
+
+    return {'u': upperSideButtons, 'l': leftSideButtons};
+}
+
+/**
+ * For a given node index update the style of the table correspondingly.
+ * This is function is now indended for bulk table updates.
+ * @private used by refreshTableInterestArea
+ */
+function _updateNodeInterest(nodeIdx) {
     var isInInterest = GFUNC_isNodeAddedToInterestArea(nodeIdx);
-    // todo: these two queries are very expensive on the big dom that we have. This function is called for each node. 400ms
-    // construct the id's and select by id
-    var upperSideButtons = $("th[id^='upper_change_" + nodeIdx + "_']");
-    var leftSideButtons = $("td[id^='left_change_" + nodeIdx + "_']");
+    var hb = _get_header_buttons(nodeIdx);
+    var upperSideButtons = hb.u;
+    var leftSideButtons = hb.l;
 
     var prefix = GVAR_interestAreaVariables[GVAR_selectedAreaType].prefix;
+    var k;
 
-    for (var k = 0; k < upperSideButtons.length; k++) {
+    for (k = 0; k < upperSideButtons.length; k++) {
         if (isInInterest) {
             upperSideButtons[k].className = 'selected';
         } else {
@@ -362,7 +389,7 @@ function updateNodeInterest(nodeIdx) {
         }
     }
     
-    for (var k = 0; k < leftSideButtons.length; k++) {
+    for (k = 0; k < leftSideButtons.length; k++) {
         if (isInInterest) {
             leftSideButtons[k].className = 'identifier selected';
         } else {
@@ -370,26 +397,21 @@ function updateNodeInterest(nodeIdx) {
         }
     }    
     
-    for (var i=0; i<NO_POSITIONS; i++){	
+    for (var i = 0; i < NO_POSITIONS; i++){
         var horiz_table_data_id = 'td_' + prefix + '_' + nodeIdx + '_' + i;
-        var vertical_table_data_id = 'td_' + prefix + '_' + i + '_' + nodeIdx;
         var horiz_table_element = document.getElementById(horiz_table_data_id);
-        var vertical_table_element = document.getElementById(vertical_table_data_id);
 
         if (isInInterest && GFUNC_isNodeAddedToInterestArea(i)) {
-            vertical_table_element.className = 'node selected';
-            horiz_table_element.className = 'node selected';
-        }
-        else {
-            vertical_table_element.className = 'node';
-            horiz_table_element.className = 'node';
+            horiz_table_element.className = 'selected';
+        } else {
+            horiz_table_element.className = '';
         }
     }
 }
 
 function _toggleNode(index){
     GFUNC_toggleNodeInInterestArea(index);
-    updateNodeInterest(index);
+    // The selection comp will trigger a change event. We subscribe to that and do a bulk table update
     GFUN_updateSelectionComponent();
 }
 /**
@@ -435,14 +457,14 @@ function TBL_storeHemisphereDetails(newStartPointsX, newEndPointsX, newStartPoin
  * @private
  */
 function _updateLegendColors(){
-    var div_id = GVAR_interestAreaVariables[GVAR_selectedAreaType]['legend_div_id'];
+    var selectedMatrix = GVAR_interestAreaVariables[GVAR_selectedAreaType];
+    var div_id = selectedMatrix.legend_div_id;
     var legendDiv = document.getElementById(div_id);
 
     var height = Math.max($("#div-matrix-weights")[0].clientHeight, $("#div-matrix-tracts")[0].clientHeight);
     ColSch_updateLegendColors(legendDiv, height);
 
-    ColSch_updateLegendLabels('#table-' + div_id, GVAR_interestAreaVariables[GVAR_selectedAreaType]['min_val'],
-                              GVAR_interestAreaVariables[GVAR_selectedAreaType]['max_val'], height);
+    ColSch_updateLegendLabels('#table-' + div_id, selectedMatrix.min_val, selectedMatrix.max_val, height);
 }
 
 
@@ -477,11 +499,54 @@ function MATRIX_colorTable() {
 
 function saveSubConnectivity() {
     // clone the weights matrix
-    $("#newWeightsId").val($.toJSON(GVAR_interestAreaVariables[1]['values']));
-    $("#newTractsId").val($.toJSON(GVAR_interestAreaVariables[2]['values']));
+    $("#newWeightsId").val($.toJSON(GVAR_interestAreaVariables[1].values));
+    $("#newTractsId").val($.toJSON(GVAR_interestAreaVariables[2].values));
     $("#interestAreaNodeIndexesId").val($.toJSON(GVAR_interestAreaNodeIndexes));
     $("#experimentFormId").submit();
 }
 
+/**
+ * Bind events for connectivity matrix tables
+ */
+function initializeMatrix(){
+    function tdInfo(el){
+        var sid = el.id.split('_');
+        return {
+            prefix : sid[1],
+            i : sid[2],
+            j : sid[3],
+            isNode : el.tagName === 'TD' && sid[1] != null && sid[2] != null && sid[3] != null
+        };
+    }
 
+    function handle_click(el){
+        var nfo = tdInfo(el);
+        if (nfo.isNode){
+            changeSingleCell(el, nfo.i, nfo.j);
+        }
+    }
 
+    var dom = $('#div-matrix-weights').add('#div-matrix-tracts');
+    dom.click(function(ev){
+        handle_click(ev.target);
+    }).keypress(function(ev){
+        if (ev.keyCode === 13){
+            handle_click(ev.target);
+        }
+    });
+
+    // this binds quite a number of handlers
+    dom.find('td').hover(
+        function () {
+            var nfo = tdInfo(event.target);
+            if (nfo.isNode){
+                highlightedPointIndex1 = nfo.i;
+                highlightedPointIndex2 = nfo.j;
+            }
+        },
+        function () {
+            highlightedPointIndex1 = -1;
+            highlightedPointIndex2 = -1;
+        }
+    );
+}
