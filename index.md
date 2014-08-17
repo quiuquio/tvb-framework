@@ -36,11 +36,11 @@ Here is a small video about The Virtual Brain.
 
 ### My Mentors
 
-The mentors are the links between us students and the organizations we are
+Mentors are the links between us students and the organizations we are
 working with.
 
 Even before GSoC begins, students are advised to contact their hosting
-organizations to discuss about their working proposals. Since I didn't knew TVB
+organizations to discuss about their working proposals. Since I didn't know TVB
 beforehand, I wrote them as soon as I could and to my surprise they replied
 back! :)
 
@@ -53,7 +53,7 @@ suggestions.
 
 @liadomide (Lia Domide) and @pausz (Paula Sanz-Leon) were my mentors during this
 GSoC and I'm really thankful for all their time, patience and expertise. It is a
-pleasure know them.
+pleasure knowing them.
 
 Also I must thank @maedoc (Marmaduke Woodman) who was not officially my mentor
 but gave a great hand during all the process.
@@ -100,7 +100,7 @@ successful application should be obvious to everyone already:
 It is hard to describe how happy I was when I read my name among the selected
 students. Google-melange sent me a few emails, the INCF started tweeting about
 it. I was added to the GSoC students mailing list where more than a thousand
-students from all over the world where talking about their experiences and
+students from all over the world were talking about their experiences and
 asking for advice from other students (also, a lot of spam!). I suddenly had
 to (re-)read a lot of related documents, FAQs, emails. It was overwhelming!
 
@@ -225,7 +225,7 @@ frame from O(n^3) to O(n^2).
 
 If the user clicks the planes to navigate in space, we halt the buffering of
 future frames and synchronously load the complete cube data for that time point.
-A little delay was expected in this cases but we noticed that it consisted of a
+A little delay was expected in these cases but we noticed that it consisted of a
 negligible wait for average resolution data. As soon as the user stops picking,
 we can resume playback again, together with the buffering of future data based
 on the new selected voxel.
@@ -284,9 +284,9 @@ The final result looks like this:
 #Final Thoughts
 
 After more than three months of work Google Summer of Code 2014 has finished.
-I'm glad that I was able to open this chapter in my life and I'm also glad that
-it added many novelties to my story. I hope that I will be able collaborate
-again with the folks at The Virtual Brain and I'm also tankful to my loved ones
+I'm glad that I could open this chapter in my life and I'm also glad that
+it added many novelties to my story. I hope that I will be able to collaborate
+again with the folks at The Virtual Brain and I'm also thankful to my loved ones
 who gave me a lot of support during the last months (as they always did
 actually). Thanks!
 
@@ -305,5 +305,5 @@ Robert Parcus 2014
 
 Now, after I'm done sounding like I'm a Nike advertiser, if you think that this
 page is missing some information, or you simply want to chat about anything,
-you can find me at betoparcus@gmail.com
+you can find me at betoparcus@gmail.com.
 
