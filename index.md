@@ -35,41 +35,44 @@ tricky situation.
 
 
 ### Technical aspects
-![The Visulizer Prototype](/images/tvbPost/first.png "The Visulizer Prototype")
-We decided to work on an already implemented prototype. The basic features to display
-the slices were already in place but the visualizer was missing its playback 
-functionalities. 
+![The Visulizer Prototype](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/first.png "The Visulizer Prototype")
 
-Also, since fMRI data can be huge, a buffering mechanism was necessary in order to
-load the required information and display it as fast as possible on the browser.
+We decided to work on an already implemented prototype. The basic features to
+display the slices were already in place but the visualizer was missing its
+playback  functionalities.
 
-At first, I decided to give our visualizer a real user interface, so that I could
-test it directly as a user would do, without having to rely only on the console.
-The UI would also help display some information about the data being
-visualized, like selected time point and coordinates.
-Moreover, I tried to resize the quadrants and give each one of them a margin.
+Also, since fMRI data can be huge, a buffering mechanism was necessary in order
+to load the required information and display it as fast as possible on the
+browser.
+
+At first, I decided to give our visualizer a real user interface, so that I
+could test it directly as a user would do, without having to rely only on the
+console. The UI would also help display some information about the data being
+visualized, like selected time point and coordinates. Moreover, I tried to
+resize the quadrants and give each one of them a margin.
 
 After playing around with the quadrants settings and using jQuery UI to create
-the user interface I had something like this:
-![First UI](/images/tvbPost/second.png "First UI")
+the user interface I had something very basic, like this:
+![First UI](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/second.png "First UI")
 
 Now, for the hard part, it was time to focus on the buffering and the playback
 features.
 
 My first attempt was to load everything in memory, but soon it was clear that
 this was not a realistic approach. A compressed fMRI file can easily occupy
-hundreds of Megabytes, hence loaded data could easily surpass the Gigabyte mark.
+hundreds of Megabytes, hence loaded, uncompressed data could easily surpass the
+Gigabyte mark.
 
 For example, we had a 91x109x91 voxels test set and it was 177 frames long. This
 makes for a floating point array with 159765333 elements.
-In other words, an easy way to crash your browser.
+Such a big javascript array is just an easy way to crash your browser.
 
-On the other hand, a lazy approach was also a bad solution: To query for a
-single frame, wait for the server to prepare it, receive the json data and parse
-it was either too slow or an overall waste of bandwidth, because of the overhead
-of requesting only one frame at a time. Also, even if AJAX calls can be made
-asynchronously, the playback and UI would all freeze during the parsing
-operations.
+On the other hand, a purely lazy approach was also a bad solution: To query for
+a single frame, wait for the server to prepare it, receive the json data and
+parse it was either too slow or an overall waste of bandwidth, because of the
+overhead of requesting only one frame at a time. Also, even if AJAX calls can be
+made asynchronously, the playback and UI would all freeze while waiting for the
+parsing operations.
 
 To avoid blocking the main thread we used webworkes for parsing the json. An in-
 line wrapper was used so that we didn't need to use a separate file for the
@@ -88,7 +91,7 @@ function inlineWebWorkerWrapper(workerBody){
     return retBlob;
 }
 ```
-While he parsing function was similar to
+While the parsing function was similar to:
 ```javascript
 var parserBlob = inlineWebWorkerWrapper(
             function(){
@@ -130,12 +133,19 @@ for batches of frames of the three visible planes only. If our data is composed
 of n sized MRI "cubes", this approach reduces the spatial complexity of each
 frame from O(n^3) to O(n^2).
 
-If the user clicks the planes to navigate in space, we halt the buffering of 
+If the user clicks the planes to navigate in space, we halt the buffering of
 future frames and synchronously load the complete cube data for that time point.
 A little delay was expected in this cases but we noticed that it consisted of a
 negligible wait for average resolution data. As soon as the user stops picking,
-we can resume playback again, together with the buffering of future data.
+we can resume playback again, together with the buffering of future data based
+on the new selected voxel.
 
 Coupled with the buffering system, a safety procedure was put in place 
 to keep the memory footprint always under a certain threshold.
+
+### Time Series Fragment Visualizer
+
+After the completion of the Volumetric Time Series Visualizer, the plan was to
+work a little on many other visualizers on The Virtual Brain. Talking with my mentors
+@liadomide and @paulsz we decided that if I could work on a complete
 
