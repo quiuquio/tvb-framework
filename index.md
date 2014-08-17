@@ -22,7 +22,7 @@ After browsing the list of accepted organizations, I quickly decided that I
 wanted to apply for one of [INCF](http://incf.org)'s  13
 [projects](http://incf.org/gsoc).  I started to read about them and even if I
 didn't know anything about The Virtual Brain before, it really got stuck in my
-brain (pun intended).
+head (pun intended).
 
 [The Virtual Brain](http://thevirtualbrain.com/) is a set of tools for
 simulating the human brain based on large scale connectivity. It can be used as
@@ -31,12 +31,43 @@ complete with a web based user interface full of
 [visualizers](http://docs.thevirtualbrain.org/basic/link_user_guide.html#time-
 series-volume-visualizer).
 
-[![The Virtual Brain](https://www.youtube.com/watch?v=RZgULkLKqu8/0.jpg)](https://www.youtube.com/watch?v=RZgULkLKqu8)
+Here is a small video about The Virtual Brain.
+[![The Virtual Brain Video](http://img.youtube.com/vi/RZgULkLKqu8/0.jpg)](https://www.youtube.com/watch?v=RZgULkLKqu8)
 
+### My Mentors
+
+The mentors are the links between us students and the organizations we are
+working with.
+
+Even before GSoC begins, students are advised to contact their hosting
+organizations to discuss about their working proposals. Since I didn't knew TVB
+beforehand, I wrote them as soon as I could and to my surprise they replied
+back! :)
+
+From my point of view, the people working on The Virtual Brain were like super
+stars and to see that we could exchange ideas, just like that, was a great thing
+for me. They had an advice for every and each one of my doubts, and they helped
+me not only in the application phase but also during my three months of work on
+GSoC, when they were always ready to help me polish my code and make good
+suggestions.
+
+@liadomide (Lia Domide) and @pausz (Paula Sanz-Leon) were my mentors during this
+GSoC and I'm really thankful for all their time, patience and expertise. It is a
+pleasure know them.
+
+Also I must thank @maedoc (Marmaduke Woodman) who was not officially my mentor
+but gave a great hand during all the process.
+
+If I were to say which was the hardest part of GSoC. I'd say that it was
+definitely the application part.
+
+After a lot of thinking and talking with my mentors, the application deadline was
+almost coming and I decided to send Google my proposal.
 
 ### Volumetric Time series visualizer for TVB and updating other visualization tools
 
 This was the final title of my proposal. From the Google-melange website:
+
 >**Organization:** International Neuroinformatics Coordinating Facility
 
 >**Assigned mentors:** Lia Domide, Paula Sanz-Leon
@@ -49,11 +80,45 @@ MatplotLib and MPLH5, backed with web-friendly tools.
 
 The proposal itself was much bigger and specific than this. The whole
 application phase was already a big challenge by itself. It was my first time
-planning for  a project this big and I learned a lot during the process. A big
-help came from my mentors who always had good suggestions ready for me and I
-can't stress enough how much a good advice from your mentor can help you in a
-tricky situation.
+planning for  a project this big and I learned a lot during the process. Again, a big
+help came from my mentors who always had good suggestions ready.
 
+### Wating for results
+
+Well, I would love to say that I simply waited and crossed my fingers, but no.
+I was really nervous about the outcome of the selection process and I remember that
+I also sent some of my stress to my mentors: 
+*"Is the application good enough?", "Should I have changed [...] to [...]?",
+"Should I have added more features to the proposal?", etc*.
+At this point, a well placed "Don't worry" from them was really helpful. :)
+
+### On being Accepted
+
+I just want to leave a small note about this, since the overall sensation of a
+successful application should be obvious to everyone already:
+
+It is hard to describe how happy I was when I read my name among the selected
+students. Google-melange sent me a few emails, the INCF started tweeting about
+it. I was added to the GSoC students mailing list where more than a thousand
+students from all over the world where talking about their experiences and
+asking for advice from other students (also, a lot of spam!). I suddenly had
+to (re-)read a lot of related documents, FAQs, emails. It was overwhelming!
+
+I then proceeded to tweet about it myself and share some links on G+, but at
+first I did so on a very timid fashion.
+
+I only really talked about GSoC in detail to a few close friends and colleagues.
+Before everything really started, I feared that the adventure was too big for me
+to handle and if I were to fail, I would want people to know as little as
+possible about it. It turns out that this was nothing but a silly behavior.
+
+The more they know about what you do, the more your friends can support and
+understand you, in good or bad times.
+
+The next time that someone calls me out for a movie or similar things I won't
+just say that I'm busy or come up with general excuses. I will probably be
+specific and just say the truth: "*Sorry, I have to work on a neuroscience data
+visualization thing and I'm really into it. Maybe next week? :) *"
 
 ### About the Implementation
 ![The Visulizer Prototype](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/first.png "The Visulizer Prototype")
@@ -173,8 +238,9 @@ focus on Time Series visualization.  The technology of choice was
 [D3.js](www.d3js.org) and at the end of the project the result was similar to this:
 ```javascript
 /**
- * Click on the graph to interact with it. This is a striped down version of the
- * new TVB Time Series Visualizer, displaying random data. 
+ * Click on the graph to interact with it. This is a dumbed down version of the
+ * new TVB Time Series Visualizer, that I hacked on this page. It's displaying 
+ * random data. 
  * Click on the colored lines to sort them and move the brush in the middle to
  * focus on a specific area of the time series.
  */
@@ -198,4 +264,31 @@ repository](https://github.com/the-virtual-brain/tvb-framework/pull/12).
 
 ![Time Series Fragment](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg "Time Series Fragment")
 
+
+
+#Final Thoughts
+
+After more than three months of work Google Summer of Code 2014 has finished.
+I'm glad that I was able to open this chapter in my life and I'm also glad that
+it added many novelties to my story. I hope that I will be able collaborate
+again with the folks at The Virtual Brain and I'm also tankful to my loved ones
+who gave me a lot of support during the last months (as they always did
+actually). Thanks!
+
+If I must give a two words advice about GSoC to all my fellow students, it is
+the following:
+
+**Do it.**
+
+Really, just do it. Don't be afraid to push your limits. A lot of great things
+are waiting just outside your comfort zone.
+
+Thanks for reading this,
+Robert Parcus 2014
+
+---
+
+Now, after I'm done sounding like I'm a Nike advertiser, if you think that this
+page is missing some information, or you simply want to chat about anything,
+you can find me at betoparcus@gmail.com
 
