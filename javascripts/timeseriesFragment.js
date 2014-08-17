@@ -114,7 +114,6 @@ function initFakeData(){
         for(var j=0; j<tsFrag.timeLength; j++){
             data.push((Math.random()*tsFrag.maximumValue/10)+avg);
         }
-        console.log(data);
         tsFrag.tsDataArray.push(new tsDataObj({}, data));
     }
 }

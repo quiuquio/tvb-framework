@@ -16,8 +16,23 @@ like to spend a few words about the whole experience. Going from the application
 phase up to the finishing days. I hope you will enjoy the journey as much as I
 did.
 
-### The Application Phase:
-After browsing the list of accepted organizations, I quick
+### The Application Phase
+
+After browsing the list of accepted organizations, I quickly decided that I
+wanted to apply for one of [INCF](http://incf.org)'s  13
+[projects](http://incf.org/gsoc).  I started to read about them and even if I
+didn't know anything about The Virtual Brain before, it really got stuck in my
+brain (pun intended).
+
+[The Virtual Brain](http://thevirtualbrain.com/) is a set of tools for
+simulating the human brain based on large scale connectivity. It can be used as
+a Neuroscience scientific library for python or as a super cool framework,
+complete with a web based user interface full of
+[visualizers](http://docs.thevirtualbrain.org/basic/link_user_guide.html#time-
+series-volume-visualizer).
+
+[![The Virtual Brain](https://www.youtube.com/watch?v=RZgULkLKqu8/0.jpg)](https://www.youtube.com/watch?v=RZgULkLKqu8)
+
 
 ### Volumetric Time series visualizer for TVB and updating other visualization tools
 
@@ -160,8 +175,11 @@ focus on Time Series visualization.  The technology of choice was
 /**
  * Click on the graph to interact with it. This is a striped down version of the
  * new TVB Time Series Visualizer, displaying random data. 
+ * Click on the colored lines to sort them and move the brush in the middle to
+ * focus on a specific area of the time series.
  */
 ```
+
 <div id="ts-graph-parent">
     <div id="graph" class="aGraph"></div>
 </div>
@@ -176,7 +194,7 @@ focus on Time Series visualization.  The technology of choice was
 A better description of how this visualizer works can be seen in the TVB
 documentation and for some cool (at least for me) insider information about it,
 you can take a look at this [now closed pull request on the TVB github
-repository](https://github.com/the-virtual-brain/tvb-framework/pull/12)
+repository](https://github.com/the-virtual-brain/tvb-framework/pull/12). 
 
 ![Time Series Fragment](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg "Time Series Fragment")
 
