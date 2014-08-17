@@ -74,7 +74,7 @@ can't stress enough how much a good advice from your mentor can help you in a
 tricky situation.</p>
 
 <h3>
-<a name="technical-aspects" class="anchor" href="#technical-aspects"><span class="octicon octicon-link"></span></a>Technical aspects</h3>
+<a name="about-the-implementation" class="anchor" href="#about-the-implementation"><span class="octicon octicon-link"></span></a>About the Implementation</h3>
 
 <p><img src="https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/first.png" alt="The Visulizer Prototype" title="The Visulizer Prototype"></p>
 
@@ -104,16 +104,18 @@ this was not a realistic approach. A compressed fMRI file can easily occupy
 hundreds of Megabytes, hence loaded, uncompressed data could easily surpass the
 Gigabyte mark.</p>
 
-<p>For example, we had a 91x109x91 voxels test set and it was 177 frames long. This
-makes for a floating point array with 159765333 elements.
-Such a big javascript array is just an easy way to crash your browser.</p>
+<p>For example, we had a 91x109x91 voxels test set which was 177 frames long. In
+the client side the data would become a double-precision  array with
+159765333 elements. Such a big javascript array is just an easy way to crash
+your browser.</p>
 
 <p>On the other hand, a purely lazy approach was also a bad solution: To query for
 a single frame, wait for the server to prepare it, receive the json data and
 parse it was either too slow or an overall waste of bandwidth, because of the
-overhead of requesting only one frame at a time. Also, even if AJAX calls can be
-made asynchronously, the playback and UI would all freeze while waiting for the
-parsing operations.</p>
+overhead of requesting only one frame at a time.</p>
+
+<p>Also, even if AJAX calls can be made asynchronously, the playback and UI would
+all freeze while waiting for the parsing operations.</p>
 
 <p>To avoid blocking the main thread we used webworkes for parsing the json. An in-
 line wrapper was used so that we didn't need to use a separate file for the
@@ -187,9 +189,11 @@ to keep the memory footprint always under a certain threshold.</p>
 <h3>
 <a name="time-series-fragment-visualizer" class="anchor" href="#time-series-fragment-visualizer"><span class="octicon octicon-link"></span></a>Time Series Fragment Visualizer</h3>
 
-<p>After the completion of the Volumetric Time Series Visualizer, the plan was to
-work a little on many other visualizers on The Virtual Brain. Talking with my mentors
-<a href="https://github.com/liadomide" class="user-mention">@liadomide</a> and <a href="https://github.com/paulsz" class="user-mention">@paulsz</a> we decided that if I could work on a complete</p>
+<p>After the completion of the Volumetric Time Series Visualizer, we decided to
+focus on Time Series visualization.  The technology of choice was
+<a href="www.d3js.org">D3.js</a> and at the end of the project the result was this:</p>
+
+<p><img src="https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg" alt="Time Series Fragment" title="Time Series Fragment"></p>
       </section>
     </div>
 
