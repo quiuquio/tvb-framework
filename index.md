@@ -1,3 +1,5 @@
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+
 ### What is this about? 
 
 Hi all, my name is Robert Parcus and I'm a CS student
@@ -34,7 +36,7 @@ can't stress enough how much a good advice from your mentor can help you in a
 tricky situation.
 
 
-### Technical aspects
+### About the Implementation
 ![The Visulizer Prototype](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/first.png "The Visulizer Prototype")
 
 We decided to work on an already implemented prototype. The basic features to
@@ -63,16 +65,18 @@ this was not a realistic approach. A compressed fMRI file can easily occupy
 hundreds of Megabytes, hence loaded, uncompressed data could easily surpass the
 Gigabyte mark.
 
-For example, we had a 91x109x91 voxels test set and it was 177 frames long. This
-makes for a floating point array with 159765333 elements.
-Such a big javascript array is just an easy way to crash your browser.
+For example, we had a 91x109x91 voxels test set which was 177 frames long. In
+the client side the data would become a double-precision  array with
+159765333 elements. Such a big javascript array is just an easy way to crash
+your browser.
 
 On the other hand, a purely lazy approach was also a bad solution: To query for
 a single frame, wait for the server to prepare it, receive the json data and
 parse it was either too slow or an overall waste of bandwidth, because of the
-overhead of requesting only one frame at a time. Also, even if AJAX calls can be
-made asynchronously, the playback and UI would all freeze while waiting for the
-parsing operations.
+overhead of requesting only one frame at a time.
+
+Also, even if AJAX calls can be made asynchronously, the playback and UI would
+all freeze while waiting for the parsing operations.
 
 To avoid blocking the main thread we used webworkes for parsing the json. An in-
 line wrapper was used so that we didn't need to use a separate file for the
@@ -145,7 +149,10 @@ to keep the memory footprint always under a certain threshold.
 
 ### Time Series Fragment Visualizer
 
-After the completion of the Volumetric Time Series Visualizer, the plan was to
-work a little on many other visualizers on The Virtual Brain. Talking with my mentors
-@liadomide and @paulsz we decided that if I could work on a complete
+After the completion of the Volumetric Time Series Visualizer, we decided to
+focus on Time Series visualization.  The technology of choice was
+[D3.js](www.d3js.org) and at the end of the project the result was this:
+
+![Time Series Fragment](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg "Time Series Fragment")
+
 
