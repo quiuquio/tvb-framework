@@ -22,17 +22,22 @@ var tsFrag = {
     y: null,                            // A d3.scale() for the y axis
     sortableY: null,                    // Y axis labels for the sortable graph
     xAxisScale:null,                    // X axis labels for the global graph
-    brush: null                         // A d3.brush()
+    brush: null,                         // A d3.brush()
+    sorting: "ascending"
 };
+
+var rainbow = new Rainbow();
 
 /**
  * We can pass just the time series array as the second element or an Object
  * with all the relevant data, including the array itself.
  */
 var tsDataObj = function(params, dataArray){             // this keeps all the data about a specific time series
-    this.x = params.x || tsFrag.selectedEntity[0],                      // The X coordinate
-    this.y =  params.y || tsFrag.selectedEntity[1],                     // The Y coordinate
-    this.z = params.z || tsFrag.selectedEntity[2],                      // The Z coordinate
+     var min = 0;
+    var max = 99;
+    this.x = Math.floor(Math.random() * (max - min)) + min,                      // The X coordinate
+    this.y =  Math.floor(Math.random() * (max - min)) + min,                     // The Y coordinate
+    this.z = Math.floor(Math.random() * (max - min)) + min,                      // The Z coordinate
     this.label = params.label || "["+this.x+","+this.y+","+this.z+"]",  // The string used as a label for this Object
     this.data = params.data || dataArray,                               // The actual data
     this.max = params.max || d3.max(dataArray),                         // The maximum value on the data
@@ -47,7 +52,8 @@ var tsDataObj = function(params, dataArray){             // this keeps all the d
  *  Init fake tsVol data
  */
  function TSV_fakeInitData(){
-    tsVol.timeLength = Math.random()*500 + 500;
+    tsVol = {};
+    tsVol.timeLength = (Math.random()*100) + 100;
     tsVol.samplePeriod = 1;
     tsVol.samplePeriodUnit = "sec";
     tsVol.dataTimeSeries = "fake!";
@@ -61,6 +67,7 @@ var tsDataObj = function(params, dataArray){             // this keeps all the d
  * @param tsDataRequest URLs of the dataset we're working on
  */
 function TSF_initVisualizer(tsDataRequest){
+    TSV_fakeInitData();
     tsFrag.dataAddress = tsDataRequest;
 
     // take all the necessary data from the time series volume visualizer
@@ -70,7 +77,8 @@ function TSF_initVisualizer(tsDataRequest){
     tsFrag.dataTimeSeries = tsVol.dataTimeSeries;
     tsFrag.minimumValue = tsVol.minimumValue;
     tsFrag.maximumValue = tsVol.maximumValue;
-
+    tsFrag.currentTimePoint = 0;
+    rainbow.setNumberRange(tsFrag.minimumValue, tsFrag.maximumValue);
     // tsFrag own data
     // define dimensions of graph
     tsFrag.m = [30, 80, 30, 80]; // margins
@@ -79,7 +87,7 @@ function TSF_initVisualizer(tsDataRequest){
     tsFrag.height = 30 - tsFrag.smallMargin.top - tsFrag.smallMargin.bottom;
     tsFrag.w = $('#graph').width() - tsFrag.m[1] - tsFrag.m[3]; // width
     tsFrag.h = 240 - tsFrag.m[0] - tsFrag.m[2]; // height
-
+    initFakeData();
     attachUIListeners();
 }
 
@@ -100,12 +108,14 @@ function updateTSFragment(){
 // ====================================    DRAWING FUNCTIONS START ===========================================
 
 function initFakeData(){
-    for(int i=0; i<10; i++){
+    for(var i=0; i<10; i++){
         var data = [];
-        for(int j=0; j<tsFrag.timeLength; j++){
-            data.push(Math.random()*tsFrag.maximumValue);
+        var avg = Math.random()*tsFrag.maximumValue;
+        for(var j=0; j<tsFrag.timeLength; j++){
+            data.push((Math.random()*tsFrag.maximumValue/10)+avg);
         }
-        tsFrag.tsDataArray.push(data);
+        console.log(data);
+        tsFrag.tsDataArray.push(new tsDataObj({}, data));
     }
 }
 
@@ -119,12 +129,14 @@ function drawGraphs(){
     var label = "["+tsFrag.selectedEntity[0]+","+tsFrag.selectedEntity[1]+","+tsFrag.selectedEntity[2]+"]";
     var selectedVoxelIsNotPresent = !tsFrag.tsDataArray.some(function(ts){ return ts.label == this[0]}, [label]);
 
-    if( selectedVoxelIsNotPresent ){
+    if( false ){
         var tmp = new tsDataObj(getPerVoxelTimeSeries(tsFrag.selectedEntity[0], tsFrag.selectedEntity[1], tsFrag.selectedEntity[2]));
         tsFrag.tsDataArray.push(tmp);
         var pvt = {x: tsFrag.selectedEntity[0], y:  tsFrag.selectedEntity[1],z:  tsFrag.selectedEntity[2]};
-        sortTsGraphs($("#sortingSelector").val(), tsFrag.relevantSortingFeature, pvt);
+        //sortTsGraphs($("#sortingSelector").val(), tsFrag.relevantSortingFeature, pvt);
+        sortTsGraphs("ascending", tsFrag.relevantSortingFeature, pvt);
     }
+    sortTsGraphs(tsFrag.sorting, tsFrag.relevantSortingFeature, pvt);
     if(tsFrag.tsDataArray.length < 1){
         return;
     }
@@ -262,7 +274,7 @@ function drawGobalTimeseries(){
             //.attr("clip-path", "url(#clip)")
             .attr("d", function(d){return tsFrag.line(d.data);})
             .attr('class', 'line colored-line')
-            .attr("style", function(d){return "stroke:" + getGradientColorString(d[tsFrag.relevantColoringFeature], tsFrag.minimumValue, tsFrag.maximumValue);} )
+            .attr("style", function(d){ return "stroke: #" + rainbow.colourAt(d[tsFrag.relevantColoringFeature]);})
             .on("mouseover", selectLineData);
 
     // The focus will show the numeric value of a time series on a certain point
@@ -415,8 +427,8 @@ function drawSortableGraph(){
             .attr("height", tsFrag.height + tsFrag.smallMargin.top + tsFrag.smallMargin.bottom)
             .attr("class", "graph-svg-component")
             .attr("style", function(d){
-                var bgCol = getGradientColorString(d[tsFrag.relevantColoringFeature], tsFrag.minimumValue, tsFrag.maximumValue);
-                return "background-color:" + bgCol;
+                var bgCol = rainbow.colourAt(d[tsFrag.relevantColoringFeature]);
+                return "background-color: #" + bgCol;
             })
             .attr("display", "block")
             .on("click", selectLineData)
@@ -438,7 +450,7 @@ function drawSortableGraph(){
         .attr("class", "line")
         .attr("d", function(d){ tsFrag.sortableY = d3.scale.linear().domain([d.min, d.max]).range([tsFrag.height, 0]); return tsFrag.sortableline(d.data); })
         .attr('class', 'line colored-line mini')
-        .attr("style", function(d){return "stroke:" + getGradientColorString(d[tsFrag.relevantColoringFeature], tsFrag.minimumValue, tsFrag.maximumValue);} )
+        .attr("style", function(d){return "stroke: #" + rainbow.colourAt(d[tsFrag.relevantColoringFeature]);} )
 
     svg.append("text")
         .attr("class", "y label")
@@ -476,16 +488,17 @@ function drawSortableGraph(){
             revert: 250,
             start: function(event,ui){
                 originalPosition = ui.item.index();
-                d3.selectAll("#ts-trash-can")
-                    .classed("trash-hidden", false);
-                d3.selectAll("#ts-trash-can")
-                    .classed("trash-show", true);
+                tsFrag.sorting = 'manual';
+                // d3.selectAll("#ts-trash-can")
+                //     .classed("trash-hidden", false);
+                // d3.selectAll("#ts-trash-can")
+                //     .classed("trash-show", true);
             },
             stop: function(event,ui){
-                d3.selectAll("#ts-trash-can")
-                    .classed("trash-show", false);
-                d3.selectAll("#ts-trash-can")
-                    .classed("trash-hidden", true);
+                // d3.selectAll("#ts-trash-can")
+                //     .classed("trash-show", false);
+                // d3.selectAll("#ts-trash-can")
+                //     .classed("trash-hidden", true);
             },
             update: function(event, ui){
                 if(this.id == 'sortable-delete'){
@@ -507,7 +520,7 @@ function drawSortableGraph(){
                     drawGraphs();
                     selectLineData("", destination);
                     // Change the sorting selector value to manual
-                    $("#sortingSelector").val('manual');
+                    tsFrag.sorting = 'manual';
                 }
             }
         });

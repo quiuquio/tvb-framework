@@ -1,5 +1,9 @@
 <script type="text/javascript" src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-<script type="text/javascript" src="https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/javascripts/timeseriesFragment.js" charset="utf-8"></script>
+<script type="text/javascript" src="javascripts/jquery.js" charset="utf-8"></script>
+<script type="text/javascript" src="javascripts/jqueryui.js" charset="utf-8"></script>
+<script type="text/javascript" src="javascripts/timeseriesFragment.js" charset="utf-8"></script>
+<script type="text/javascript" src="javascripts/rainbowvis.js" charset="utf-8"></script>
+
 ### What is this about? 
 
 Hi all, my name is Robert Parcus and I'm a CS student
@@ -154,5 +158,16 @@ focus on Time Series visualization.  The technology of choice was
 [D3.js](www.d3js.org) and at the end of the project the result was this:
 
 ![Time Series Fragment](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg "Time Series Fragment")
+
+<div id="ts-graph-parent">
+    <div id="graph" class="aGraph"></div>
+</div>
+
+<script type="text/javascript">
+    $(function(){
+        TSF_initVisualizer();
+        drawGraphs()
+    })
+</script>
 
 
