@@ -44,6 +44,19 @@ var tsDataObj = function(params, dataArray){             // this keeps all the d
 }
 
 /**
+ *  Init fake tsVol data
+ */
+ function TSV_fakeInitData(){
+    tsVol.timeLength = Math.random()*500 + 500;
+    tsVol.samplePeriod = 1;
+    tsVol.samplePeriodUnit = "sec";
+    tsVol.dataTimeSeries = "fake!";
+    tsVol.minimumValue = 0;
+    tsVol.maximumValue = Math.random()*5000;
+    tsVol.selectedEntity = [0,0,0];
+    tsVol.currentTimePoint = 0;
+ }
+/**
  * Make all the necessary initialisations
  * @param tsDataRequest URLs of the dataset we're working on
  */
@@ -85,6 +98,17 @@ function updateTSFragment(){
 
 // ====================================    INITIALIZATION CODE END   =========================================
 // ====================================    DRAWING FUNCTIONS START ===========================================
+
+function initFakeData(){
+    for(int i=0; i<10; i++){
+        var data = [];
+        for(int j=0; j<tsFrag.timeLength; j++){
+            data.push(Math.random()*tsFrag.maximumValue);
+        }
+        tsFrag.tsDataArray.push(data);
+    }
+}
+
 
 /**
  *  Add the selected entity to te time series array if it is not present yet and draw all of the SVG graphs.

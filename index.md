@@ -1,5 +1,5 @@
-<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-
+<script type="text/javascript" src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script type="text/javascript" src="https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/javascripts/timeseriesFragment.js" charset="utf-8"></script>
 ### What is this about? 
 
 Hi all, my name is Robert Parcus and I'm a CS student
