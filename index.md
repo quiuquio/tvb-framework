@@ -155,13 +155,10 @@ to keep the memory footprint always under a certain threshold.
 
 After the completion of the Volumetric Time Series Visualizer, we decided to
 focus on Time Series visualization.  The technology of choice was
-[D3.js](www.d3js.org) and at the end of the project the result was similar to this:
-```javascript
-/**
- * Click on the graph to interact with it. This is a striped down version of the
- * new TVB Time Series Visualizer, displaying random data. 
- */
-```
+[D3.js](www.d3js.org) and at the end of the project the result was this:
+
+![Time Series Fragment](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg "Time Series Fragment")
+
 <div id="ts-graph-parent">
     <div id="graph" class="aGraph"></div>
 </div>
@@ -172,12 +169,5 @@ focus on Time Series visualization.  The technology of choice was
         drawGraphs()
     })
 </script>
-
-A better description of how this visualizer works can be seen in the TVB
-documentation and for some cool (at least for me) insider information about it,
-you can take a look at this [now closed pull request on the TVB github
-repository](https://github.com/the-virtual-brain/tvb-framework/pull/12)
-
-![Time Series Fragment](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg "Time Series Fragment")
 
 
