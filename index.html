@@ -7,15 +7,8 @@
     <meta name="description" content="On working with The Virtual Brain  : and some non virtual thoughts about Google Summer of Code 2014.">
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/jquery-ui.css">
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/graph.css">
 
     <title>On working with The Virtual Brain </title>
-    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-    <script type="text/javascript" src="javascripts/jquery.js" charset="utf-8"></script>
-    <script type="text/javascript" src="javascripts/jqueryui.js" charset="utf-8"></script>
-    <script type="text/javascript" src="javascripts/rainbowvis.js" charset="utf-8"></script>
-    <script type="text/javascript" src="javascripts/timeseriesFragment.js" charset="utf-8"></script>
   </head>
 
   <body>
@@ -198,18 +191,22 @@ to keep the memory footprint always under a certain threshold.</p>
 
 <p>After the completion of the Volumetric Time Series Visualizer, we decided to
 focus on Time Series visualization.  The technology of choice was
-<a href="www.d3js.org">D3.js</a> and at the end of the project the result was this:</p>
+<a href="www.d3js.org">D3.js</a> and at the end of the project the result was similar to this:</p>
 
-<div id="ts-graph-parent">
-    <div id="graph" class="aGraph"></div>
+<div class="highlight highlight-javascript"><pre><span class="cm">/**</span>
+<span class="cm"> * Click on the graph to interact with it. This is a striped down version of the</span>
+<span class="cm"> * new TVB Time Series Visualizer, displaying random data. </span>
+<span class="cm"> */</span>
+</pre></div>
+
+<div>
+    <div></div>
 </div>
 
-<script type="text/javascript">
-    $(function(){
-        TSF_initVisualizer();
-        drawGraphs()
-    })
-</script>
+<p>A better description of how this visualizer works can be seen in the TVB
+documentation and for some cool (at least for me) insider information about it,
+you can take a look at this <a href="https://github.com/the-virtual-brain/tvb-framework/pull/12">now closed pull request on the TVB github
+repository</a></p>
 
 <p><img src="https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg" alt="Time Series Fragment" title="Time Series Fragment"></p>
       </section>
