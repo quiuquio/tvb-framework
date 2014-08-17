@@ -80,8 +80,8 @@ MatplotLib and MPLH5, backed with web-friendly tools.
 
 The proposal itself was much bigger and specific than this. The whole
 application phase was already a big challenge by itself. It was my first time
-planning for  a project this big and I learned a lot during the process. Again, a big
-help came from my mentors who always had good suggestions ready.
+planning for  a project this big and I learned a lot during the process. Again,
+a big help came from my mentors who always had good suggestions ready.
 
 ### Wating for results
 
@@ -117,8 +117,10 @@ understand you, in good or bad times.
 
 The next time that someone calls me out for a movie or similar things I won't
 just say that I'm busy or come up with general excuses. I will probably be
-specific and just say the truth: "*Sorry, I have to work on a neuroscience data
-visualization thing and I'm really into it. Maybe next week? :) *"
+specific and just say the truth:
+
+_"Sorry, I have to work on a neuroscience data
+visualization thing and I'm really into it. Maybe next week? :)"_
 
 ### About the Implementation
 ![The Visulizer Prototype](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/first.png "The Visulizer Prototype")
@@ -235,12 +237,16 @@ to keep the memory footprint always under a certain threshold.
 
 After the completion of the Volumetric Time Series Visualizer, we decided to
 focus on Time Series visualization.  The technology of choice was
-[D3.js](www.d3js.org) and at the end of the project the result was similar to this:
+[D3.js](www.d3js.org) and at the end of the project the result was similar to
+this:
+
 ```javascript
 /**
  * Click on the graph to interact with it. This is a dumbed down version of the
- * new TVB Time Series Visualizer, that I hacked on this page. It's displaying 
- * random data. 
+ * new TVB Time Series Visualizer that I hacked on this page.
+ *
+ * It's displaying random data.
+ * 
  * Click on the colored lines to sort them and move the brush in the middle to
  * focus on a specific area of the time series.
  */
@@ -264,6 +270,15 @@ repository](https://github.com/the-virtual-brain/tvb-framework/pull/12).
 
 ![Time Series Fragment](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/third.jpg "Time Series Fragment")
 
+In the last days of the project, I restyled the visualizer and cleaned the code
+to a point were I felt it was ready to belong to an open source project.
+
+All the code can now be seen on [The Virtual Brain's github
+repositories](https://github.com/the-virtual-brain).
+
+The final result looks like this: 
+
+![Final Result](https://raw.githubusercontent.com/quiuquio/tvb-framework/gh-pages/images/tvbPost/fourth.png "Final Result")
 
 
 #Final Thoughts
